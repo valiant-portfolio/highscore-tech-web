@@ -52,7 +52,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex-shrink-0">
-          <NavLink to="/">
+          <NavLink to="/" onClick={toggleMobileMenu}>
              <img 
               src={logoImage} 
               alt="LOGIC Church Logo" 
@@ -185,7 +185,7 @@ export default function Navbar() {
               ))}
               
               {/* Mobile Join Our Forum Button */}
-              <button onClick={()=> navigate("/courses")} className="w-full bg-gradient-red text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
+              <button onClick={()=> navigate("/courses")} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
                  Enroll on a Course
               </button>
             </div>
