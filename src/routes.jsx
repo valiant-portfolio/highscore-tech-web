@@ -1,12 +1,14 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router';
-import About from './pages/About';
+
 // import Login from './pages/Auth/Login';
 // import ProtectedRoute from './components/ProtectedRoute';
 
 const NotFound = lazy(() => import('./pages/Notfound'));
 const HomePage = lazy(() => import('./pages/home/Index'));
-
+import About from './pages/About';
+import Course from './pages/Courses/Index';
+import CourseDetail from './pages/Courses/CourseDetail';
 
 export const routes = [
   {
@@ -16,14 +18,27 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
-    {
+  {
     path: '/about',
     element: <About /> ,
     name: 'About',
     showInNav: false,
     protected: false,
   },
-
+  {
+    path: '/courses/',
+    element: <Course /> ,
+    name: 'About',
+    showInNav: false,
+    protected: false,
+  },
+    {
+    path: '/course/:courseId',
+    element: <CourseDetail /> ,
+    name: 'About',
+    showInNav: false,
+    protected: false,
+  },
 
   // {
   //   path: '/transactions',

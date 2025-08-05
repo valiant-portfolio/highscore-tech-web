@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Close, ExpandMore } from '@mui/icons-material';
-import logoImage from '/assets/new-logo.png';
+import logoImage from '/assets/ori-logo.png';
+
 
 export default function Navbar() {
+  const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTrainingDropdownOpen, setIsTrainingDropdownOpen] = useState(false);
   const [activeLink, setActiveLink] = useState('Home');
@@ -16,7 +18,7 @@ export default function Navbar() {
       dropdown: ['UI/UX developement', 'Web Application', "Mobile Application", "BlockChain Application","Casino/iGaming System", "Ai Application"   ]
     },
     { name: 'About Us', href: '/about' },
-    { name: 'Portfolio', href: '/events' },
+    { name: 'Projects', href: '/events' },
 
   ];
 
@@ -112,7 +114,7 @@ export default function Navbar() {
           ))}
           
           {/* Join Our Forum Button */}
-          <button className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
+          <button onClick={()=> navigate("/courses")} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
             Enroll on a Course
           </button>
         </div>
@@ -183,8 +185,8 @@ export default function Navbar() {
               ))}
               
               {/* Mobile Join Our Forum Button */}
-              <button className="w-full bg-gradient-red text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
-                Join Our Forum
+              <button onClick={()=> navigate("/courses")} className="w-full bg-gradient-red text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
+                 Enroll on a Course
               </button>
             </div>
           </div>

@@ -10,7 +10,7 @@ import {
 } from '@mui/icons-material'
 
 // Import logo
-import logoImage from '/assets/new-logo.png'
+import logoImage from '/assets/ori-logo.png'
 
 export default function Footer() {
   const [email, setEmail] = useState('')
