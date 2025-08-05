@@ -4,7 +4,7 @@ import About from './pages/About';
 // import Login from './pages/Auth/Login';
 // import ProtectedRoute from './components/ProtectedRoute';
 
-const NotFound = lazy(() => import('./pages/NotFound'));
+const NotFound = lazy(() => import('./pages/Notfound'));
 const HomePage = lazy(() => import('./pages/home/Index'));
 
 
