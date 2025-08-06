@@ -9,36 +9,53 @@ const HomePage = lazy(() => import('./pages/home/Index'));
 import About from './pages/About';
 import Course from './pages/Courses/Index';
 import CourseDetail from './pages/Courses/CourseDetail';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
 
 export const routes = [
   {
     path: '/',
     element: <HomePage /> ,
     name: 'Home',
-    showInNav: false,
+    showInNav: true,
     protected: false,
   },
   {
     path: '/about',
     element: <About /> ,
     name: 'About',
-    showInNav: false,
+    showInNav: true,
     protected: false,
   },
   {
-    path: '/courses/',
+    path: '/courses',
     element: <Course /> ,
     name: 'About',
-    showInNav: false,
+    showInNav: true,
     protected: false,
   },
     {
     path: '/course/:courseId',
     element: <CourseDetail /> ,
     name: 'About',
+    showInNav: true,
+    protected: false,
+  },
+  {
+    path: '/login',
+    element: <Login /> ,
+    name: 'Login',
     showInNav: false,
     protected: false,
   },
+  {
+    path: '/register',
+    element: <Register /> ,
+    name: 'Register',
+    showInNav: false,
+    protected: false,
+  },
+
 
   // {
   //   path: '/transactions',

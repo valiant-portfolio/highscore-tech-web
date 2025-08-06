@@ -25,7 +25,7 @@ export default function Course() {
         </div>
 
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-16">
+          <div className="text-center mb-5">
             <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-[#2563eb]/20 to-[#06b6d4]/20 border border-[#2563eb]/30 backdrop-blur-sm mb-8 animate__animated animate__fadeInDown">
               <span className="w-2 h-2 bg-[#06b6d4] rounded-full mr-3 animate-pulse"></span>
               <span className="text-[#60a5fa] text-sm font-medium">Professional Tech Training</span>
@@ -61,7 +61,7 @@ export default function Course() {
       <Countdown />
 
       {/* Courses Section */}
-      <section className="py-20 px-6">
+      <section className="py-10 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 animate__animated animate__fadeInUp">

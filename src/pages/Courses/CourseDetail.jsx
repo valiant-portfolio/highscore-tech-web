@@ -3,12 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowBack, 
   Schedule, 
-  Star, 
   CheckCircle, 
   Person, 
-  School, 
   TrendingUp,
-  PlayCircleOutline,
   Assignment,
   EmojiEvents,
   Group

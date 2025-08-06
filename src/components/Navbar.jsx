@@ -20,7 +20,7 @@ export default function Navbar() {
       dropdown: ['UI/UX developement', 'Web Application', "Mobile Application", "BlockChain Application","Casino/iGaming System", "Ai Application"   ]
     },
     { name: 'About Us', href: '/about' },
-    { name: 'Projects', href: '/events' },
+    { name: 'Courses', href: '/courses' },
 
   ];
 
@@ -73,7 +73,10 @@ export default function Navbar() {
     };
   }, [isMobileMenuOpen]);
 
-  
+  const handleLogin = () =>{
+    navigate("/login")
+    setIsMobileMenuOpen(false)
+  }
 
   return (
     <nav 
@@ -147,8 +150,8 @@ export default function Navbar() {
           ))}
           
           {/* Join Our Forum Button */}
-          <button onClick={()=> navigate("/courses")} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-            Enroll on a Course
+          <button onClick={handleLogin} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
+               Student Forum
           </button>
         </div>
 
@@ -221,8 +224,8 @@ export default function Navbar() {
               ))}
               
               {/* Mobile Join Our Forum Button */}
-              <button onClick={()=> navigate("/courses")} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
-                 Enroll on a Course
+              <button onClick={handleLogin} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
+                Student Forum
               </button>
             </div>
           </div>
