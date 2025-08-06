@@ -2,11 +2,11 @@ export const coursesData = [
   {
     id: "frontend-development",
     name: "Frontend Development",
-    duration: "6 months",
-    price: 250000,
+    price: 100000,
+    duration: 3,
     level: "Beginner to Advanced",
     icon: "🎨",
-    shortDescription: "Master modern frontend technologies including React, Vue, and responsive design principles.",
+    shortDescription: "Master modern frontend technologies including React, Svelte, and responsive design principles.",
     longDescription: "Comprehensive frontend development program covering everything from HTML/CSS fundamentals to advanced React applications. Learn to build responsive, interactive user interfaces that provide exceptional user experiences.",
     gradient: "from-[#2563eb] to-[#06b6d4]",
     bgGradient: "from-[#2563eb]/10 to-[#06b6d4]/10",
@@ -14,7 +14,6 @@ export const coursesData = [
       "HTML5 & CSS3 Mastery",
       "JavaScript ES6+",
       "React.js & Hooks",
-      "Vue.js Framework",
       "Responsive Design",
       "UI/UX Principles",
       "API Integration",
@@ -30,17 +29,17 @@ export const coursesData = [
       },
       {
         title: "Modern JavaScript",
-        duration: "6 weeks", 
+        duration: "4 weeks", 
         topics: ["ES6+ Features", "DOM Manipulation", "Async Programming", "Module Systems"]
       },
       {
         title: "React Development",
-        duration: "8 weeks",
+        duration: "2 weeks",
         topics: ["Components & JSX", "State & Props", "Hooks", "Context API", "React Router"]
       },
       {
         title: "Advanced Topics",
-        duration: "6 weeks",
+        duration: "2 weeks",
         topics: ["State Management", "Testing", "Performance", "Deployment"]
       }
     ],
@@ -51,8 +50,8 @@ export const coursesData = [
   {
     id: "backend-development",
     name: "Backend Development",
-    duration: "6 months",
-    price: 280000,
+    duration: 3 ,
+    price: 150000,
     level: "Intermediate",
     icon: "⚙️",
     shortDescription: "Build robust server-side applications with Node.js, Python, databases, and cloud services.",
@@ -74,22 +73,22 @@ export const coursesData = [
     modules: [
       {
         title: "Server Fundamentals",
-        duration: "5 weeks",
+        duration: "4 weeks",
         topics: ["HTTP Protocol", "Node.js Basics", "Express Framework", "Middleware"]
       },
       {
         title: "Database Management",
-        duration: "6 weeks",
+        duration: "2 weeks",
         topics: ["SQL Databases", "MongoDB", "Database Design", "ORM/ODM"]
       },
       {
         title: "API Development",
-        duration: "7 weeks",
+        duration: "2 weeks",
         topics: ["RESTful Services", "GraphQL", "Authentication", "Authorization"]
       },
       {
         title: "Deployment & DevOps",
-        duration: "6 weeks",
+        duration: "4 weeks",
         topics: ["Cloud Platforms", "Docker", "CI/CD", "Monitoring"]
       }
     ],
@@ -100,7 +99,7 @@ export const coursesData = [
   {
     id: "data-science",
     name: "Data Science",
-    duration: "8 months",
+    duration: 7 ,
     price: 350000,
     level: "Intermediate to Advanced",
     icon: "📊",
@@ -123,17 +122,17 @@ export const coursesData = [
     modules: [
       {
         title: "Python for Data Science",
-        duration: "6 weeks",
+        duration: "8 weeks",
         topics: ["Python Fundamentals", "NumPy", "Pandas", "Data Cleaning"]
       },
       {
         title: "Statistics & Analysis",
-        duration: "8 weeks",
+        duration: "4 weeks",
         topics: ["Descriptive Statistics", "Inferential Statistics", "Hypothesis Testing", "A/B Testing"]
       },
       {
         title: "Machine Learning",
-        duration: "10 weeks",
+        duration: "8 weeks",
         topics: ["Supervised Learning", "Unsupervised Learning", "Model Evaluation", "Feature Engineering"]
       },
       {
@@ -149,7 +148,7 @@ export const coursesData = [
   {
     id: "artificial-intelligence",
     name: "Artificial Intelligence",
-    duration: "10 months",
+    duration: 10 ,
     price: 450000,
     level: "Advanced",
     icon: "🤖",
@@ -198,7 +197,7 @@ export const coursesData = [
   {
     id: "machine-learning",
     name: "Machine Learning",
-    duration: "8 months",
+    duration: 8,
     price: 380000,
     level: "Intermediate to Advanced",
     icon: "🧠",
@@ -247,7 +246,7 @@ export const coursesData = [
   {
     id: "mobile-development",
     name: "Mobile App Development",
-    duration: "7 months",
+    duration: 5,
     price: 320000,
     level: "Beginner to Advanced",
     icon: "📱",
@@ -258,8 +257,6 @@ export const coursesData = [
     features: [
       "React Native",
       "Flutter Development",
-      "Native iOS (Swift)",
-      "Native Android (Kotlin)",
       "Mobile UI/UX",
       "State Management",
       "API Integration",
@@ -296,7 +293,7 @@ export const coursesData = [
   {
     id: "blockchain-development",
     name: "Blockchain Development",
-    duration: "9 months",
+    duration: 9,
     price: 420000,
     level: "Advanced",
     icon: "⛓️",
@@ -345,7 +342,7 @@ export const coursesData = [
   {
     id: "web-gaming-development",
     name: "Web Gaming Development",
-    duration: "8 months",
+    duration: 8,
     price: 360000,
     level: "Intermediate to Advanced",
     icon: "🎮",

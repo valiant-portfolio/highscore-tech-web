@@ -18,6 +18,7 @@ import {
   SmartToy
 } from '@mui/icons-material';
 import 'animate.css';
+import { useNavigate } from 'react-router';
 
 const services = [
   {
@@ -77,6 +78,9 @@ const stats = [
 ];
 
 export default function About() {
+
+    const navigate = useNavigate()
+
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen">
       {/* Hero Section */}
@@ -264,7 +268,7 @@ export default function About() {
                 </div>
               </div>
 
-              <button className="px-8 py-4 bg-gradient-to-r from-[#10b981] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+              <button onClick={()=> navigate("/courses")} className="px-8 py-4 bg-gradient-to-r from-[#10b981] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 Explore Our Programs
               </button>
             </div>
@@ -420,7 +424,7 @@ export default function About() {
               <button className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 Start Your Project
               </button>
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
+              <button onClick={()=> navigate("/courses")} className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
                 Join Our Institute
               </button>
             </div>

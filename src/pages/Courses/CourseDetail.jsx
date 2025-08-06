@@ -77,7 +77,7 @@ const CourseDetail = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div className="text-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
                   <Schedule className="w-8 h-8 text-[#06b6d4] mx-auto mb-2" />
-                  <div className="text-white font-semibold">{course.duration}</div>
+                  <div className="text-white font-semibold">{course.duration} Months</div>
                   <div className="text-[#94a3b8] text-sm">Duration</div>
                 </div>
                 <div className="text-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
@@ -105,7 +105,7 @@ const CourseDetail = () => {
                     </div>
                     <div className="text-[#94a3b8]">Full Program</div>
                     <div className="text-[#10b981] text-sm font-medium mt-2">
-                      Or {formatPrice(course.price / 6)}/month for 6 months
+                      Or {formatPrice(course.price / course.duration)}/month for {course.duration} months
                     </div>
                   </div>
 

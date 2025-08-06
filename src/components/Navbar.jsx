@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Close, ExpandMore } from '@mui/icons-material';
 import logoImage from '/assets/ori-logo.png';
@@ -10,6 +10,8 @@ export default function Navbar() {
   const [isTrainingDropdownOpen, setIsTrainingDropdownOpen] = useState(false);
   const [activeLink, setActiveLink] = useState('Home');
   const [isScrolled, setIsScrolled] = useState(false);
+  const mobileMenuRef = useRef(null);
+  const navbarRef = useRef(null);
 
   const navLinks = [
     { 
@@ -45,14 +47,45 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle click outside mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        isMobileMenuOpen && 
+        mobileMenuRef.current && 
+        navbarRef.current &&
+        !mobileMenuRef.current.contains(event.target) &&
+        !navbarRef.current.contains(event.target)
+      ) {
+        setIsMobileMenuOpen(false);
+        setIsTrainingDropdownOpen(false);
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMobileMenuOpen]);
+
+  
+
   return (
-    <nav className={`z-50 w-full px-4 fixed py-4 transition-all duration-300 ${
-      isScrolled ? 'bg-black shadow-lg' : ''
-    }`}>
+    <nav 
+      ref={navbarRef}
+      className={`z-50 w-full px-4 fixed py-4 transition-all duration-300 ${
+        isScrolled ? 'bg-black shadow-lg' : ''
+      }`}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex-shrink-0">
-          <NavLink to="/" onClick={toggleMobileMenu}>
+          <NavLink to="/">
              <img 
               src={logoImage} 
               alt="LOGIC Church Logo" 
@@ -135,7 +168,10 @@ export default function Navbar() {
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden absolute top-full left-0 w-full mt-2 px-4">
-          <div className="backdrop-blur-md bg-black/50 rounded-lg border border-white/20 shadow-xl">
+          <div 
+            ref={mobileMenuRef}
+            className="backdrop-blur-md bg-black/50 rounded-lg border border-white/20 shadow-xl"
+          >
             <div className="p-4 space-y-3">
               {navLinks.map((link) => (
                 <div key={link.name}>

@@ -55,7 +55,7 @@ const CourseCard = ({ course, index }) => {
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="flex items-center space-x-2">
               <AccessTime className="w-4 h-4 text-[#94a3b8]" />
-              <span className="text-[#e2e8f0] text-sm">{course.duration}</span>
+              <span className="text-[#e2e8f0] text-sm">{course.duration} Months</span>
             </div>
             <div className="flex items-center space-x-2">
               <TrendingUp className="w-4 h-4 text-[#94a3b8]" />
@@ -73,7 +73,7 @@ const CourseCard = ({ course, index }) => {
             </div>
             <div className="text-right">
               <div className="text-[#10b981] text-sm font-medium">Payment Plans Available</div>
-              <div className="text-[#94a3b8] text-xs">Starting from {formatPrice(course.price / 6)}/month</div>
+              <div className="text-[#94a3b8] text-xs">Starting from {formatPrice(course.price / course.duration)}/month</div>
             </div>
           </div>
         </div>
