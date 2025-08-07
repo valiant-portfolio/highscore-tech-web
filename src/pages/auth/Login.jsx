@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -67,6 +68,10 @@ export default function Login() {
     }
   };
 
+    const closeModal = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] relative overflow-hidden">
       {/* Animated Background Particles */}
@@ -90,6 +95,15 @@ export default function Login() {
 
       {/* Login Card */}
       <div className="relative w-full max-w-md">
+
+        <button
+          onClick={closeModal}
+          className="absolute top-2 right-2 transition-transform hover:rotate-90 duration-300  z-10 w-10 h-10 text-white rounded-full flex items-center justify-center "
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
         {/* Glow Effect */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#2563eb] via-[#06b6d4] to-[#7c3aed] rounded-2xl blur-xl opacity-20 animate-pulse"></div>
         
