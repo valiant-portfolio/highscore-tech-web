@@ -2,13 +2,23 @@ import React from 'react';
 import WelcomeHome from './WelcomeHome';
 import Gallary from '../../components/Gallary';
 import { useNavigate } from 'react-router';
+import { Helmet } from 'react-helmet-async';
 
 export default function HomePage() {
   const navigate = useNavigate()
   return (
     <>
-      {/* Hero Section with Animated Wire Background */}
-      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] flex items-center py-20">
+      <Helmet>
+        <title>HighScore Tech - Leading Software Development Company in Nigeria | iGaming, Crypto Exchange, AI Solutions</title>
+        <meta name="description" content="HighScore Tech is Nigeria's premier software development company specializing in iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines), crypto exchanges, AI solutions, mobile apps, e-commerce, and tech training with guaranteed internships in Lagos." />
+        <meta name="keywords" content="software development Nigeria, iGaming development Lagos, crypto exchange development, AI platform development, mobile app development Nigeria, web development Lagos, tech training Nigeria, coding bootcamp Lagos, software internships Nigeria, crash game development, blockchain development Nigeria" />
+        <link rel="canonical" href="https://highscoretech.com/" />
+      </Helmet>
+
+      {/* Main Content */}
+      <main id="main-content">
+        {/* Hero Section with Animated Wire Background */}
+        <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] flex items-center py-20" aria-label="HighScore Tech Hero Section">
         {/* Animated Wire Background */}
         <div className="absolute inset-0 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 1200 800" preserveAspectRatio="none">
@@ -122,23 +132,28 @@ export default function HomePage() {
               <div className="space-y-4">
                 <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
                   <span className="bg-gradient-to-r from-[#ffffff] to-[#2563eb] bg-clip-text text-transparent">
-                    Transform
+                    Premier Software Development
                   </span>
                   <br />
-                  <span className="text-[#ffffff]">Your Business</span>
+                  <span className="text-[#ffffff]">Company in</span>
                   <br />
                   <span className="bg-gradient-to-r from-[#06b6d4] to-[#7c3aed] bg-clip-text text-transparent">
-                    Digitally
+                    Nigeria
                   </span>
                 </h1>
               </div>
 
               {/* Subtitle */}
-              <p className="text-xl lg:text-xl text-[#e2e8f0] leading-relaxed max-w-2xl">
-                We craft cutting-edge solutions that propel your business into the future. 
-                From enterprise software to innovative web applications, we're your 
-                <span className="bg-gradient-to-r from-[#ec4899] to-[#f97316] bg-clip-text text-transparent font-semibold"> digital transformation</span> partner.
-              </p>
+              <div className="text-xl lg:text-xl text-[#e2e8f0] leading-relaxed max-w-2xl space-y-4">
+                <p>
+                  HighScore Tech specializes in <span className="bg-gradient-to-r from-[#ec4899] to-[#f97316] bg-clip-text text-transparent font-semibold">iGaming platform development</span>, 
+                  crypto exchange applications, AI-powered solutions, and comprehensive tech training in Lagos, Nigeria.
+                </p>
+                <p>
+                  We build cutting-edge <strong className="text-[#06b6d4]">Crash Games, Slots, Blackjack, Plinko, Mines, Dice games</strong>, 
+                  blockchain applications, mobile apps, and provide hands-on internship opportunities for aspiring developers.
+                </p>
+              </div>
 
 
               {/* CTA Buttons */}
@@ -218,6 +233,174 @@ export default function HomePage() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f23] to-transparent"></div>
       </section>
 
+      {/* Services Overview Section - SEO Content */}
+      <section className="py-20 bg-gradient-to-br from-[#0f0f23] to-[#1a1a2e]" aria-label="Our Software Development Services">
+        <div className="container mx-auto px-6 lg:px-12">
+          <header className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
+              Leading Software Development Services in 
+              <span className="bg-gradient-to-r from-[#06b6d4] to-[#7c3aed] bg-clip-text text-transparent"> Nigeria</span>
+            </h2>
+            <p className="text-xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+              HighScore Tech is Nigeria's premier software development company, specializing in innovative technology solutions 
+              and comprehensive training programs. Based in Lagos, we serve clients globally with cutting-edge software development services.
+            </p>
+          </header>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            {/* iGaming Development */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-blue-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">🎮</div>
+              <h3 className="text-2xl font-bold text-white mb-4">iGaming Platform Development</h3>
+              <p className="text-gray-300 mb-4">
+                Custom development of online gaming platforms including <strong className="text-blue-400">Crash Games, Slots, Blackjack, Plinko, Mines, Dice, Lottery, Keno, Wheel Games, Limbo, and HiLo</strong> with provably fair systems and secure wallet integration.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Provably Fair Gaming Systems</li>
+                <li>• Crypto Wallet Integration</li>
+                <li>• Real-time Multiplayer Features</li>
+                <li>• Advanced Security Protocols</li>
+              </ul>
+            </article>
+
+            {/* Crypto Exchange */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-cyan-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">₿</div>
+              <h3 className="text-2xl font-bold text-white mb-4">Crypto Exchange Development</h3>
+              <p className="text-gray-300 mb-4">
+                Secure and scalable cryptocurrency exchange platforms with advanced trading features, multi-currency support, and enterprise-grade security for the Nigerian and global markets.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Multi-Currency Trading</li>
+                <li>• Advanced Security Features</li>
+                <li>• Real-time Market Data</li>
+                <li>• Regulatory Compliance</li>
+              </ul>
+            </article>
+
+            {/* AI Solutions */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-purple-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">🤖</div>
+              <h3 className="text-2xl font-bold text-white mb-4">AI-Powered Platform Development</h3>
+              <p className="text-gray-300 mb-4">
+                Artificial Intelligence and Machine Learning powered applications and platforms that leverage cutting-edge technology to solve complex business problems and automate processes.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Machine Learning Models</li>
+                <li>• Natural Language Processing</li>
+                <li>• Predictive Analytics</li>
+                <li>• Computer Vision Solutions</li>
+              </ul>
+            </article>
+
+            {/* Mobile App Development */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-pink-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">📱</div>
+              <h3 className="text-2xl font-bold text-white mb-4">Mobile App Development</h3>
+              <p className="text-gray-300 mb-4">
+                Native and cross-platform mobile applications for iOS and Android using React Native, Flutter, and native technologies to deliver exceptional user experiences.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• iOS & Android Development</li>
+                <li>• Cross-platform Solutions</li>
+                <li>• UI/UX Design</li>
+                <li>• App Store Optimization</li>
+              </ul>
+            </article>
+
+            {/* E-commerce Solutions */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-orange-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">🛍️</div>
+              <h3 className="text-2xl font-bold text-white mb-4">E-commerce Solutions</h3>
+              <p className="text-gray-300 mb-4">
+                Complete e-commerce platforms with modern features, payment integrations, inventory management, and scalable architecture for businesses of all sizes in Nigeria and beyond.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Payment Gateway Integration</li>
+                <li>• Inventory Management</li>
+                <li>• Mobile-First Design</li>
+                <li>• Analytics & Reporting</li>
+              </ul>
+            </article>
+
+            {/* Tech Training */}
+            <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-green-500/30 transition-all duration-300">
+              <div className="text-4xl mb-4">🎓</div>
+              <h3 className="text-2xl font-bold text-white mb-4">Tech Training & Internships</h3>
+              <p className="text-gray-300 mb-4">
+                Comprehensive software development training programs in Lagos with hands-on internship opportunities. Learn React, Node.js, mobile development, blockchain, and more with guaranteed real-world experience.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Full-Stack Web Development</li>
+                <li>• Mobile App Development</li>
+                <li>• Blockchain & Crypto</li>
+                <li>• Guaranteed Internships</li>
+              </ul>
+            </article>
+          </div>
+
+          {/* Why Choose HighScore Tech */}
+          <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 backdrop-blur-sm border border-white/10 rounded-3xl p-12">
+            <h2 className="text-3xl font-bold text-white mb-8 text-center">Why Choose HighScore Tech?</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-3xl mb-4">🏆</div>
+                <h3 className="text-xl font-semibold text-white mb-2">Industry Expertise</h3>
+                <p className="text-gray-300 text-sm">Years of experience in software development across various industries including gaming, fintech, and e-commerce.</p>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl mb-4">🚀</div>
+                <h3 className="text-xl font-semibold text-white mb-2">Cutting-Edge Technology</h3>
+                <p className="text-gray-300 text-sm">We use the latest technologies and frameworks to ensure your applications are future-proof and scalable.</p>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl mb-4">👥</div>
+                <h3 className="text-xl font-semibold text-white mb-2">Skilled Developers</h3>
+                <p className="text-gray-300 text-sm">Our team of experienced developers and our training programs produce top-tier software engineers.</p>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl mb-4">🌍</div>
+                <h3 className="text-xl font-semibold text-white mb-2">Global Reach</h3>
+                <p className="text-gray-300 text-sm">Based in Lagos, Nigeria, we serve clients worldwide with 24/7 support and international quality standards.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Location & Contact SEO Section */}
+      <section className="py-16 bg-gradient-to-br from-[#1a1a2e] to-[#0f0f23]" aria-label="HighScore Tech Location and Contact">
+        <div className="container mx-auto px-6 lg:px-12">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Leading Software Development Company in Lagos, Nigeria
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              HighScore Tech is strategically located in Lagos, Nigeria's tech hub, serving as the gateway to Africa's largest economy. 
+              Our location enables us to provide world-class software development services to both local and international clients.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="text-4xl mb-4">📍</div>
+              <h3 className="text-xl font-semibold text-white mb-2">Lagos, Nigeria</h3>
+              <p className="text-gray-300">Africa's largest tech ecosystem and financial center</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">🌐</div>
+              <h3 className="text-xl font-semibold text-white mb-2">Global Services</h3>
+              <p className="text-gray-300">Serving clients worldwide with local expertise</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">🎯</div>
+              <h3 className="text-xl font-semibold text-white mb-2">Local Impact</h3>
+              <p className="text-gray-300">Training the next generation of Nigerian developers</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <style jsx>{`
         @keyframes float {
           0%, 100% { 
@@ -233,6 +416,7 @@ export default function HomePage() {
 
       <WelcomeHome />
       <Gallary />
+      </main>
     </>
   );
 }
