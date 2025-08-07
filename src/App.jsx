@@ -35,9 +35,9 @@ function App() {
   return (
     <>
       <Toaster richColors position='bottom-left'/>
-      <RouterProvider router={router} />;
+      <RouterProvider router={router} />
     </>
   ) 
 }
 
-export default App;
+export default App

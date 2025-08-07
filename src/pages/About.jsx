@@ -60,13 +60,13 @@ const services = [
 ];
 
 const courses = [
-  { name: "Frontend Development", icon: "🎨", duration: "6 months" },
-  { name: "Backend Development", icon: "⚙️", duration: "6 months" },
-  { name: "Data Science", icon: "📊", duration: "8 months" },
-  { name: "Artificial Intelligence", icon: "🤖", duration: "10 months" },
-  { name: "Machine Learning", icon: "🧠", duration: "8 months" },
-  { name: "Mobile App Development", icon: "📱", duration: "7 months" },
-  { name: "Blockchain Development", icon: "⛓️", duration: "9 months" },
+  { name: "Frontend Development", icon: "🎨", duration: "3 months" },
+  { name: "Backend Development", icon: "⚙️", duration: "3 months" },
+  { name: "Data Science", icon: "📊", duration: "6 months" },
+  { name: "Artificial Intelligence", icon: "🤖", duration: "7 months" },
+  { name: "Machine Learning", icon: "🧠", duration: "6 months" },
+  { name: "Mobile App Development", icon: "📱", duration: "3 months" },
+  { name: "Blockchain Development", icon: "⛓️", duration: "6 months" },
   { name: "Web Gaming Development", icon: "🎮", duration: "8 months" }
 ];
 
@@ -271,13 +271,13 @@ export default function About() {
                     <div className="w-8 h-8 bg-gradient-to-r from-[#ec4899] to-[#f97316] rounded-full flex items-center justify-center">
                       <span className="text-white text-xs">📞</span>
                     </div>
-                    <span className="text-[#e2e8f0]">+234 (0) 123 456 7890</span>
+                    <span className="text-[#e2e8f0]">+234 811-2639-073</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-r from-[#ec4899] to-[#f97316] rounded-full flex items-center justify-center">
                       <span className="text-white text-xs">✉️</span>
                     </div>
-                    <span className="text-[#e2e8f0]">info@highscoretech.com</span>
+                    <span className="text-[#e2e8f0]">info@highzcore.tech</span>
                   </div>
                 </div>
               </div>
@@ -349,7 +349,6 @@ export default function About() {
         </div>
       </section>
 
-      {/* Call to Action */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="bg-gradient-to-r from-[#2563eb]/10 via-[#06b6d4]/10 to-[#7c3aed]/10 rounded-3xl p-12 backdrop-blur-sm border border-white/10 animate__animated animate__fadeInUp">
@@ -364,7 +363,7 @@ export default function About() {
               <button className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 Start Your Project
               </button>
-              <button onClick={()=> navigate("/courses")} className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
+              <button onClick={()=> navigate("/register")} className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
                 Join Our Institute
               </button>
             </div>

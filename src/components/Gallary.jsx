@@ -60,6 +60,9 @@ import img7 from '/assets/gallery/img7.png'
 import img8 from '/assets/gallery/img8.png'
 import img9 from '/assets/gallery/img9.png'
 import img10 from '/assets/gallery/img10.png'
+import img11 from '/assets/gallery/phone1.jpg'
+import img12 from '/assets/gallery/phone2.jpg'
+import img13 from '/assets/gallery/phone3.jpg'
 // import img11 from '/assets/DSC_7966.jpeg'
 // import img12 from '/assets/DSC_7975.jpeg'
 // import img13 from '/assets/DSC_9889.jpeg'
@@ -67,6 +70,25 @@ import img10 from '/assets/gallery/img10.png'
 
 
 const galleryImages = [
+  { 
+    src: img13, 
+    alt: "Enterprise Dashboard UI",
+    title: "Real-time Analytics Platform",
+    tech: "React, D3.js, Node.js"
+  },
+  { 
+    src: img11, 
+    alt: "Enterprise Dashboard UI",
+    title: "Real-time Analytics Platform",
+    tech: "React, D3.js, Node.js"
+  },
+    { 
+    src: img12, 
+    alt: "Enterprise Dashboard UI",
+    title: "Real-time Analytics Platform",
+    tech: "React, D3.js, Node.js"
+  },
+
   { 
     src: img1, 
     alt: "Enterprise Dashboard UI",

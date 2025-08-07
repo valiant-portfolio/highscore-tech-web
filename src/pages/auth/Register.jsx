@@ -7,6 +7,10 @@ import Step3LearningSetup from '../../components/auth/steps/Step3LearningSetup';
 import Step4AdditionalInfo from '../../components/auth/steps/Step4AdditionalInfo';
 import Step5CourseSelection from '../../components/auth/steps/Step5CourseSelection';
 import Step6TermsConditions from '../../components/auth/steps/Step6TermsConditions';
+import api from '../../api/axios';
+import { toast } from 'sonner';
+import Cookies from 'js-cookie';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -53,6 +57,7 @@ export default function Register() {
   const [countries, setCountries] = useState([]);
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
+  const { setstudentData } = useAuth()
 
   useEffect(() => {
     setCountries(Country.getAllCountries());
@@ -171,18 +176,17 @@ export default function Register() {
   const handleSubmit = async () => {
     if (validateStep(currentStep)) {
       try {
-        // TODO: Implement registration logic
-        console.log('Registration data:', formData);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Handle successful registration
-        alert('Registration successful! Welcome to HighScore Tech!');
-        navigate('/login');
+        const response = await api.post("/auth/register", formData)
+        if(response?.success){
+          toast.success(response?.message)
+          setstudentData(response?.data?.user)
+          Cookies.set('token', response?.data?.token);
+          navigate("/student")
+        return
+        }
       } catch (error) {
         console.error('Registration error:', error);
-        setErrors({ general: 'Registration failed. Please try again.' });
+        toast.error(error.message)
       }
     }
   };

@@ -39,7 +39,7 @@ const Layout = () => {
          {showNavigation && <Footer />}
       </Suspense>
     </div>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

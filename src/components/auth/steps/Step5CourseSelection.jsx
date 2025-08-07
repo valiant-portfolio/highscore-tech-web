@@ -3,12 +3,12 @@ import { coursesData, formatPrice } from '../../../data/coursesData';
 
 export default function Step5CourseSelection({ formData, handleChange, errors }) {
   const accommodationOptions = [
-    { value: '25000', label: 'Premium Room - ₦25,000/month', description: 'Single room with private bathroom and AC' },
-    { value: '20000', label: 'Standard Room - ₦20,000/month', description: 'Shared room with private bathroom' },
+    { value: '25000', label: 'Premium Room - ₦25,000/month', description: 'Single room in a VIP room ' },
+    { value: '20000', label: 'Standard Room - ₦20,000/month', description: 'Shared room ' },
     { value: '15000', label: 'Basic Room - ₦15,000/month', description: 'Shared room with shared facilities' }
   ];
 
-  const selectedCourseDetails = coursesData.find(course => course.name === formData.selectedCourse);
+  const selectedCourseDetails = coursesData.find(course => course.id === formData.selectedCourse);
 
   return (
     <div className="space-y-4">
@@ -24,7 +24,7 @@ export default function Step5CourseSelection({ formData, handleChange, errors })
         >
           <option value="">Select a course</option>
           {coursesData.map(course => (
-            <option key={course.id} value={course.name} className="bg-gray-800">
+            <option key={course.id} value={course.id} className="bg-gray-800">
               {course.name}
             </option>
           ))}

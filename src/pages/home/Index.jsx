@@ -162,7 +162,7 @@ export default function HomePage() {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 {/* Gradient Button */}
-                <button className="group relative px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 overflow-hidden shadow-lg hover:shadow-2xl">
+                <button  onClick={()=> navigate("https://t.me/valiant_joe")} className="group relative px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 overflow-hidden shadow-lg hover:shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#06b6d4] to-[#ec4899] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <span className="relative z-10 flex items-center space-x-2">
                     <span>Hire Us</span>

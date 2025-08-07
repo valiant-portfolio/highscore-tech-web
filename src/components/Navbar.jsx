@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Close, ExpandMore } from '@mui/icons-material';
 import logoImage from '/assets/ori-logo.png';
+import { useAuth } from '../context/AuthContext';
 
 
 export default function Navbar() {
   const navigate = useNavigate()
+   const { studentData } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTrainingDropdownOpen, setIsTrainingDropdownOpen] = useState(false);
   const [activeLink, setActiveLink] = useState('Home');
@@ -74,7 +76,7 @@ export default function Navbar() {
   }, [isMobileMenuOpen]);
 
   const handleLogin = () =>{
-    navigate("/login")
+    navigate("/student")
     setIsMobileMenuOpen(false)
   }
 
@@ -150,7 +152,7 @@ export default function Navbar() {
           
           {/* Join Our Forum Button */}
           <button onClick={handleLogin} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-              Join Acedemy
+            {studentData ? "View your profile" : "Join Acedemy"}  
           </button>
         </div>
 
@@ -224,7 +226,7 @@ export default function Navbar() {
               
               {/* Mobile Join Our Forum Button */}
               <button onClick={handleLogin} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
-              Join Acedemy
+                {studentData ? "View your profile" : "Join Acedemy"}  
               </button>
             </div>
           </div>

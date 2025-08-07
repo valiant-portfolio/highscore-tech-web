@@ -1,65 +1,80 @@
 import React from 'react'
-import { Code, Rocket, Security, AutoGraph, CloudDone, Psychology } from '@mui/icons-material'
+import { 
+  SportsEsports, 
+  CurrencyBitcoin, 
+  Psychology, 
+  PhoneAndroid, 
+  ShoppingCart, 
+  School 
+} from '@mui/icons-material'
 import 'animate.css'
+import { Link, useNavigate } from 'react-router'
 
 const welcomeData = [
   {
-    title: "Innovation",
-    desc: "We craft cutting-edge solutions using the latest technologies to propel your business into the future.",
-    icon: <Rocket className="text-6xl" />,
+    title: "iGaming Platforms",
+    desc: "Custom development of online gaming platforms including Crash Games, Slots, Blackjack, Plinko, Mines, Dice, and more with provably fair systems.",
+    icon: <SportsEsports className="text-6xl" />,
     gradient: "from-[#2563eb] to-[#06b6d4]",
     bgGradient: "from-[#2563eb]/10 to-[#06b6d4]/10",
     borderGradient: "from-[#2563eb]/30 to-[#06b6d4]/30",
-    stats: "500+ Projects"
+    stats: "50+ Games Built",
+    route: "/services/igaming"
   },
   {
-    title: "Excellence", 
-    desc: "Every line of code is written with precision, scalability, and performance in mind for enterprise-grade applications.",
-    icon: <Code className="text-6xl" />,
-    gradient: "from-[#7c3aed] to-[#ec4899]",
-    bgGradient: "from-[#7c3aed]/10 to-[#ec4899]/10",
-    borderGradient: "from-[#7c3aed]/30 to-[#ec4899]/30",
-    stats: "99.9% Uptime"
-  },
-  {
-    title: "Security",
-    desc: "We implement robust security measures and best practices to protect your data and ensure compliance.",
-    icon: <Security className="text-6xl" />,
+    title: "Crypto Exchange", 
+    desc: "Secure and scalable cryptocurrency exchange platforms with advanced trading features, multi-currency support, and enterprise-grade security.",
+    icon: <CurrencyBitcoin className="text-6xl" />,
     gradient: "from-[#f97316] to-[#f59e0b]",
     bgGradient: "from-[#f97316]/10 to-[#f59e0b]/10",
     borderGradient: "from-[#f97316]/30 to-[#f59e0b]/30",
-    stats: "Bank-level Security"
+    stats: "Bank-Level Security",
+    route: "/services/crypto-exchange"
   },
   {
-    title: "Analytics",
-    desc: "Transform your data into actionable insights with our advanced analytics and machine learning solutions.",
-    icon: <AutoGraph className="text-6xl" />,
+    title: "AI Solutions",
+    desc: "Artificial Intelligence and Machine Learning powered applications that leverage cutting-edge technology to solve complex business problems.",
+    icon: <Psychology className="text-6xl" />,
+    gradient: "from-[#7c3aed] to-[#ec4899]",
+    bgGradient: "from-[#7c3aed]/10 to-[#ec4899]/10",
+    borderGradient: "from-[#7c3aed]/30 to-[#ec4899]/30",
+    stats: "Smart Automation",
+    route: "/services/ai-solutions"
+  },
+  {
+    title: "Mobile Apps",
+    desc: "Native and cross-platform mobile applications for iOS and Android using React Native, Flutter, and native technologies.",
+    icon: <PhoneAndroid className="text-6xl" />,
     gradient: "from-[#10b981] to-[#06b6d4]",
     bgGradient: "from-[#10b981]/10 to-[#06b6d4]/10",
     borderGradient: "from-[#10b981]/30 to-[#06b6d4]/30",
-    stats: "Real-time Insights"
+    stats: "Cross-Platform",
+    route: "/services/mobile-apps"
   },
   {
-    title: "Cloud Native",
-    desc: "Leverage the power of cloud computing with our scalable, distributed, and highly available architectures.",
-    icon: <CloudDone className="text-6xl" />,
+    title: "E-commerce",
+    desc: "Complete e-commerce platforms with modern features, payment integrations, inventory management, and scalable architecture.",
+    icon: <ShoppingCart className="text-6xl" />,
     gradient: "from-[#4f46e5] to-[#7c3aed]",
     bgGradient: "from-[#4f46e5]/10 to-[#7c3aed]/10",
     borderGradient: "from-[#4f46e5]/30 to-[#7c3aed]/30",
-    stats: "Auto-scaling"
+    stats: "Full-Featured",
+    route: "/services/ecommerce"
   },
   {
-    title: "AI Powered",
-    desc: "Integrate artificial intelligence and machine learning to automate processes and enhance user experiences.",
-    icon: <Psychology className="text-6xl" />,
+    title: "Tech Training",
+    desc: "Comprehensive software development training programs with hands-on internship opportunities and guaranteed real-world experience.",
+    icon: <School className="text-6xl" />,
     gradient: "from-[#ec4899] to-[#f97316]",
     bgGradient: "from-[#ec4899]/10 to-[#f97316]/10",
     borderGradient: "from-[#ec4899]/30 to-[#f97316]/30",
-    stats: "Smart Solutions"
+    stats: "1-Year Internship",
+    route: "/services/tech-training"
   }
 ]
 
 export default function WelcomeHome() {
+  const navigate = useNavigate()
   return (
     <section className="py-20 px-6 bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] relative overflow-hidden">
       {/* Background Decorations */}
@@ -94,10 +109,10 @@ export default function WelcomeHome() {
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12 animate__animated animate__fadeInUp animate__delay-2s">
             {[
-              { number: "500+", label: "Projects Delivered", color: "#2563eb" },
+              { number: "40+", label: "Projects Delivered", color: "#2563eb" },
               { number: "98%", label: "Client Satisfaction", color: "#06b6d4" },
               { number: "24/7", label: "Support Available", color: "#7c3aed" },
-              { number: "10+", label: "Years Experience", color: "#ec4899" }
+              { number: "9+", label: "Years Experience", color: "#ec4899" }
             ].map((stat, index) => (
               <div key={index} className="text-center group hover:transform hover:scale-110 transition-all duration-300">
                 <div className="text-2xl lg:text-3xl font-bold mb-2" style={{color: stat.color, filter: `drop-shadow(0 0 8px ${stat.color})`}}>
@@ -147,10 +162,13 @@ export default function WelcomeHome() {
               </p>
 
               {/* Learn More Button */}
-              <div className="flex justify-center">
-                <button className={`px-6 py-2 rounded-xl bg-gradient-to-r ${item.gradient} text-white font-medium text-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105`}>
+              <div className="flex justify-center cursor-pointer">
+                <Link 
+                  to={item.route}
+                  className={`px-6 py-2 rounded-xl cursor-pointer bg-gradient-to-r ${item.gradient} text-white z-30 font-medium text-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105`}
+                >
                   Learn More
-                </button>
+                </Link>
               </div>
 
               {/* Decorative elements */}
@@ -181,10 +199,10 @@ export default function WelcomeHome() {
               Join hundreds of companies that trust HighScore Tech to deliver exceptional software solutions and drive digital innovation.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+              <button  onClick={()=> navigate("https://t.me/valiant_joe")} className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 Start Your Project
               </button>
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
+              <button onClick={()=> navigate("https://t.me/valiant_joe")} className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
                 Schedule Consultation
               </button>
             </div>

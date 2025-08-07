@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from "../../api/axios"
+import { toast } from 'sonner';
+import Cookies from 'js-cookie';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { setstudentData } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -50,19 +55,19 @@ export default function Login() {
     
     setIsLoading(true);
     
-    try {
-      // TODO: Implement login logic
-      console.log('Login data:', formData);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Handle successful login
-      // Navigate to dashboard or home
-      
+    try { 
+      const response = await api.post("/auth/login",formData )
+        if(response?.success){
+          toast.success(response?.message)
+          setstudentData(response?.data?.user)
+          Cookies.set('token', response?.data?.token);
+          navigate("/student")
+        return
+        }
     } catch (error) {
       console.error('Login error:', error);
-      setErrors({ general: 'Login failed. Please try again.' });
+      toast.error(error.message)
+      // setErrors({ general: 'Login failed. Please try again.' });
     } finally {
       setIsLoading(false);
     }
