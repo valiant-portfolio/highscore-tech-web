@@ -151,7 +151,7 @@ export default function Navbar() {
           
           {/* Join Our Forum Button */}
           <button onClick={handleLogin} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-               Student Forum
+              Join Acedemy
           </button>
         </div>
 
@@ -225,7 +225,7 @@ export default function Navbar() {
               
               {/* Mobile Join Our Forum Button */}
               <button onClick={handleLogin} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
-                Student Forum
+              Join Acedemy
               </button>
             </div>
           </div>
