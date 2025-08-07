@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowBack, 
@@ -11,12 +11,15 @@ import {
   Group
 } from '@mui/icons-material';
 import { getCourseById, formatPrice } from '../../data/coursesData';
+import CurriculumPDF from '../../components/CurriculumPDF';
+import SimpleCurriculumPDF from '../../components/SimpleCurriculumPDF';
 import 'animate.css';
 
 const CourseDetail = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const course = getCourseById(courseId);
+  const [downloadStatus, setDownloadStatus] = useState('');
 
   if (!course) {
     return (
@@ -126,12 +129,21 @@ const CourseDetail = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <button className={`w-full px-6 py-4 bg-gradient-to-r ${course.gradient} text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105`}>
+                    <button 
+                      onClick={() => navigate('/register')}
+                      className={`w-full px-6 py-4 bg-gradient-to-r ${course.gradient} text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105`}
+                    >
                       Enroll Now - 20% Off
                     </button>
-                    <button className="w-full px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white font-medium rounded-xl hover:bg-white/20 transition-all duration-300">
-                      Download Curriculum
-                    </button>
+                    <SimpleCurriculumPDF 
+                      course={course} 
+                      onDownload={() => setDownloadStatus('Downloaded successfully!')}
+                    />
+                    {downloadStatus && (
+                      <div className="text-center text-green-400 text-sm mt-2">
+                        {downloadStatus}
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-center mt-6">
@@ -265,12 +277,21 @@ const CourseDetail = () => {
               Your future in tech starts here.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className={`px-8 py-4 bg-gradient-to-r ${course.gradient} text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105`}>
+              <button 
+                onClick={() => navigate('/register')}
+                className={`px-8 py-4 bg-gradient-to-r ${course.gradient} text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105`}
+              >
                 Enroll Now - Save 20%
               </button>
               <button className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-all duration-300 transform hover:scale-105">
                 Schedule a Call
               </button>
+            </div>
+            <div className="mt-6 max-w-sm mx-auto">
+              <SimpleCurriculumPDF 
+                course={course} 
+                onDownload={() => setDownloadStatus('Downloaded successfully!')}
+              />
             </div>
           </div>
         </div>

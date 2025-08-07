@@ -4,15 +4,18 @@ import Countdown from '../../components/Countdown';
 import CourseCard from '../../components/CourseCard';
 import { coursesData } from '../../data/coursesData';
 import 'animate.css';
+import { NavLink, useNavigate } from 'react-router';
+
 
 const stats = [
-  { number: "1000+", label: "Graduates", icon: <School className="text-2xl" />, color: "#2563eb" },
+  { number: "20+", label: "Graduates", icon: <School className="text-2xl" />, color: "#2563eb" },
   { number: "95%", label: "Job Placement", icon: <TrendingUp className="text-2xl" />, color: "#10b981" },
-  { number: "8", label: "Specialized Courses", icon: <EmojiEvents className="text-2xl" />, color: "#f59e0b" },
+  { number: "17", label: "Specialized Courses", icon: <EmojiEvents className="text-2xl" />, color: "#f59e0b" },
   { number: "30", label: "Max Class Size", icon: <Group className="text-2xl" />, color: "#ec4899" }
 ];
 
 export default function Course() {
+  const navigate = useNavigate()
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen">
       {/* Hero Section */}
@@ -148,12 +151,12 @@ export default function Course() {
               and unlock unlimited career opportunities in the technology industry.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+              <button onClick={()=> navigate("/register")} className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 Start Your Application
               </button>
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
+              <NavLink to="https://t.me/valiant_joe" className="px-8 py-4 bg-white/10 backdrop-blur-md border border-[#06b6d4]/30 text-white font-semibold rounded-xl hover:bg-[#06b6d4]/10 transition-all duration-300 transform hover:scale-105">
                 Book a Consultation
-              </button>
+              </NavLink>
             </div>
           </div>
         </div>

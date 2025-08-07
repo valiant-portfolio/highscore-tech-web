@@ -71,10 +71,10 @@ const courses = [
 ];
 
 const stats = [
-  { number: "500+", label: "Projects Completed", icon: <EmojiEvents className="text-2xl" /> },
-  { number: "1000+", label: "Students Trained", icon: <School className="text-2xl" /> },
-  { number: "50+", label: "Hired Graduates", icon: <Group className="text-2xl" /> },
-  { number: "3+", label: "Years of Excellence", icon: <TrendingUp className="text-2xl" /> }
+  { number: "40+", label: "Projects Completed", icon: <EmojiEvents className="text-2xl" /> },
+  { number: "20+", label: "Students Trained", icon: <School className="text-2xl" /> },
+  { number: "10+", label: "Hired Graduates", icon: <Group className="text-2xl" /> },
+  { number: "9+", label: "Years of Excellence", icon: <TrendingUp className="text-2xl" /> }
 ];
 
 export default function About() {
@@ -125,66 +125,6 @@ export default function About() {
         </div>
       </section>
 
-      {/* Founder Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="animate__animated animate__fadeInLeft">
-              <div className="bg-gradient-to-br from-[#2563eb]/10 to-[#06b6d4]/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10">
-                <div className="w-32 h-32 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] rounded-full blur-sm opacity-75"></div>
-                  <img 
-                    src="/assets/gallery/ceo.jpg" 
-                    alt="Victor Otung - CEO" 
-                    className="w-full h-full object-cover rounded-full border-4 border-white/20 shadow-2xl relative z-10"
-                  />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">Victor Joseph Otung  <span className="text-[#06b6d4] text-sm font-medium mb-2">( Valiant Joe )</span></h3>
-                 
-                  <p className="text-[#94a3b8] text-sm">Founder & CEO</p>
-                  <div className="mt-4 space-y-2 text-sm text-[#e2e8f0]">
-                    <p>🎓 University of Uyo Graduate</p>
-                    <p>📐 Faculty of Mathematics</p>
-                    <p>Akwa Ibom State, Nigeria</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="animate__animated animate__fadeInRight">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-                Meet Our <span className="bg-gradient-to-r from-[#ec4899] to-[#f97316] bg-clip-text text-transparent">Visionary Leader</span>
-              </h2>
-              
-              <p className="text-lg text-[#e2e8f0] leading-relaxed mb-6">
-                Founded in 2022 by Victor Otung, a passionate mathematician turned tech entrepreneur, 
-                HighScore Tech emerged from a vision to bridge the gap between academic excellence and 
-                real-world software development.
-              </p>
-              
-              <p className="text-lg text-[#e2e8f0] leading-relaxed mb-8">
-                Known in the tech community as "Valiant Joe," Victor's mathematical background brings 
-                a unique analytical approach to software development, ensuring our solutions are not 
-                just functional, but optimally efficient and scalable.
-              </p>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/10">
-                  <Star className="text-[#f59e0b] mb-2" />
-                  <div className="text-white font-medium text-sm">Mathematical Precision</div>
-                  <div className="text-[#94a3b8] text-xs">Algorithm Optimization</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/10">
-                  <Psychology className="text-[#ec4899] mb-2" />
-                  <div className="text-white font-medium text-sm">Innovation Mindset</div>
-                  <div className="text-[#94a3b8] text-xs">Creative Problem Solving</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Services Section */}
       <section className="py-20 px-6">

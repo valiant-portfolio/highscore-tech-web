@@ -95,7 +95,6 @@ export default function Navbar() {
               className="h-12 w-auto"
             />
           </NavLink>
-       
         </div>
 
         {/* Desktop Navigation */}

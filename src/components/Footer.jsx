@@ -94,11 +94,11 @@ export default function Footer() {
                 {/* Key Stats */}
                 <div className="grid grid-cols-2 gap-4 pt-4">
                   <div className="text-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
-                    <div className="text-[#06b6d4] text-2xl font-bold">500+</div>
+                    <div className="text-[#06b6d4] text-2xl font-bold">20+</div>
                     <div className="text-[#94a3b8] text-xs">Projects</div>
                   </div>
                   <div className="text-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
-                    <div className="text-[#10b981] text-2xl font-bold">1000+</div>
+                    <div className="text-[#10b981] text-2xl font-bold">40+</div>
                     <div className="text-[#94a3b8] text-xs">Students</div>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ export default function Footer() {
 
                 <div className="flex items-center gap-3 text-[#e2e8f0]">
                   <Phone className="text-[#06b6d4] flex-shrink-0" />
-                  <span className="text-sm">+234 (0) 123 456 7890</span>
+                  <span className="text-sm">+234 811 263 9073</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-[#e2e8f0]">
@@ -249,7 +249,7 @@ export default function Footer() {
           {/* Brand Statement */}
           <div className="mt-8 text-center">
             <p className="text-[#60a5fa] text-sm font-medium">
-              "Transforming Ideas Into Digital Reality" - Victor Otung (Valiant Joe), Founder
+              Transforming Ideas Into Digital Reality
             </p>
           </div>
         </div>
