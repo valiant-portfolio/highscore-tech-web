@@ -245,8 +245,6 @@ export default function Footer() {
               </div>
             </div>
           </div>
-
-          {/* Brand Statement */}
           <div className="mt-8 text-center">
             <p className="text-[#60a5fa] text-sm font-medium">
               Transforming Ideas Into Digital Reality
