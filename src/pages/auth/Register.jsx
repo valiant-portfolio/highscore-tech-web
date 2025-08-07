@@ -231,6 +231,7 @@ export default function Register() {
         ))}
       </div>
 
+
       {/* Registration Card */}
       <div className="relative w-full max-w-2xl">
         {/* Close Button */}
