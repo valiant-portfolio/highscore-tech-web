@@ -2,18 +2,21 @@ import React from 'react';
 import WelcomeHome from './WelcomeHome';
 import Gallary from '../../components/Gallary';
 import { useNavigate } from 'react-router';
-import { Helmet } from 'react-helmet-async';
+import { useSEO } from '../../hooks/useSEO';
 
 export default function HomePage() {
   const navigate = useNavigate()
+  
+  // SEO Configuration
+  useSEO({
+    title: "HighScore Tech - Leading Software Development Company in Nigeria | iGaming, Crypto Exchange, AI Solutions",
+    description: "HighScore Tech is Nigeria's premier software development company specializing in iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines), crypto exchanges, AI solutions, mobile apps, e-commerce, and tech training with guaranteed internships in Lagos.",
+    keywords: "software development Nigeria, iGaming development Lagos, crypto exchange development, AI platform development, mobile app development Nigeria, web development Lagos, tech training Nigeria, coding bootcamp Lagos, software internships Nigeria, crash game development, blockchain development Nigeria",
+    canonical: "https://highzcore.tech/"
+  });
+  
   return (
     <>
-      <Helmet>
-        <title>HighScore Tech - Leading Software Development Company in Nigeria | iGaming, Crypto Exchange, AI Solutions</title>
-        <meta name="description" content="HighScore Tech is Nigeria's premier software development company specializing in iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines), crypto exchanges, AI solutions, mobile apps, e-commerce, and tech training with guaranteed internships in Lagos." />
-        <meta name="keywords" content="software development Nigeria, iGaming development Lagos, crypto exchange development, AI platform development, mobile app development Nigeria, web development Lagos, tech training Nigeria, coding bootcamp Lagos, software internships Nigeria, crash game development, blockchain development Nigeria" />
-        <link rel="canonical" href="https://highscoretech.com/" />
-      </Helmet>
 
       {/* Main Content */}
       <main id="main-content">
