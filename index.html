@@ -32,24 +32,6 @@
     <meta property="og:image:alt" content="HighScore Tech - Software Development and Training Academy" />
     <meta property="og:url" content="https://highzcore.tech/" />
     <meta property="og:locale" content="en_US" />
-    
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@HighScoreTech" />
-    <meta name="twitter:creator" content="@HighScoreTech" />
-    <meta name="twitter:title" content="HighScore Tech - Premier Software Development & Tech Training" />
-    <meta name="twitter:description" content="Cutting-edge software development including iGaming, crypto exchanges, AI platforms, mobile apps. Plus comprehensive tech training with internships." />
-    <meta name="twitter:image" content="https://highzcore.tech/assets/ori-logo.png" />
-    <meta name="twitter:image:alt" content="HighScore Tech - Software Development and Training Academy" />
-    
-    <!-- Additional SEO Meta Tags -->
-    <meta name="theme-color" content="#2563eb" />
-    <meta name="msapplication-TileColor" content="#2563eb" />
-    <meta name="application-name" content="HighScore Tech" />
-    <meta name="apple-mobile-web-app-title" content="HighScore Tech" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="format-detection" content="telephone=no" />
 
     <meta name="mobile-web-app-capable" content="yes">
     
@@ -225,21 +207,11 @@
       }
     }
     </script>
-    
-    <!-- Preload Critical Resources -->
-    <link rel="preload" href="/src/main.jsx" as="script" crossorigin>
-    
-    <!-- Google Analytics / Search Console Verification (Add your tracking codes) -->
-    <!-- <meta name="google-site-verification" content="your-verification-code" /> -->
-    <!-- <meta name="msvalidate.01" content="your-bing-verification-code" /> -->
+
   </head>
   
   <body>
-    <!-- Skip Navigation for Accessibility -->
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-md z-50">
-      Skip to main content
-    </a>
-    
+
     <!-- Main Application Container -->
     <div id="root"></div>
     
@@ -264,18 +236,5 @@
     <!-- Main Application Script -->
     <script type="module" src="/src/main.jsx"></script>
     
-    <!-- Service Worker Registration for PWA -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
-            .then(function(registration) {
-              console.log('SW registered: ', registration);
-            }, function(registrationError) {
-              console.log('SW registration failed: ', registrationError);
-            });
-        });
-      }
-    </script>
   </body>
 </html>
