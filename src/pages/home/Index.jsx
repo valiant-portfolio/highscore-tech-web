@@ -1,8 +1,9 @@
 import React from 'react';
 import WelcomeHome from './WelcomeHome';
 import Gallary from '../../components/Gallary';
-import { useNavigate } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import { useSEO } from '../../hooks/useSEO';
+import Course from '../Courses/Index';
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -162,14 +163,14 @@ export default function HomePage() {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 {/* Gradient Button */}
-                <button  onClick={()=> navigate("https://t.me/valiant_joe")} className="group relative px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 overflow-hidden shadow-lg hover:shadow-2xl">
+                <NavLink to="https://t.me/valiant_joe" className="group relative px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 overflow-hidden shadow-lg hover:shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#06b6d4] to-[#ec4899] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <span className="relative z-10 flex items-center space-x-2">
                     <span>Hire Us</span>
                     <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300"></div>
-                </button>
+                </NavLink>
 
                 {/* Glass/Blur Button */}
                 <button onClick={()=> navigate("/courses")} className="group px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-[#06b6d4]/30 rounded-xl font-semibold text-white transition-all duration-300 hover:border-[#06b6d4] hover:bg-[#06b6d4]/10 hover:scale-105 hover:shadow-xl relative overflow-hidden">
@@ -403,8 +404,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-
+      <Course />
       <WelcomeHome />
       <Gallary />
       </main>

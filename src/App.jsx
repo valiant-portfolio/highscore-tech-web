@@ -1,13 +1,22 @@
+import { Suspense, lazy, useEffect } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Layout from './layouts/Layout';
 import { routes } from './routes';
 import { Toaster } from 'sonner';
+import SimpleLoader from './components/SimpleLoader';
+import { initializePreloading } from './utils/preloader';
+
+// Lazy load Layout component
+const Layout = lazy(() => import('./layouts/Layout'));
 
 function createRouteConfig(routes) {
   return routes.map((route) => {
     const routeConfig = {
       path: route.path,
-      element: route.element,
+      element: (
+        <Suspense fallback={<SimpleLoader />}>
+          {route.element}
+        </Suspense>
+      ),
     };
 
     if (route.index) {
@@ -26,17 +35,25 @@ function createRouteConfig(routes) {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Layout />,
+    element: (
+      <Suspense fallback={<SimpleLoader />}>
+        <Layout />
+      </Suspense>
+    ),
     children: createRouteConfig(routes)
   }
 ]);
 
 function App() {
+  useEffect(() => {
+    initializePreloading();
+  }, []);
+
   return (
-    <>
+    <Suspense fallback={<SimpleLoader />}>
       <Toaster richColors position='bottom-left'/>
       <RouterProvider router={router} />
-    </>
+    </Suspense>
   ) 
 }
 

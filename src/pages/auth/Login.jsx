@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from "../../api/axios"
+import api from "../../api/axios";
 import { toast } from 'sonner';
 import Cookies from 'js-cookie';
 import { useAuth } from '../../context/AuthContext';
@@ -21,8 +21,6 @@ export default function Login() {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,

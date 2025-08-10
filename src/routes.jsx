@@ -1,26 +1,28 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router';
 
-// import Login from './pages/Auth/Login';
-// import ProtectedRoute from './components/ProtectedRoute';
-
+// Lazy load all components for better performance
 const NotFound = lazy(() => import('./pages/Notfound'));
 const HomePage = lazy(() => import('./pages/home/Index'));
-import About from './pages/About';
-import Course from './pages/Courses/Index';
-import CourseDetail from './pages/Courses/CourseDetail';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
+const About = lazy(() => import('./pages/About'));
+const Course = lazy(() => import('./pages/Courses/Index'));
+const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
 
-// Service Components
-import IGamingDetail from './pages/services/iGamingDetail';
-import CryptoExchangeDetail from './pages/services/CryptoExchangeDetail';
-import AISolutionsDetail from './pages/services/AISolutionsDetail';
-import MobileAppsDetail from './pages/services/MobileAppsDetail';
-import EcommerceDetail from './pages/services/EcommerceDetail';
-import TechTrainingDetail from './pages/services/TechTrainingDetail';
-import StudentDashboard from './pages/students/StudentDashboard';
-import ProtectedRoute from './components/ProtectedRoute';
+// Service Components - Lazy loaded
+const IGamingDetail = lazy(() => import('./pages/services/iGamingDetail'));
+const CryptoExchangeDetail = lazy(() => import('./pages/services/CryptoExchangeDetail'));
+const AISolutionsDetail = lazy(() => import('./pages/services/AISolutionsDetail'));
+const MobileAppsDetail = lazy(() => import('./pages/services/MobileAppsDetail'));
+const EcommerceDetail = lazy(() => import('./pages/services/EcommerceDetail'));
+const TechTrainingDetail = lazy(() => import('./pages/services/TechTrainingDetail'));
+
+// Student Dashboard - Lazy loaded
+const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
+
+// Protected Route - Lazy loaded
+const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 
 export const routes = [
   {

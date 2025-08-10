@@ -16,6 +16,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
+  const [loadSubmitBtn, setLoadSubmitBtn] = useState(false)
   
   const [formData, setFormData] = useState({
     // Step 1: Personal Information
@@ -175,6 +176,7 @@ export default function Register() {
 
   const handleSubmit = async () => {
     if (validateStep(currentStep)) {
+       setLoadSubmitBtn(true)
       try {
         const response = await api.post("/auth/register", formData)
         if(response?.success){
@@ -187,6 +189,9 @@ export default function Register() {
       } catch (error) {
         console.error('Registration error:', error);
         toast.error(error.message)
+      }
+      finally{
+        setLoadSubmitBtn(false)
       }
     }
   };
@@ -208,7 +213,7 @@ export default function Register() {
       case 5:
         return <Step5CourseSelection formData={formData} handleChange={handleChange} errors={errors} />;
       case 6:
-        return <Step6TermsConditions formData={formData} handleChange={handleChange} errors={errors} />;
+        return <Step6TermsConditions formData={formData} loadSubmitBtn={loadSubmitBtn} handleChange={handleChange} errors={errors} />;
       default:
         return null;
     }
@@ -229,7 +234,7 @@ export default function Register() {
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
               animationDelay: `${Math.random() * 3}s`,
-              animation: `floatParticles ${4 + Math.random() * 4}s ease-in-out infinite`
+              animation: `floatParticlesW ${4 + Math.random() * 4}s ease-in-out infinite`
             }}
           />
         ))}
@@ -303,12 +308,13 @@ export default function Register() {
             ) : (
               <button
                 onClick={handleSubmit}
+                disabled={loadSubmitBtn}
                 className="flex items-center space-x-2 px-8 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/25 transition-all"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Complete Registration</span>
+                <span>{loadSubmitBtn ? "Loading..." : "Complete Registration"}</span>
               </button>
             )}
           </div>
@@ -327,19 +333,6 @@ export default function Register() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes floatParticles {
-          0%, 100% { 
-            transform: translateY(0px) translateX(0px); 
-            opacity: 0.3;
-          }
-          50% { 
-            transform: translateY(-15px) translateX(8px); 
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </div>
   );
 }
