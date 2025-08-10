@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Close, ExpandMore } from '@mui/icons-material';
-import logoImage from '/assets/ori-logo.png';
+import logoImage from '/assets/full-logo.png';
 import { useAuth } from '../context/AuthContext';
 
 

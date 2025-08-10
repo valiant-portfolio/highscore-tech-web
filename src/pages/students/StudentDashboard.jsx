@@ -7,8 +7,8 @@ import ProgressTracker from '../../components/student/ProgressTracker'
 import Certificate from '../../components/student/Certificate'
 
 import 'animate.css'
-import Preloader from '../../components/Preloader'
 import { useAuth } from '../../context/AuthContext'
+import SimpleLoader from '../../components/SimpleLoader'
 
 export default function StudentDashboard() {
   const { studentData } = useAuth();
@@ -93,7 +93,7 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-     <Preloader />
+     <SimpleLoader />
     );
   }
 

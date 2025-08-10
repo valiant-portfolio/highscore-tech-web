@@ -71,7 +71,7 @@ const Preloader = () => {
             {/* Logo */}
             <div className="relative p-8 animate-float">
               <img 
-                src="/assets/logo-fit.png" 
+                src="/assets/short-logo.png" 
                 alt="HighScore Tech" 
                 className="w-27 h-27 object-contain filter drop-shadow-2xl animate-logoGlow"
               />

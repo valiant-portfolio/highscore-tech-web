@@ -216,7 +216,7 @@ export default function Certificate({ studentData }) {
               {/* Logo at top left */}
               <div className="mb-12">
                 <img 
-                  src="/assets/ori-logo.png" 
+                  src="/assets/short-logo.png" 
                   alt="HighScore Tech Logo" 
                   className="w-24 h-24 object-contain"
                 />

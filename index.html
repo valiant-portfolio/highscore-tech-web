@@ -19,6 +19,37 @@
     <meta name="rating" content="general" />
 
     
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.highzcore.tech/" />
+    <meta property="og:title" content="HighScore Tech - Premier Software Development, iGaming Solutions & Tech Training Academy" />
+    <meta property="og:description" content="HighScore Tech specializes in cutting-edge software development including iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines, Dice), crypto exchanges, AI-powered applications, mobile apps, e-commerce solutions. We also train aspiring developers and provide hands-on internships for real-world experience." />
+    <meta property="og:image" content="https://www.highzcore.tech/assets/full-logo.png" />
+    <meta property="og:image:secure_url" content="https://www.highzcore.tech/assets/full-logo.png" />
+    <meta property="og:image:alt" content="HighScore Tech Logo - Premier Software Development Company" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="HighScore Tech" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://www.highzcore.tech/" />
+    <meta property="twitter:title" content="HighScore Tech - Premier Software Development, iGaming Solutions & Tech Training Academy" />
+    <meta property="twitter:description" content="HighScore Tech specializes in cutting-edge software development including iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines, Dice), crypto exchanges, AI-powered applications, mobile apps, e-commerce solutions. We also train aspiring developers and provide hands-on internships for real-world experience." />
+    <meta property="twitter:image" content="https://www.highzcore.tech/assets/full-logo.png" />
+    <meta property="twitter:image:alt" content="HighScore Tech Logo - Premier Software Development Company" />
+    <meta name="twitter:creator" content="@HighScoretech" />
+    <meta name="twitter:site" content="@HighScoretech" />
+
+    <!-- Additional Meta Tags for Better SEO -->
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="msapplication-TileColor" content="#2563eb" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://www.highzcore.tech/" />
+    
     <!-- Geo Tags -->
     <meta name="geo.region" content="NG-LA" />
     <meta name="geo.placename" content="Lagos, Nigeria" />
@@ -52,35 +83,61 @@
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "HighScore Tech",
-      "alternateName": "HighScore Technology Solutions",
-      "url": "https://highzcore.tech",
-      "logo": "https://highzcore.tech/assets/ori-logo.png",
+      "alternateName": ["HighScore Technology Solutions", "HighZcore Tech"],
+      "url": "https://www.highzcore.tech",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.highzcore.tech/assets/full-logo.png",
+        "width": "1200",
+        "height": "630",
+        "caption": "HighScore Tech Logo"
+      },
+      "image": [
+        {
+          "@type": "ImageObject",
+          "url": "https://www.highzcore.tech/assets/full-logo.png",
+          "width": "1200",
+          "height": "630"
+        },
+        {
+          "@type": "ImageObject",
+          "url": "https://www.highzcore.tech/assets/short-logo.png",
+          "width": "512",
+          "height": "512"
+        }
+      ],
       "description": "Premier software development company specializing in iGaming platforms, crypto exchanges, AI solutions, mobile applications, and comprehensive tech training programs with internship opportunities.",
+      "slogan": "Elevating Technology, Empowering Developers",
       "foundingDate": "2020",
       "founders": [
         {
           "@type": "Person",
-          "name": "HighScore Tech Founder"
+          "name": "Victor Otung",
+          "jobTitle": "CEO & Founder"
         }
       ],
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "Lagos",
         "addressCountry": "Nigeria",
-        "addressRegion": "Lagos State"
+        "addressRegion": "Lagos State",
+        "postalCode": "100001"
       },
       "contactPoint": [
         {
           "@type": "ContactPoint",
           "telephone": "+234-XXX-XXX-XXXX",
           "contactType": "customer service",
-          "availableLanguage": ["English"]
+          "availableLanguage": ["English"],
+          "areaServed": "NG"
         }
       ],
       "sameAs": [
         "https://twitter.com/HighScoretech",
         "https://linkedin.com/company/highscore-tech",
-        "https://github.com/highscoretech"
+        "https://github.com/highscoretech",
+        "https://www.facebook.com/highscoretech",
+        "https://www.instagram.com/highscoretech"
       ],
       "serviceArea": {
         "@type": "Country",
@@ -149,12 +206,19 @@
       "@context": "https://schema.org",
       "@type": "EducationalOrganization",
       "name": "HighScore Tech Training Academy",
-      "url": "https://highzcore.tech/courses",
+      "url": "https://www.highzcore.tech/courses",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.highzcore.tech/assets/full-logo.png",
+        "width": "1200",
+        "height": "630"
+      },
       "description": "Comprehensive tech training academy offering courses in software development, mobile app development, AI, blockchain, and more with guaranteed internship opportunities.",
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "Lagos",
-        "addressCountry": "Nigeria"
+        "addressCountry": "Nigeria",
+        "addressRegion": "Lagos State"
       },
       "hasOfferCatalog": {
         "@type": "OfferCatalog",
@@ -166,8 +230,40 @@
             "description": "Complete web development training with React, Node.js, and modern technologies",
             "provider": {
               "@type": "Organization",
-              "name": "HighScore Tech"
-            }
+              "name": "HighScore Tech",
+              "url": "https://www.highzcore.tech"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "100000",
+              "priceCurrency": "NGN",
+              "availability": "https://schema.org/InStock",
+              "validFrom": "2024-01-01",
+              "category": "Education"
+            },
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": ["online", "offline"],
+              "duration": "P3M",
+              "startDate": "2024-01-15",
+              "endDate": "2024-04-15",
+              "instructor": {
+                "@type": "Person",
+                "name": "Senior React Developer"
+              },
+              "location": {
+                "@type": "Place",
+                "name": "HighScore Tech Training Center",
+                "address": {
+                  "@type": "PostalAddress",
+                  "addressLocality": "Lagos",
+                  "addressCountry": "Nigeria"
+                }
+              }
+            },
+            "coursePrerequisites": "Basic JavaScript knowledge",
+            "educationalCredentialAwarded": "Certificate of Completion",
+            "timeRequired": "P3M"
           },
           {
             "@type": "Course",
@@ -175,8 +271,40 @@
             "description": "iOS and Android app development with React Native and Flutter",
             "provider": {
               "@type": "Organization",
-              "name": "HighScore Tech"
-            }
+              "name": "HighScore Tech",
+              "url": "https://www.highzcore.tech"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "100000",
+              "priceCurrency": "NGN",
+              "availability": "https://schema.org/InStock",
+              "validFrom": "2024-01-01",
+              "category": "Education"
+            },
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": ["online", "offline"],
+              "duration": "P3M",
+              "startDate": "2024-01-15",
+              "endDate": "2024-04-15",
+              "instructor": {
+                "@type": "Person",
+                "name": "Senior Mobile Developer"
+              },
+              "location": {
+                "@type": "Place",
+                "name": "HighScore Tech Training Center",
+                "address": {
+                  "@type": "PostalAddress",
+                  "addressLocality": "Lagos",
+                  "addressCountry": "Nigeria"
+                }
+              }
+            },
+            "coursePrerequisites": "Basic programming knowledge",
+            "educationalCredentialAwarded": "Certificate of Completion",
+            "timeRequired": "P3M"
           },
           {
             "@type": "Course",
@@ -184,11 +312,121 @@
             "description": "Smart contracts, DeFi, and Web3 development training",
             "provider": {
               "@type": "Organization",
-              "name": "HighScore Tech"
-            }
+              "name": "HighScore Tech",
+              "url": "https://www.highzcore.tech"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "200000",
+              "priceCurrency": "NGN",
+              "availability": "https://schema.org/InStock",
+              "validFrom": "2024-01-01",
+              "category": "Education"
+            },
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": ["online", "offline"],
+              "duration": "P5M",
+              "startDate": "2024-01-15",
+              "endDate": "2024-06-15",
+              "instructor": {
+                "@type": "Person",
+                "name": "Blockchain Architect"
+              },
+              "location": {
+                "@type": "Place",
+                "name": "HighScore Tech Training Center",
+                "address": {
+                  "@type": "PostalAddress",
+                  "addressLocality": "Lagos",
+                  "addressCountry": "Nigeria"
+                }
+              }
+            },
+            "coursePrerequisites": "Advanced programming knowledge, JavaScript, basic blockchain concepts",
+            "educationalCredentialAwarded": "Certificate of Completion",
+            "timeRequired": "P5M"
           }
         ]
       }
+    }
+    </script>
+
+    <!-- Website Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "HighScore Tech",
+      "url": "https://www.highzcore.tech",
+      "description": "Premier software development company specializing in iGaming platforms, crypto exchanges, AI solutions, mobile applications, and comprehensive tech training programs.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "HighScore Tech",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.highzcore.tech/assets/full-logo.png",
+          "width": "1200",
+          "height": "630"
+        }
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.highzcore.tech/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Local Business Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "HighScore Tech",
+      "image": [
+        "https://www.highzcore.tech/assets/full-logo.png",
+        "https://www.highzcore.tech/assets/short-logo.png"
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.highzcore.tech/assets/full-logo.png",
+        "width": "1200",
+        "height": "630"
+      },
+      "@id": "https://www.highzcore.tech",
+      "url": "https://www.highzcore.tech",
+      "telephone": "+234-XXX-XXX-XXXX",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Victoria Island",
+        "addressLocality": "Lagos",
+        "addressRegion": "Lagos State",
+        "postalCode": "100001",
+        "addressCountry": "NG"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 6.5244,
+        "longitude": 3.3792
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday"
+        ],
+        "opens": "09:00",
+        "closes": "18:00"
+      },
+      "sameAs": [
+        "https://twitter.com/HighScoretech",
+        "https://linkedin.com/company/highscore-tech",
+        "https://github.com/highscoretech"
+      ]
     }
     </script>
 
