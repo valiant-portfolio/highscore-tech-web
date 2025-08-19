@@ -283,6 +283,7 @@ button {
 
   .animate-scanLineVertical {
     animation: scanLineVertical 4s ease-in-out infinite;
+
   }
 
 
