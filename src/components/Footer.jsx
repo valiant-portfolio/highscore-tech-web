@@ -109,7 +109,7 @@ export default function Footer() {
                 <div className="flex items-start gap-3 text-[#e2e8f0]">
                   <LocationOn className="text-[#ec4899] mt-1 flex-shrink-0" />
                   <span className="text-sm leading-relaxed">
-                    39A, Ayilara Street, Surulere, Lagos, Nigeria
+                     Ayilara Street, Surulere, Lagos, Nigeria
                   </span>
                 </div>
 

@@ -59,7 +59,7 @@ export default function Login() {
           toast.success(response?.message)
           setstudentData(response?.data?.user)
           Cookies.set('token', response?.data?.token);
-          navigate("/student")
+          window.location.href = "/student"
         return
         }
     } catch (error) {
@@ -90,7 +90,7 @@ export default function Login() {
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
               animationDelay: `${Math.random() * 3}s`,
-              animation: `floatParticles ${4 + Math.random() * 4}s ease-in-out infinite`
+              animation: `floatParticles2 ${4 + Math.random() * 4}s ease-in-out infinite`
             }}
           />
         ))}
@@ -233,18 +233,6 @@ export default function Login() {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes floatParticles {
-          0%, 100% { 
-            transform: translateY(0px) translateX(0px); 
-            opacity: 0.3;
-          }
-          50% { 
-            transform: translateY(-20px) translateX(10px); 
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </div>
   );
 }

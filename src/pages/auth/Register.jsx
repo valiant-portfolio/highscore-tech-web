@@ -183,7 +183,7 @@ export default function Register() {
           toast.success(response?.message)
           setstudentData(response?.data?.user)
           Cookies.set('token', response?.data?.token);
-          navigate("/student")
+          window.location.href = "/student"
         return
         }
       } catch (error) {

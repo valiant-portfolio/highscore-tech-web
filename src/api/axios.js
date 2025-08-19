@@ -11,7 +11,7 @@ export const backendUrl = () => {
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
   
   const _api = isLocalhost ? localhostUrl : remoteUrl;
-  return remoteUrl;
+  return _api;
 };
 
 const api = axios.create({
