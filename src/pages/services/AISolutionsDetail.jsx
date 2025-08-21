@@ -7,10 +7,14 @@ export default function AISolutionsDetail() {
   const navigate = useNavigate();
 
   useSEO({
-    title: "AI Solutions Development - HighScore Tech | Machine Learning & Artificial Intelligence",
-    description: "HighScore Tech develops cutting-edge AI solutions and machine learning applications. We build intelligent systems that automate processes, enhance decision-making, and drive business innovation in Nigeria.",
-    keywords: "AI development Nigeria, machine learning solutions, artificial intelligence applications, ML platform development, AI automation, intelligent systems Nigeria, predictive analytics, computer vision Nigeria",
-    canonical: "https://highzcore.tech/services/ai-solutions"
+    title: "HighScore Tech AI Solutions | Machine Learning & Artificial Intelligence | Nigeria",
+    description: "HighScore Tech is Nigeria's premier AI solutions company developing cutting-edge machine learning applications and intelligent systems. Leading AI development in Lagos with automated processes and predictive analytics.",
+    keywords: "HighScore Tech AI Nigeria, machine learning solutions Lagos, HighScore artificial intelligence, premier AI development Nigeria, leading ML company Nigeria, HighScore intelligent systems, AI automation Nigeria",
+    canonical: "https://www.highzcore.tech/services/ai-solutions",
+    ogTitle: "HighScore Tech AI Solutions | Premier Machine Learning Development Nigeria",
+    ogDescription: "Nigeria's leading AI development company. HighScore Tech builds intelligent systems, machine learning applications, and AI automation solutions.",
+    ogImage: "https://www.highzcore.tech/images/ai-solutions-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/ai-solutions"
   });
 
   return (

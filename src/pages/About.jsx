@@ -17,6 +17,7 @@ import {
   DataObject,
   SmartToy
 } from '@mui/icons-material';
+import { useSEO } from '../hooks/useSEO';
 import 'animate.css';
 import { useNavigate } from 'react-router';
 
@@ -80,6 +81,18 @@ const stats = [
 export default function About() {
 
     const navigate = useNavigate()
+    
+    // SEO Configuration for About Page
+    useSEO({
+      title: "About HighScore Tech | Nigeria's Leading Software Development Company | Lagos Tech Leader",
+      description: "Learn about HighScore Tech - Nigeria's premier software development company founded in Lagos. We specialize in iGaming platforms, crypto exchanges, AI solutions, mobile apps, and provide comprehensive tech training with internship opportunities.",
+      keywords: "About HighScore Tech, About HighScore, HighScore company, Nigerian software company, Lagos tech company, software development team Nigeria, tech company about us, HighScore Tech history, technology leader Nigeria, premier software company Lagos, developer training company Nigeria",
+      canonical: "https://www.highzcore.tech/about",
+      ogTitle: "About HighScore Tech | Nigeria's Premier Software Development Company",
+      ogDescription: "Discover HighScore Tech - Leading software development company in Nigeria with expertise in iGaming, crypto exchange, AI solutions and tech training.",
+      ogImage: "https://www.highzcore.tech/assets/short-logo.png",
+      ogUrl: "https://www.highzcore.tech/about"
+    });
 
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen">

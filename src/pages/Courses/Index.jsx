@@ -3,6 +3,7 @@ import { School, TrendingUp, EmojiEvents, Group } from '@mui/icons-material';
 import Countdown from '../../components/Countdown';
 import CourseCard from '../../components/CourseCard';
 import { coursesData } from '../../data/coursesData';
+import { useSEO } from '../../hooks/useSEO';
 import 'animate.css';
 import { NavLink, useNavigate } from 'react-router';
 
@@ -16,6 +17,19 @@ const stats = [
 
 export default function Course() {
   const navigate = useNavigate()
+  
+  // SEO Configuration for Courses Page
+  useSEO({
+    title: "HighScore Tech Courses | Software Development Training Nigeria | React, Node.js, Blockchain",
+    description: "Enroll in HighScore Tech's comprehensive software development courses in Nigeria. Learn React, Node.js, Blockchain, UI/UX Design, and more with guaranteed internship opportunities in Lagos. Transform your career with hands-on training.",
+    keywords: "HighScore Tech courses, HighScore training, software development courses Nigeria, React training Lagos, Node.js courses Nigeria, blockchain training, programming courses Lagos, tech bootcamp Nigeria, coding classes Lagos, developer training Nigeria, UI UX design courses, mobile app development training",
+    canonical: "https://www.highzcore.tech/courses",
+    ogTitle: "HighScore Tech Courses | Premier Software Development Training in Nigeria",
+    ogDescription: "Transform your career with HighScore Tech's comprehensive software development courses. Learn React, Node.js, Blockchain and more with guaranteed internships.",
+    ogImage: "https://www.highzcore.tech/assets/short-logo.png",
+    ogUrl: "https://www.highzcore.tech/courses"
+  });
+  
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen">
       {/* Hero Section */}

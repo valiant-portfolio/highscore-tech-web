@@ -7,10 +7,14 @@ export default function IGamingDetail() {
   const navigate = useNavigate();
 
   useSEO({
-    title: "iGaming Platform Development - HighScore Tech | Crash Games, Slots, Blackjack, Plinko",
-    description: "HighScore Tech specializes in custom iGaming platform development including Crash Games, Slots, Blackjack, Plinko, Mines, Dice, Lottery, Keno, with provably fair systems and crypto wallet integration.",
-    keywords: "iGaming development, crash game development, casino game development, slots development, blackjack platform, plinko game, mines game, provably fair gaming, crypto gambling platform, igaming software Nigeria",
-    canonical: "https://highzcore.tech/services/igaming"
+    title: "HighScore Tech iGaming Development | Crash Games, Slots, Casino Platforms | Nigeria",
+    description: "HighScore Tech is Nigeria's premier iGaming platform development company specializing in Crash Games, Slots, Blackjack, Plinko, Mines, Dice with provably fair systems and crypto integration. Leading casino game development in Lagos.",
+    keywords: "HighScore Tech iGaming Nigeria, crash game development Lagos, casino platform development Nigeria, HighScore provably fair games, premier iGaming company Nigeria, leading casino software Nigeria, HighScore gambling platform",
+    canonical: "https://www.highzcore.tech/services/igaming",
+    ogTitle: "HighScore Tech iGaming Development | Premier Casino Platform Development Nigeria",
+    ogDescription: "Nigeria's leading iGaming development company. HighScore Tech builds custom casino platforms, crash games, and provably fair gambling systems.",
+    ogImage: "https://www.highzcore.tech/images/igaming-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/igaming"
   });
 
   return (

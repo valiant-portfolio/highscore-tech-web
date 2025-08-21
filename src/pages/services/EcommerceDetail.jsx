@@ -1,8 +1,19 @@
 import React from 'react'
 import { ShoppingCart, Store, Payment, Inventory, TrendingUp, Security, Devices, Analytics } from '@mui/icons-material'
 import 'animate.css'
+import { useSEO } from '../../hooks/useSEO'
 
 export default function EcommerceDetail() {
+  useSEO({
+    title: "HighScore Tech E-commerce Development | Online Store Solutions | Nigeria",
+    description: "HighScore Tech builds powerful e-commerce platforms with payment integration, inventory management, and scalable architecture. Leading e-commerce development company in Nigeria for online business success.",
+    keywords: "HighScore Tech e-commerce development, online store Nigeria, e-commerce platform Lagos, shopping website development, payment gateway integration Nigeria, inventory management system, premier e-commerce company Nigeria",
+    canonical: "https://www.highzcore.tech/services/ecommerce",
+    ogTitle: "HighScore Tech E-commerce Development | Complete Online Store Solutions",
+    ogDescription: "Premier e-commerce development company in Nigeria. We build complete online stores with payment integration, inventory management, and modern features.",
+    ogImage: "https://www.highzcore.tech/images/ecommerce-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/ecommerce"
+  });
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] text-white">
       {/* Hero Section */}

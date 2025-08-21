@@ -1,8 +1,20 @@
 import React from 'react'
 import { PhoneAndroid, Apple, Android, Code, Speed, Security, Cloud, Analytics } from '@mui/icons-material'
 import 'animate.css'
+import { useSEO } from '../../hooks/useSEO'
 
 export default function MobileAppsDetail() {
+  useSEO({
+    title: "HighScore Tech Mobile App Development | React Native & Flutter Apps | Nigeria",
+    description: "HighScore Tech develops high-performance mobile applications using React Native, Flutter, and native technologies. Premier mobile app development company in Nigeria delivering exceptional iOS and Android apps.",
+    keywords: "HighScore Tech mobile development, React Native apps Nigeria, Flutter development Lagos, mobile app development company Nigeria, iOS app development, Android app development, cross-platform mobile apps",
+    canonical: "https://www.highzcore.tech/services/mobile-apps",
+    ogTitle: "HighScore Tech Mobile App Development | Cross-Platform Excellence",
+    ogDescription: "Leading mobile app development company in Nigeria. We build native and cross-platform apps with React Native, Flutter for iOS and Android.",
+    ogImage: "https://www.highzcore.tech/images/mobile-apps-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/mobile-apps"
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] text-white">
       {/* Hero Section */}

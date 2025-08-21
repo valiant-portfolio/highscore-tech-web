@@ -2,9 +2,21 @@ import React from 'react'
 import { School, Code, Work, Groups, VerifiedUser, Timeline, TrendingUp, Support } from '@mui/icons-material'
 import 'animate.css'
 import { useNavigate } from 'react-router'
+import { useSEO } from '../../hooks/useSEO'
 
 export default function TechTrainingDetail() {
   const navigate = useNavigate()
+  
+  useSEO({
+    title: "HighScore Tech Training | Software Development Courses with Guaranteed Internship | Nigeria",
+    description: "HighScore Tech offers comprehensive tech training programs with guaranteed 1-year internship placement. Premier software development training company in Nigeria with full-stack, DevOps, and product management courses.",
+    keywords: "HighScore Tech training Nigeria, software development courses Lagos, tech bootcamp Nigeria, guaranteed internship placement, full-stack development training, DevOps training Nigeria, leading tech education Nigeria",
+    canonical: "https://www.highzcore.tech/services/tech-training",
+    ogTitle: "HighScore Tech Training | Guaranteed Internship Tech Courses",
+    ogDescription: "Transform your career with HighScore Tech's comprehensive training programs. Guaranteed 1-year internship placement and hands-on project experience.",
+    ogImage: "https://www.highzcore.tech/images/tech-training-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/tech-training"
+  });
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] text-white">
       {/* Hero Section */}

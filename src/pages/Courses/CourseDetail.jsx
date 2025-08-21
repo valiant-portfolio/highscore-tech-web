@@ -13,6 +13,7 @@ import {
 import { getCourseById, formatPrice } from '../../data/coursesData';
 import CurriculumPDF from '../../components/CurriculumPDF';
 import SimpleCurriculumPDF from '../../components/SimpleCurriculumPDF';
+import { useSEO } from '../../hooks/useSEO';
 import 'animate.css';
 
 const CourseDetail = () => {
@@ -20,6 +21,18 @@ const CourseDetail = () => {
   const navigate = useNavigate();
   const course = getCourseById(courseId);
   const [downloadStatus, setDownloadStatus] = useState('');
+
+  // SEO Configuration for Course Detail Page
+  useSEO({
+    title: `${course?.name} Course | HighScore Tech Training Nigeria | ${course?.level} Program`,
+    description: `Join HighScore Tech's ${course?.name} course in Nigeria. ${course?.shortDescription} ${course?.duration} month program with hands-on training and guaranteed internship in Lagos. Enroll now!`,
+    keywords: `HighScore Tech ${course?.name}, HighScore ${course?.name} course, ${course?.name} training Nigeria, ${course?.name} bootcamp Lagos, HighScore programming courses, software development training Nigeria, tech education Lagos, ${course?.name} certification Nigeria`,
+    canonical: `https://www.highzcore.tech/course/${courseId}`,
+    ogTitle: `${course?.name} | HighScore Tech Training Nigeria`,
+    ogDescription: `Master ${course?.name} with HighScore Tech's comprehensive ${course?.duration}-month program. Hands-on training with guaranteed internship opportunities in Lagos.`,
+    ogImage: "https://www.highzcore.tech/assets/short-logo.png",
+    ogUrl: `https://www.highzcore.tech/course/${courseId}`
+  });
 
   if (!course) {
     return (

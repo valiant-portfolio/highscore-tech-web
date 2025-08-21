@@ -7,10 +7,14 @@ export default function CryptoExchangeDetail() {
   const navigate = useNavigate();
 
   useSEO({
-    title: "Crypto Exchange Development - HighScore Tech | Secure Trading Platform Development",
-    description: "HighScore Tech builds secure, scalable cryptocurrency exchange platforms with advanced trading features, multi-currency support, and enterprise-grade security for Nigeria and global markets.",
-    keywords: "crypto exchange development, cryptocurrency trading platform, bitcoin exchange development, blockchain exchange, crypto trading software, secure crypto exchange Nigeria, cryptocurrency platform development",
-    canonical: "https://highzcore.tech/services/crypto-exchange"
+    title: "HighScore Tech Crypto Exchange Development | Secure Trading Platforms | Nigeria",
+    description: "HighScore Tech builds secure, scalable cryptocurrency exchange platforms with advanced trading features and enterprise-grade security. Premier crypto exchange development company in Nigeria serving global markets.",
+    keywords: "HighScore Tech crypto exchange Nigeria, cryptocurrency trading platform Lagos, HighScore blockchain development, premier crypto exchange Nigeria, leading cryptocurrency platform Nigeria, HighScore trading software",
+    canonical: "https://www.highzcore.tech/services/crypto-exchange",
+    ogTitle: "HighScore Tech Crypto Exchange Development | Secure Trading Platform Solutions",
+    ogDescription: "Leading cryptocurrency exchange development company in Nigeria. HighScore Tech builds secure, scalable trading platforms with enterprise-grade security.",
+    ogImage: "https://www.highzcore.tech/images/crypto-exchange-og.jpg",
+    ogUrl: "https://www.highzcore.tech/services/crypto-exchange"
   });
 
   return (

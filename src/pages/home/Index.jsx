@@ -10,10 +10,14 @@ export default function HomePage() {
   
   // SEO Configuration
   useSEO({
-    title: "HighScore Tech - Leading Software Development Company in Nigeria | iGaming, Crypto Exchange, AI Solutions",
-    description: "HighScore Tech is Nigeria's premier software development company specializing in iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines), crypto exchanges, AI solutions, mobile apps, e-commerce, and tech training with guaranteed internships in Lagos.",
-    keywords: "software development Nigeria, iGaming development Lagos, crypto exchange development, AI platform development, mobile app development Nigeria, web development Lagos, tech training Nigeria, coding bootcamp Lagos, software internships Nigeria, crash game development, blockchain development Nigeria",
-    canonical: "https://highzcore.tech/"
+    title: "HighScore Tech | Premier Software Development Company Nigeria | iGaming, Crypto Exchange, AI Solutions",
+    description: "HighScore Tech is Nigeria's #1 software development company specializing in iGaming platforms (Crash Games, Slots, Blackjack, Plinko, Mines), crypto exchanges, AI solutions, mobile apps, e-commerce, and tech training with guaranteed internships in Lagos.",
+    keywords: "Highscore, HighScore Tech, HighScore, high score tech, highscore technology, software development Nigeria, premier tech company Lagos, iGaming development, crypto exchange development, AI platform development, mobile app development Nigeria, web development Lagos, tech training Nigeria, coding bootcamp Lagos, software internships Nigeria, crash game development, blockchain development Nigeria, technology leader Nigeria",
+    canonical: "https://www.highzcore.tech/",
+    ogTitle: "HighScore Tech | Nigeria's Premier Software Development Company",
+    ogDescription: "HighScore Tech - Leading software development company in Nigeria specializing in iGaming, crypto exchange, AI solutions, mobile apps and tech training.",
+    ogImage: "https://www.highzcore.tech/assets/short-logo.png",
+    ogUrl: "https://www.highzcore.tech/"
   });
   
   return (
