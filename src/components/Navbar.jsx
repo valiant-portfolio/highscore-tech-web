@@ -19,7 +19,14 @@ export default function Navbar() {
     { 
       name: 'Services', 
       href: '/service',
-      dropdown: ['UI/UX developement', 'Web Application', "Mobile Application", "BlockChain Application","Casino/iGaming System", "Ai Application"   ]
+      dropdown: [
+        { name: 'iGaming Platforms', href: '/services/igaming' },
+        { name: 'Crypto Exchange', href: '/services/crypto-exchange' },
+        { name: 'AI Solutions', href: '/services/ai-solutions' },
+        { name: 'Mobile Applications', href: '/services/mobile-apps' },
+        { name: 'E-commerce Solutions', href: '/services/ecommerce' },
+        { name: 'Tech Training', href: '/services/tech-training' }
+      ]
     },
     { name: 'About Us', href: '/about' },
     { name: 'Courses', href: '/courses' },
@@ -34,9 +41,14 @@ export default function Navbar() {
     setIsTrainingDropdownOpen(!isTrainingDropdownOpen);
   };
 
-  const handleLinkClick = (linkName) => {
+  const handleLinkClick = (linkName, href = null) => {
     setActiveLink(linkName);
     setIsMobileMenuOpen(false);
+    setIsTrainingDropdownOpen(false);
+    
+    if (href) {
+      navigate(href);
+    }
   };
 
   useEffect(() => {
@@ -121,14 +133,13 @@ export default function Navbar() {
                   {isTrainingDropdownOpen && (
                     <div className="absolute top-full left-0 mt-2 w-60 backdrop-blur-sm bg-white/10 border border-white/20 rounded-lg shadow-lg">
                       {link.dropdown.map((item, index) => (
-                        <NavLink
+                        <button
                           key={index}
-                          to="#"
-                          className="block px-4 py-3 text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
-                          onClick={() => handleLinkClick(item)}
+                          className="block w-full text-left px-4 py-3 text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
+                          onClick={() => handleLinkClick(item.name, item.href)}
                         >
-                          {item}
-                        </NavLink>
+                          {item.name}
+                        </button>
                       ))}
                     </div>
                   )}
@@ -196,14 +207,13 @@ export default function Navbar() {
                       {isTrainingDropdownOpen && (
                         <div className="mt-2 ml-4 space-y-2">
                           {link.dropdown.map((item, index) => (
-                            <a
+                            <button
                               key={index}
-                              href="#"
-                              className="block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
-                              onClick={() => handleLinkClick(item)}
+                              className="block w-full text-left px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
+                              onClick={() => handleLinkClick(item.name, item.href)}
                             >
-                              {item}
-                            </a>
+                              {item.name}
+                            </button>
                           ))}
                         </div>
                       )}
