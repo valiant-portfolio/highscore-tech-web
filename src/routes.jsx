@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router';
+import Examination from './pages/exam/Index';
 
 // Lazy load all components for better performance
 const NotFound = lazy(() => import('./pages/Notfound'));
@@ -9,6 +10,7 @@ const Course = lazy(() => import('./pages/Courses/Index'));
 const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
 const IGamingDetail = lazy(() => import('./pages/services/iGamingDetail'));
@@ -17,6 +19,7 @@ const AISolutionsDetail = lazy(() => import('./pages/services/AISolutionsDetail'
 const MobileAppsDetail = lazy(() => import('./pages/services/MobileAppsDetail'));
 const EcommerceDetail = lazy(() => import('./pages/services/EcommerceDetail'));
 const TechTrainingDetail = lazy(() => import('./pages/services/TechTrainingDetail'));
+const NDAIndex = lazy(() => import('./pages/NDA/Index'));
 
 // Student Dashboard - Lazy loaded
 const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
@@ -67,11 +70,31 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
-
-    {
+  {
+    path: '/nd-agreement',
+    element:  <NDAIndex /> ,
+    name: 'agreement',
+    showInNav: false,
+    protected: false,
+  },
+  {
+    path: '/exam/finals',
+    element: <Examination /> ,
+    name: 'Examination',
+    showInNav: false,
+    protected: false,
+  },
+  {
+    path: '/exam',
+    element: <ExamPage />,
+    name: 'Exam',
+    showInNav: false,
+    protected: false,
+  },
+  {
     path: '/student',
     element:<ProtectedRoute > <StudentDashboard /> </ProtectedRoute> ,
-    name: 'Register',
+    name: 'StudentDashboard',
     showInNav: false,
     protected: false,
   },
