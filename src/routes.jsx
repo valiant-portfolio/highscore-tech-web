@@ -9,8 +9,9 @@ const About = lazy(() => import('./pages/About'));
 const Course = lazy(() => import('./pages/Courses/Index'));
 const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
 const Login = lazy(() => import('./pages/auth/Login'));
+const AdminLogin = lazy(() => import('./pages/auth/AdminLogin'));
 const Register = lazy(() => import('./pages/auth/Register'));
-const ExamPage = lazy(() => import('./pages/Exam'));
+// const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
 const IGamingDetail = lazy(() => import('./pages/services/iGamingDetail'));
@@ -64,6 +65,13 @@ export const routes = [
     protected: false,
   },
   {
+    path: '/admin-login',
+    element: <AdminLogin /> ,
+    name: 'Login',
+    showInNav: false,
+    protected: false,
+  },
+  {
     path: '/register',
     element:  <Register /> ,
     name: 'Register',
@@ -84,13 +92,13 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
-  {
-    path: '/exam',
-    element: <ExamPage />,
-    name: 'Exam',
-    showInNav: false,
-    protected: false,
-  },
+  // {
+  //   path: '/exam',
+  //   element: <ExamPage />,
+  //   name: 'Exam',
+  //   showInNav: false,
+  //   protected: false,
+  // },
   {
     path: '/student',
     element:<ProtectedRoute > <StudentDashboard /> </ProtectedRoute> ,
