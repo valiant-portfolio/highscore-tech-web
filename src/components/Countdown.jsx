@@ -10,7 +10,7 @@ const Countdown = () => {
     seconds: 0
   });
 
-  const targetDate = new Date('2025-08-25T09:00:00').getTime();
+  const targetDate = new Date('2025-09-25T09:00:00').getTime();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -43,8 +43,6 @@ const Countdown = () => {
             {label}
           </div>
         </div>
-        
-        {/* Glowing effect */}
         <div className={`absolute inset-0 bg-gradient-to-br ${gradient} rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 -z-10`}></div>
       </div>
     </div>

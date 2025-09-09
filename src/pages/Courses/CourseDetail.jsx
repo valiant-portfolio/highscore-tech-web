@@ -11,7 +11,7 @@ import {
   Group
 } from '@mui/icons-material';
 import { getCourseById, formatPrice } from '../../data/coursesData';
-import CurriculumPDF from '../../components/CurriculumPDF';
+// import CurriculumPDF from '../../components/CurriculumPDF';
 import SimpleCurriculumPDF from '../../components/SimpleCurriculumPDF';
 import { useSEO } from '../../hooks/useSEO';
 import 'animate.css';
@@ -21,8 +21,6 @@ const CourseDetail = () => {
   const navigate = useNavigate();
   const course = getCourseById(courseId);
   const [downloadStatus, setDownloadStatus] = useState('');
-
-  // SEO Configuration for Course Detail Page
   useSEO({
     title: `${course?.name} Course | HighScore Tech Training Nigeria | ${course?.level} Program`,
     description: `Join HighScore Tech's ${course?.name} course in Nigeria. ${course?.shortDescription} ${course?.duration} month program with hands-on training and guaranteed internship in Lagos. Enroll now!`,
@@ -52,16 +50,13 @@ const CourseDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e]">
-      {/* Hero Section */}
       <section className="relative py-20 px-6 overflow-hidden">
-        {/* Background Decorations */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-r from-[#2563eb] to-transparent rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-20 w-80 h-80 bg-gradient-to-r from-[#7c3aed] to-transparent rounded-full blur-3xl"></div>
         </div>
 
         <div className="max-w-7xl mx-auto relative z-10">
-          {/* Back Button */}
           <button 
             onClick={() => navigate('/courses')}
             className="flex items-center space-x-2 text-[#06b6d4] hover:text-white transition-colors duration-300 mb-8 animate__animated animate__fadeInLeft"
@@ -71,7 +66,6 @@ const CourseDetail = () => {
           </button>
 
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Course Info */}
             <div className="animate__animated animate__fadeInLeft">
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-[#2563eb]/20 to-[#06b6d4]/20 border border-[#2563eb]/30 backdrop-blur-sm mb-6">
                 <span className="text-4xl mr-3">{course.icon}</span>
@@ -85,8 +79,6 @@ const CourseDetail = () => {
               <p className="text-lg md:text-xl text-[#e2e8f0] leading-relaxed mb-8">
                 {course.longDescription}
               </p>
-
-              {/* Course Stats */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div className="text-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
                   <Schedule className="w-8 h-8 text-[#06b6d4] mx-auto mb-2" />
@@ -105,8 +97,6 @@ const CourseDetail = () => {
                 </div>
               </div>
             </div>
-
-            {/* Enrollment Card */}
             <div className="animate__animated animate__fadeInRight">
               <div className={`bg-gradient-to-br ${course.bgGradient} rounded-3xl p-8 backdrop-blur-sm border border-white/10 relative overflow-hidden`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${course.gradient} opacity-5 rounded-3xl`}></div>
@@ -118,7 +108,7 @@ const CourseDetail = () => {
                     </div>
                     <div className="text-[#94a3b8]">Full Program</div>
                     <div className="text-[#10b981] text-sm font-medium mt-2">
-                      Or {formatPrice(course.price / course.duration)}/month for {course.duration} months
+                      Or {formatPrice(course.price / 2)}/month for {course.duration} months
                     </div>
                   </div>
 
@@ -168,8 +158,6 @@ const CourseDetail = () => {
           </div>
         </div>
       </section>
-
-      {/* Course Modules */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-16 animate__animated animate__fadeInUp">
@@ -210,12 +198,9 @@ const CourseDetail = () => {
           </div>
         </div>
       </section>
-
-      {/* Features & Outcomes */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12">
-            {/* What You'll Learn */}
             <div className="animate__animated animate__fadeInLeft">
               <h3 className="text-2xl md:text-3xl font-bold text-white mb-8">
                 What You'll <span className="text-[#06b6d4]">Master</span>
@@ -229,8 +214,6 @@ const CourseDetail = () => {
                 ))}
               </div>
             </div>
-
-            {/* Career Outcomes */}
             <div className="animate__animated animate__fadeInRight">
               <h3 className="text-2xl md:text-3xl font-bold text-white mb-8">
                 Career <span className="text-[#ec4899]">Outcomes</span>
@@ -245,8 +228,6 @@ const CourseDetail = () => {
                   </div>
                 ))}
               </div>
-
-              {/* Instructor Info */}
               <div className="mt-8 p-6 bg-gradient-to-r from-[#2563eb]/10 to-[#06b6d4]/10 rounded-2xl border border-white/10">
                 <div className="flex items-center space-x-4 mb-4">
                   <Person className="w-8 h-8 text-[#06b6d4]" />
@@ -260,8 +241,6 @@ const CourseDetail = () => {
           </div>
         </div>
       </section>
-
-      {/* Requirements */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h3 className="text-2xl md:text-3xl font-bold text-white mb-8 animate__animated animate__fadeInUp">
@@ -277,8 +256,6 @@ const CourseDetail = () => {
           </div>
         </div>
       </section>
-
-      {/* Final CTA */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className={`bg-gradient-to-r ${course.bgGradient} rounded-3xl p-12 backdrop-blur-sm border border-white/10 animate__animated animate__fadeInUp`}>

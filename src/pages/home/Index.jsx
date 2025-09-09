@@ -22,15 +22,10 @@ export default function HomePage() {
   
   return (
     <>
-
-      {/* Main Content */}
       <main id="main-content">
-        {/* Hero Section with Animated Wire Background */}
         <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] flex items-center py-20" aria-label="HighScore Tech Hero Section">
-        {/* Animated Wire Background */}
         <div className="absolute inset-0 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 1200 800" preserveAspectRatio="none">
-            {/* Animated Circuit Lines */}
             <defs>
               <linearGradient id="wireGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#2563eb" stopOpacity="0.8">
@@ -56,7 +51,6 @@ export default function HomePage() {
               </linearGradient>
             </defs>
             
-            {/* Horizontal flowing lines */}
             <path d="M0 100 Q300 80 600 100 T1200 100" stroke="url(#wireGrad)" strokeWidth="2" fill="none">
               <animateTransform attributeName="transform" type="translate" values="0,0;50,0;0,0" dur="4s" repeatCount="indefinite"/>
             </path>
@@ -69,8 +63,6 @@ export default function HomePage() {
             <path d="M0 400 Q500 380 900 400 T1200 400" stroke="url(#wireGrad2)" strokeWidth="1.2" fill="none">
               <animateTransform attributeName="transform" type="translate" values="0,0;-25,0;0,0" dur="4.5s" repeatCount="indefinite"/>
             </path>
-            
-            {/* Vertical connection lines */}
             <path d="M200 0 L200 800" stroke="#2563eb" strokeWidth="1" opacity="0.4">
               <animate attributeName="opacity" values="0.1;0.8;0.1" dur="3s" repeatCount="indefinite"/>
             </path>
@@ -81,7 +73,6 @@ export default function HomePage() {
               <animate attributeName="opacity" values="0.1;0.8;0.1" dur="2s" repeatCount="indefinite"/>
             </path>
             
-            {/* Circuit nodes */}
             <circle cx="200" cy="100" r="4" fill="#2563eb">
               <animate attributeName="r" values="3;8;3" dur="2s" repeatCount="indefinite"/>
             </circle>
@@ -100,7 +91,6 @@ export default function HomePage() {
           </svg>
         </div>
 
-        {/* Floating Particles */}
         <div className="absolute inset-0">
           {[...Array(25)].map((_, i) => (
             <div
@@ -162,9 +152,6 @@ export default function HomePage() {
                   blockchain applications, mobile apps, and provide hands-on internship opportunities for aspiring developers.
                 </p>
               </div>
-
-
-              {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 {/* Gradient Button */}
                 <NavLink to="https://t.me/valiant_joe" className="group relative px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 overflow-hidden shadow-lg hover:shadow-2xl">
@@ -175,8 +162,6 @@ export default function HomePage() {
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300"></div>
                 </NavLink>
-
-                {/* Glass/Blur Button */}
                 <button onClick={()=> navigate("/courses")} className="group px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-[#06b6d4]/30 rounded-xl font-semibold text-white transition-all duration-300 hover:border-[#06b6d4] hover:bg-[#06b6d4]/10 hover:scale-105 hover:shadow-xl relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#06b6d4]/5 to-[#2563eb]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <span className="relative z-10 flex items-center space-x-2">
@@ -187,40 +172,27 @@ export default function HomePage() {
               </div>
 
             </div>
-
-            {/* Right Side - Slanted Image */}
             <div className="relative">
-              {/* Decorative Elements */}
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-[#2563eb]/30 to-[#06b6d4]/30 rounded-full blur-3xl animate-pulse"></div>
               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-br from-[#7c3aed]/30 to-[#ec4899]/30 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
               <div className="absolute top-1/2 -right-5 w-24 h-24 bg-gradient-to-br from-[#f97316]/40 to-[#f59e0b]/40 rounded-full blur-2xl animate-pulse" style={{animationDelay: '2s'}}></div>
-              
-              {/* Main Image Container */}
               <div className="relative transform -rotate-6 hover:rotate-0 transition-transform duration-700 group">
-                {/* Glowing Border */}
                 <div className="absolute -inset-4 bg-gradient-to-r from-[#2563eb] via-[#06b6d4] to-[#7c3aed] rounded-3xl blur-lg opacity-40 group-hover:opacity-70 transition-opacity duration-300 animate-pulse"></div>
-                
-                {/* Image Frame */}
                 <div className="relative bg-gradient-to-br from-[#1a1a2e] to-[#0f0f23] p-6 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-sm">
                   <img 
                     src="/assets/office.jpg" 
                     alt="Modern Tech Office" 
                     className="w-full h-[400px] object-cover rounded-2xl shadow-xl hover:scale-105 transition-transform duration-500"
                   />
-                  
-                  {/* Overlay Tech Elements */}
                   <div className="absolute top-4 right-4 bg-gradient-to-r from-[#2563eb]/90 to-[#06b6d4]/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-white/20">
                     <span className="text-white text-sm font-medium">Live Workspace</span>
                   </div>
-                  
-                  {/* Bottom Overlay */}
                   <div className="absolute bottom-6 left-6 right-6 bg-black/50 backdrop-blur-md rounded-xl p-4 border border-white/10">
                     <div className="text-white font-semibold">Innovation Hub</div>
                     <div className="bg-gradient-to-r from-[#06b6d4] to-[#2563eb] bg-clip-text text-transparent text-sm font-medium">Where Ideas Come to Life</div>
                   </div>
                 </div>
 
-                {/* Floating Code Elements */}
                 <div className="absolute top-1/4 -left-8 bg-[#0f0f23]/95 backdrop-blur-sm border border-[#2563eb]/50 rounded-lg p-3 transform rotate-12 animate-bounce shadow-lg" style={{animationDelay: '2s', animationDuration: '3s'}}>
                   <code className="text-[#06b6d4] text-xs font-mono">{'<Tech/>'}</code>
                 </div>
@@ -237,11 +209,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Bottom Gradient Fade */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f23] to-transparent"></div>
       </section>
-
-      {/* Services Overview Section - SEO Content */}
       <section className="py-20 bg-gradient-to-br from-[#0f0f23] to-[#1a1a2e]" aria-label="Our Software Development Services">
         <div className="container mx-auto px-6 lg:px-12">
           <header className="text-center mb-16">
@@ -256,7 +225,6 @@ export default function HomePage() {
           </header>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {/* iGaming Development */}
             <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-blue-500/30 transition-all duration-300">
               <div className="text-4xl mb-4">🎮</div>
               <h3 className="text-2xl font-bold text-white mb-4">iGaming Platform Development</h3>
@@ -270,8 +238,6 @@ export default function HomePage() {
                 <li>• Advanced Security Protocols</li>
               </ul>
             </article>
-
-            {/* Crypto Exchange */}
             <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-cyan-500/30 transition-all duration-300">
               <div className="text-4xl mb-4">₿</div>
               <h3 className="text-2xl font-bold text-white mb-4">Crypto Exchange Development</h3>
@@ -285,8 +251,6 @@ export default function HomePage() {
                 <li>• Regulatory Compliance</li>
               </ul>
             </article>
-
-            {/* AI Solutions */}
             <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-purple-500/30 transition-all duration-300">
               <div className="text-4xl mb-4">🤖</div>
               <h3 className="text-2xl font-bold text-white mb-4">AI-Powered Platform Development</h3>
@@ -315,8 +279,6 @@ export default function HomePage() {
                 <li>• App Store Optimization</li>
               </ul>
             </article>
-
-            {/* E-commerce Solutions */}
             <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-orange-500/30 transition-all duration-300">
               <div className="text-4xl mb-4">🛍️</div>
               <h3 className="text-2xl font-bold text-white mb-4">E-commerce Solutions</h3>
@@ -330,8 +292,6 @@ export default function HomePage() {
                 <li>• Analytics & Reporting</li>
               </ul>
             </article>
-
-            {/* Tech Training */}
             <article className="bg-gradient-to-br from-black/40 to-gray-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-green-500/30 transition-all duration-300">
               <div className="text-4xl mb-4">🎓</div>
               <h3 className="text-2xl font-bold text-white mb-4">Tech Training & Internships</h3>
@@ -346,8 +306,6 @@ export default function HomePage() {
               </ul>
             </article>
           </div>
-
-          {/* Why Choose HighScore Tech */}
           <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 backdrop-blur-sm border border-white/10 rounded-3xl p-12">
             <h2 className="text-3xl font-bold text-white mb-8 text-center">Why Choose HighScore Tech?</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -375,8 +333,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Location & Contact SEO Section */}
       <section className="py-16 bg-gradient-to-br from-[#1a1a2e] to-[#0f0f23]" aria-label="HighScore Tech Location and Contact">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="text-center mb-12">

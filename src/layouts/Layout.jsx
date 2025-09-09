@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -6,6 +7,11 @@ import ChatIcon from '@mui/icons-material/Chat';
 
 const Layout = () => {
   const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+
   const getCurrentRoute = () => {
   let currentRoute = routes.find(route => route.path === location.pathname);
   if (!currentRoute) {

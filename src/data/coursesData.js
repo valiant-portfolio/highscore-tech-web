@@ -192,17 +192,17 @@ export const coursesData = [
       "Senior React Developer with 7+ years experience building large-scale applications",
   },
   {
-    id: "nextjs-fullstack-development",
-    name: "Next.js Full-Stack Development",
+    id: "nextjs-development",
+    name: "Next.js  Development",
     price: 150000,
     duration: 4,
     level: "Intermediate to Advanced",
     icon: "▲",
     shortDescription:
-      "Master full-stack development with Next.js, including SSR, API routes, and modern deployment.",
+      "Master  development with Next.js, including SSR, API routes, and modern deployment.",
     longDescription:
-      "Advanced Next.js development program that teaches you to build full-stack applications using one of the most popular React frameworks. This comprehensive course covers server-side rendering, static site generation, API routes, database integration, and deployment to production environments. You'll learn Next.js 13+ with the App Router, React Server Components, and modern full-stack patterns. The curriculum includes building e-commerce platforms, content management systems, and SaaS applications with authentication, payments, and real-time features. You'll master database integration with Prisma ORM, implement authentication with NextAuth.js, handle file uploads, and optimize for performance and SEO. Through practical projects, you'll create a multi-tenant SaaS platform, headless CMS, and marketplace application that showcase enterprise-level development skills. The course also covers advanced topics like middleware, internationalization, and deployment strategies for scalable applications.",
-    gradient: "from-[#000000] to-[#404040]",
+      "Advanced Next.js development program that teaches you to build  applications using one of the most popular React frameworks. This comprehensive course covers server-side rendering, static site generation, API routes, database integration, and deployment to production environments. You'll learn Next.js 13+ with the App Router, React Server Components, and modern full-stack patterns. The curriculum includes building e-commerce platforms, content management systems, and SaaS applications with authentication, payments, and real-time features. You'll master database integration with Prisma ORM, implement authentication with NextAuth.js, handle file uploads, and optimize for performance and SEO. Through practical projects, you'll create a multi-tenant SaaS platform, headless CMS, and marketplace application that showcase enterprise-level development skills. The course also covers advanced topics like middleware, internationalization, and deployment strategies for scalable applications.",
+    gradient: "from-[#ffff] to-[#0000]",
     bgGradient: "from-[#000000]/10 to-[#404040]/10",
     features: [
       "HTML5, CSS3 & JavaScript ES6+",
@@ -288,104 +288,6 @@ export const coursesData = [
     ],
     instructor:
       "Full-Stack Engineer with expertise in Next.js and modern web architecture",
-  },
-  {
-    id: "vue-frontend-development",
-    name: "Vue.js Progressive Frontend Development",
-    price: 100000,
-    duration: 3,
-    level: "Beginner to Advanced",
-    icon: "💚",
-    shortDescription:
-      "Build elegant and performant web applications with Vue.js ecosystem and modern tooling.",
-    longDescription:
-      "Comprehensive Vue.js development program that teaches you to build sophisticated frontend applications using Vue's progressive framework approach. This course covers Vue 3 Composition API, Pinia state management, Vue Router, and the complete Vue ecosystem. You'll learn to create reactive applications with excellent performance and developer experience. The curriculum includes building single-page applications, progressive web apps, and component libraries with TypeScript support. You'll master Vue's unique features like directives, computed properties, watchers, and transitions while following Vue's best practices and conventions. Through hands-on projects, you'll develop a task management app, e-commerce storefront, and admin dashboard that demonstrate Vue's flexibility and power. The course also covers testing with Vitest, build optimization with Vite, and deployment strategies for Vue applications.",
-    gradient: "from-[#10b981] to-[#059669]",
-    bgGradient: "from-[#10b981]/10 to-[#059669]/10",
-    features: [
-      "HTML5, CSS3 & JavaScript ES6+",
-      "Vue 3 Composition API",
-      "Pinia State Management",
-      "Vue Router & Navigation",
-      "TypeScript Integration",
-      "Vite Build Tool",
-      "Component Libraries",
-      "Progressive Web Apps",
-      "Performance Optimization",
-      "Modern Deployment",
-    ],
-    modules: [
-      {
-        title: "Web Development Fundamentals",
-        duration: "3 weeks",
-        topics: [
-          "HTML5 Semantic Elements",
-          "CSS3 & Flexbox/Grid",
-          "JavaScript ES6+ Fundamentals",
-          "DOM Manipulation",
-          "Responsive Design",
-        ],
-      },
-      {
-        title: "Vue.js Fundamentals",
-        duration: "3 weeks",
-        topics: [
-          "Template Syntax",
-          "Reactivity",
-          "Components",
-          "Props & Events",
-          "Directives",
-        ],
-      },
-      {
-        title: "Advanced Vue Features",
-        duration: "3 weeks",
-        topics: [
-          "Composition API",
-          "Pinia State Management",
-          "Vue Router",
-          "Transitions",
-          "TypeScript Integration",
-        ],
-      },
-      {
-        title: "Production & Deployment",
-        duration: "3 weeks",
-        topics: [
-          "Component Libraries",
-          "Testing",
-          "Performance Optimization",
-          "PWA Features",
-          "Deployment",
-        ],
-      },
-    ],
-    requirements: [
-      "Solid JavaScript fundamentals and ES6+ features",
-      "HTML5 and CSS3 knowledge with modern layout techniques",
-      "Understanding of component-based architecture",
-      "Basic knowledge of npm and package management",
-      "Familiarity with modern development tools",
-      "Git version control experience",
-      "Computer with Node.js 16+ installed",
-      "VS Code with Vue extensions recommended",
-      "Time commitment of 15-18 hours per week",
-      "Willingness to learn progressive enhancement concepts",
-    ],
-    outcomes: [
-      "Master Vue.js 3 and Composition API for modern development",
-      "Build reactive applications with Pinia state management",
-      "Create reusable component libraries and design systems",
-      "Implement routing and navigation in single-page applications",
-      "Use TypeScript for type-safe Vue development",
-      "Test Vue applications with modern testing frameworks",
-      "Deploy Vue applications to production environments",
-      "Portfolio showcasing 3+ Vue.js applications",
-      "Job-ready skills for Vue.js Developer positions",
-      "Understanding of progressive web app development",
-    ],
-    instructor:
-      "Vue.js Core Team contributor with 6+ years of Vue development experience",
   },
   {
     id: "svelte-modern-development",
@@ -993,105 +895,6 @@ export const coursesData = [
       "PhD Data Scientist with 8+ years in industry and research, published author",
   },
   {
-    id: "artificial-intelligence",
-    name: "Artificial Intelligence & Deep Learning",
-    duration: 7,
-    price: 350000,
-    level: "Advanced",
-    icon: "🤖",
-    shortDescription:
-      "Master AI concepts, neural networks, and build intelligent systems with cutting-edge technologies.",
-    longDescription:
-      "Advanced artificial intelligence program that prepares you to become an AI specialist capable of building intelligent systems and contributing to AI research. This comprehensive course covers machine learning, deep learning, natural language processing, computer vision, and reinforcement learning. You'll master state-of-the-art AI frameworks like TensorFlow, PyTorch, and Hugging Face Transformers while understanding the theoretical foundations of artificial intelligence. The curriculum includes hands-on projects in computer vision, NLP, generative AI, and autonomous systems. You'll learn to implement cutting-edge architectures like Transformers, GANs, and reinforcement learning agents. Through research-oriented projects, you'll contribute to open-source AI projects and potentially publish your work. The course emphasizes AI ethics, responsible AI development, and understanding the societal impact of AI technologies. You'll also learn to deploy AI models at scale and optimize them for production environments.",
-    gradient: "from-[#10b981] to-[#06b6d4]",
-    bgGradient: "from-[#10b981]/10 to-[#06b6d4]/10",
-    features: [
-      "Advanced Machine Learning Algorithms",
-      "Deep Neural Networks & Architectures",
-      "Natural Language Processing with Transformers",
-      "Computer Vision & Image Processing",
-      "Reinforcement Learning & Game AI",
-      "Generative AI & Large Language Models",
-      "AI Ethics & Responsible AI",
-      "TensorFlow, PyTorch & MLOps",
-      "Research Methods & Publications",
-      "Industry Capstone Project",
-    ],
-    modules: [
-      {
-        title: "AI Fundamentals & Theory",
-        duration: "8 weeks",
-        topics: [
-          "AI History & Philosophy",
-          "Search Algorithms",
-          "Logic & Reasoning",
-          "Problem Solving",
-          "Knowledge Representation",
-        ],
-      },
-      {
-        title: "Advanced Machine Learning",
-        duration: "10 weeks",
-        topics: [
-          "Advanced ML Algorithms",
-          "Ensemble Methods",
-          "Feature Selection",
-          "Model Optimization",
-          "Bayesian Learning",
-        ],
-      },
-      {
-        title: "Deep Learning & Neural Networks",
-        duration: "12 weeks",
-        topics: [
-          "Neural Network Architectures",
-          "CNNs",
-          "RNNs/LSTMs",
-          "Transformers",
-          "GANs",
-          "Autoencoders",
-        ],
-      },
-      {
-        title: "Specialized AI Applications",
-        duration: "10 weeks",
-        topics: [
-          "NLP & Language Models",
-          "Computer Vision Projects",
-          "Reinforcement Learning",
-          "AI Ethics",
-          "Research Project",
-        ],
-      },
-    ],
-    requirements: [
-      "Strong programming skills in Python and mathematics background",
-      "Advanced understanding of linear algebra, calculus, and statistics",
-      "Machine learning fundamentals and experience with ML frameworks",
-      "Computer with powerful GPU (RTX 3070+ or cloud GPU access)",
-      "Graduate-level analytical and research capabilities",
-      "Familiarity with scientific computing (NumPy, SciPy, Matplotlib)",
-      "Experience with version control and collaborative development",
-      "Time commitment of 25-30 hours per week for intensive study",
-      "Access to high-performance computing resources",
-      "Commitment to ethical AI development and continuous learning",
-    ],
-    outcomes: [
-      "Design and implement state-of-the-art AI systems and architectures",
-      "Conduct AI research and contribute to open-source AI projects",
-      "Build production-ready AI applications with modern MLOps practices",
-      "Understand and apply AI ethics and responsible AI principles",
-      "Master deep learning frameworks and advanced neural architectures",
-      "Develop expertise in NLP, computer vision, and reinforcement learning",
-      "Portfolio showcasing cutting-edge AI projects and research contributions",
-      "Job-ready skills for AI Research Scientist, ML Engineer, or AI Architect roles",
-      "Understanding of AI industry trends and emerging technologies",
-      "Ability to lead AI teams and drive AI strategy in organizations",
-    ],
-    instructor:
-      "AI Research Scientist with PhD, 50+ publications, and industry leadership experience",
-  },
-  {
     id: "machine-learning-engineering",
     name: "Machine Learning Engineering",
     duration: 6,
@@ -1626,6 +1429,45 @@ export const coursesData = [
     instructor:
       "Senior Game Developer with 12+ years experience and 25+ published web games",
   },
+  {
+    id: "full-stack-development",
+    name: "Full Stack Development",
+    price: 200000,
+    duration: 3,
+    level: "Beginner to Advanced",
+    icon: "🚀",
+    shortDescription: "Become a full-stack developer by learning a frontend framework and backend technologies.",
+    longDescription: "This course covers both front-end and back-end development, enabling you to build complete web applications. You will learn to create dynamic user interfaces with a front-end framework of your choice from our offerings, and to build robust server-side applications with Node.js, Express, and MongoDB. The course includes hands-on projects to solidify your learning.",
+    gradient: "from-[#8b5cf6] to-[#ec4899]",
+    bgGradient: "from-[#8b5cf6]/10 to-[#ec4899]/10",
+    features: ["HTML5, CSS3 & JavaScript ES6+", "React.js or Svelte", "Node.js & Express", "MongoDB & Mongoose", "RESTful API Design", "Authentication & Authorization", "Full-Stack Application Development", "Deployment & DevOps", "Real-world Projects", "Career Guidance"],
+    modules: [
+      {
+        title: "Web Development Fundamentals",
+        duration: "4 weeks",
+        topics: ["HTML5 Semantic Elements", "CSS3 & Flexbox/Grid", "JavaScript ES6+ Fundamentals", "DOM Manipulation", "Responsive Design"]
+      },
+      {
+        title: "Frontend Framework",
+        duration: "6 weeks",
+        topics: ["React.js or Svelte", "Component-Based Architecture", "State Management", "Routing", "API Integration"]
+      },
+      {
+        title: "Backend Development",
+        duration: "6 weeks",
+        topics: ["Node.js & Express", "MongoDB & Mongoose", "RESTful API Design", "Authentication & JWT", "Error Handling"]
+      },
+      {
+        title: "Full-Stack Application & Deployment",
+        duration: "4 weeks",
+        topics: ["Building a Full-Stack Application", "Connecting Frontend and Backend", "Deployment to Cloud Platforms", "CI/CD", "Final Project"]
+      }
+    ],
+    requirements: ["Strong JavaScript ES6+ knowledge", "HTML5 and CSS3 proficiency", "Understanding of asynchronous JavaScript", "Familiarity with npm/yarn", "Basic command line skills", "Git version control knowledge", "Computer with Node.js 16+ installed", "Code editor like VS Code", "8GB RAM minimum", "Dedication to practice coding 2-3 hours daily"],
+    outcomes: ["Build complex full-stack applications", "Implement both frontend and backend of a web application", "Write comprehensive tests for both frontend and backend", "Deploy full-stack applications to production environments", "Integrate with REST APIs", "Optimize application for performance and accessibility", "Use TypeScript for type-safe development", "Portfolio with 4+ production-ready full-stack applications", "Job-ready skills for Full-Stack Developer positions", "Understanding of full-stack architecture and modern tooling"],
+    instructor: "Senior Full-Stack Developer with 10+ years of experience"
+  },
+ 
 ];
 
 export const getCourseById = (id) => {

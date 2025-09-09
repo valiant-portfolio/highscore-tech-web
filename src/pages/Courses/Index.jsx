@@ -18,7 +18,6 @@ const stats = [
 export default function Course() {
   const navigate = useNavigate()
   
-  // SEO Configuration for Courses Page
   useSEO({
     title: "HighScore Tech Courses | Software Development Training Nigeria | React, Node.js, Blockchain",
     description: "Enroll in HighScore Tech's comprehensive software development courses in Nigeria. Learn React, Node.js, Blockchain, UI/UX Design, and more with guaranteed internship opportunities in Lagos. Transform your career with hands-on training.",
@@ -32,9 +31,7 @@ export default function Course() {
   
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen">
-      {/* Hero Section */}
       <section className="relative py-20 px-6 overflow-hidden">
-        {/* Background Decorations */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-r from-[#2563eb] to-transparent rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-20 w-80 h-80 bg-gradient-to-r from-[#7c3aed] to-transparent rounded-full blur-3xl"></div>
@@ -57,8 +54,6 @@ export default function Course() {
               Transform your career with our comprehensive tech education programs. 
               Learn from industry experts, work on real projects, and get placed in top companies.
             </p>
-
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 animate__animated animate__fadeInUp animate__delay-2s">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center group hover:transform hover:scale-110 transition-all duration-300">
@@ -73,11 +68,7 @@ export default function Course() {
           </div>
         </div>
       </section>
-
-      {/* Countdown Section */}
       <Countdown />
-
-      {/* Courses Section */}
       <section className="py-10 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -96,8 +87,6 @@ export default function Course() {
           </div>
         </div>
       </section>
-
-      {/* Why Choose Us Section */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -152,8 +141,6 @@ export default function Course() {
           </div>
         </div>
       </section>
-
-      {/* Final CTA */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="bg-gradient-to-r from-[#2563eb]/10 via-[#06b6d4]/10 to-[#7c3aed]/10 rounded-3xl p-12 backdrop-blur-sm border border-white/10 animate__animated animate__fadeInUp">
