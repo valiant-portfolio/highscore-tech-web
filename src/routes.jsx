@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router';
 import Examination from './pages/exam/Index';
+import Test from './pages/test/Index';
 
 // Lazy load all components for better performance
 const NotFound = lazy(() => import('./pages/Notfound'));
@@ -86,8 +87,8 @@ export const routes = [
     protected: false,
   },
   {
-    path: '/exam/finals',
-    element: <Examination /> ,
+    path: '/test',
+    element: <Test /> ,
     name: 'Examination',
     showInNav: false,
     protected: false,
