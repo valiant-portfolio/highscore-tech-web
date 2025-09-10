@@ -93,13 +93,6 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
-  // {
-  //   path: '/exam',
-  //   element: <ExamPage />,
-  //   name: 'Exam',
-  //   showInNav: false,
-  //   protected: false,
-  // },
   {
     path: '/student',
     element:<ProtectedRoute > <StudentDashboard /> </ProtectedRoute> ,
