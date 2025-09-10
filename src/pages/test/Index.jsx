@@ -8,7 +8,7 @@ const Test = () => {
   const [showResult, setShowResult] = useState(false);
   const [showAnswers, setShowAnswers] = useState(false);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(5600); // 10 minutes in seconds
 
   useEffect(() => {
     if (timeLeft > 0 && !showResult) {
