@@ -70,7 +70,7 @@ const Countdown = () => {
           </h2>
           
           <p className="text-lg text-[#e2e8f0] max-w-3xl mx-auto mb-8 animate__animated animate__fadeInUp animate__delay-1s">
-            Don't miss your chance to join our next cohort starting on <span className="text-[#06b6d4] font-semibold">August 25th, 2025</span>. 
+            Don't miss your chance to join our next cohort starting on <span className="text-[#06b6d4] font-semibold">September 25th, 2025</span>. 
             Limited seats available for personalized attention and mentorship.
           </p>
         </div>
