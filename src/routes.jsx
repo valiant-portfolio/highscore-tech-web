@@ -26,6 +26,8 @@ const EcommerceDetail = lazy(() => import('./pages/services/EcommerceDetail'));
 const TechTrainingDetail = lazy(() => import('./pages/services/TechTrainingDetail'));
 const NDAIndex = lazy(() => import('./pages/NDA/Index'));
 const GalleryPage = lazy(() => import('./pages/Gallery'));
+const Gallary = lazy(() => import('./components/Gallary'));
+const Projects = lazy(() => import('./pages/Projects/Index'));
 
 // Student Dashboard - Lazy loaded
 const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
