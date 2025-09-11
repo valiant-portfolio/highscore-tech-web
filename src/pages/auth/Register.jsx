@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Country, State, City } from 'country-state-city';
+import { FcGoogle } from 'react-icons/fc';
 import Step1PersonalInfo from '../../components/auth/steps/Step1PersonalInfo';
 import Step2EmailPassword from '../../components/auth/steps/Step2EmailPassword';
 import Step3LearningSetup from '../../components/auth/steps/Step3LearningSetup';
@@ -11,12 +12,44 @@ import api from '../../api/axios';
 import { toast } from 'sonner';
 import Cookies from 'js-cookie';
 import { useAuth } from '../../context/AuthContext';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 export default function Register() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
-  const [loadSubmitBtn, setLoadSubmitBtn] = useState(false)
+  const [loadSubmitBtn, setLoadSubmitBtn] = useState(false);
+  const { login } = useAuth();
+  
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      // Send the Google credential to your backend
+      const response = await api.post('/auth/google', {
+        credential: credentialResponse.credential,
+      });
+
+      const { token, user } = response.data;
+      
+      // Store the token
+      Cookies.set('token', token);
+      
+      // Update auth context
+      login(user);
+      
+      // Redirect to dashboard or home
+      window.location.href = "/student";
+      
+      toast.success(`Welcome, ${user.firstName || user.email}!`);
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      toast.error(error.response?.data?.message || 'Failed to sign in with Google');
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.log('Google Sign In was unsuccessful');
+    toast.error('Failed to sign in with Google');
+  };
   
   const [formData, setFormData] = useState({
     // Step 1: Personal Information
@@ -279,7 +312,38 @@ export default function Register() {
 
           {/* Step Content */}
           <div className="min-h-[400px]">
-            {renderStepContent()}
+            {currentStep === 2 ? (
+              <>
+                <div className="mb-6">
+                  <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      useOneTap={true}
+                      text="signup_with"
+                      size="large"
+                      width="100%"
+                      shape="rectangular"
+                      theme="outline"
+                      logo_alignment="left"
+                      className="w-full flex justify-center items-center mb-6"
+                    />
+                  </GoogleOAuthProvider>
+                  
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-600"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with email</span>
+                    </div>
+                  </div>
+                </div>
+                {renderStepContent()}
+              </>
+            ) : (
+              renderStepContent()
+            )}
           </div>
 
           {/* Navigation Buttons */}

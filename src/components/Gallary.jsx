@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination, EffectCards } from 'swiper/modules'
@@ -221,9 +222,12 @@ export default function Gallary() {
                 </div>
 
                 {/* CTA Button */}
-                <button className="px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 animate__animated animate__fadeInUp animate__delay-2s">
+                <Link 
+                  to="/projects"
+                  className="inline-block px-8 py-4 bg-gradient-to-r from-[#2563eb] to-[#06b6d4] text-white font-semibold rounded-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 animate__animated animate__fadeInUp animate__delay-2s"
+                >
                   View All Projects
-                </button>
+                </Link>
               </div>
             </div>
 

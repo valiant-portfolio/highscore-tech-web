@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { 
   LocationOn, 
   Phone, 
@@ -36,19 +37,23 @@ export default function Footer() {
   ]
 
   const services = [
-    { name: 'Web Development', href: '/services/web' },
-    { name: 'Mobile Apps', href: '/services/mobile' },
-    { name: 'AI Solutions', href: '/services/ai' },
-    { name: 'Blockchain', href: '/services/blockchain' },
-    { name: 'Gaming Systems', href: '/services/gaming' }
+    { name: 'AI Solutions', href: '/services/ai-solutions' },
+    { name: 'iGaming Platforms', href: '/services/igaming' },
+    { name: 'Crypto Exchange', href: '/services/crypto-exchange' },
+    { name: 'Mobile Apps', href: '/services/mobile-apps' },
+    { name: 'E-commerce', href: '/services/ecommerce' },
+    { name: 'Tech Training', href: '/services/tech-training' }
   ]
 
   const courses = [
-    { name: 'Frontend Development', href: '/course/frontend-development' },
-    { name: 'Backend Development', href: '/course/backend-development' },
-    { name: 'Data Science', href: '/course/data-science' },
-    { name: 'AI & Machine Learning', href: '/course/artificial-intelligence' },
-    { name: 'Mobile Development', href: '/course/mobile-development' }
+    { name: 'UI/UX Design', id: 'ui-ux-design' },
+    { name: 'React.js Frontend', id: 'react-frontend-development' },
+    { name: 'Node.js & MongoDB', id: 'nodejs-mongodb-backend' },
+    { name: 'Data Science', id: 'data-science' },
+    { name: 'AI & Machine Learning', id: 'ai-machine-learning' },
+    { name: 'Mobile Development', id: 'react-native-development' },
+    { name: 'Blockchain & Web3', id: 'blockchain-development' },
+    { name: 'Full Stack Development', id: 'full-stack-development' }
   ]
 
   const socialMediaLinks = [
@@ -154,12 +159,12 @@ export default function Footer() {
               <ul className="space-y-3">
                 {courses.map((course, index) => (
                   <li key={index}>
-                    <a 
-                      href={course.href}
+                    <Link 
+                      to={`/course/${course.id}`}
                       className="text-[#94a3b8] hover:text-[#7c3aed] transition-colors duration-300 text-sm hover:translate-x-1 transform inline-block"
                     >
                       {course.name}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -174,12 +179,12 @@ export default function Footer() {
               <ul className="space-y-3 mb-8">
                 {quickLinks.map((link, index) => (
                   <li key={index}>
-                    <a 
-                      href={link.href}
+                    <Link 
+                      to={link.href}
                       className="text-[#94a3b8] hover:text-[#ec4899] transition-colors duration-300 text-sm hover:translate-x-1 transform inline-block"
                     >
                       {link.name}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -240,7 +245,6 @@ export default function Footer() {
                 <div className="flex flex-wrap justify-center md:justify-end space-x-4 text-xs">
                   <a href="/privacy" className="text-[#94a3b8] hover:text-[#06b6d4] transition-colors duration-300">Privacy Policy</a>
                   <a href="/terms" className="text-[#94a3b8] hover:text-[#06b6d4] transition-colors duration-300">Terms of Service</a>
-                  <a href="/careers" className="text-[#94a3b8] hover:text-[#06b6d4] transition-colors duration-300">Careers</a>
                 </div>
               </div>
             </div>

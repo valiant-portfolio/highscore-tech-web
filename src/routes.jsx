@@ -11,6 +11,8 @@ const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const AdminLogin = lazy(() => import('./pages/auth/AdminLogin'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const Gallary = lazy(() => import('./components/Gallary'));
+const Projects = lazy(() => import('./pages/Projects/Index'));
 // const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
@@ -21,6 +23,7 @@ const MobileAppsDetail = lazy(() => import('./pages/services/MobileAppsDetail'))
 const EcommerceDetail = lazy(() => import('./pages/services/EcommerceDetail'));
 const TechTrainingDetail = lazy(() => import('./pages/services/TechTrainingDetail'));
 const NDAIndex = lazy(() => import('./pages/NDA/Index'));
+const GalleryPage = lazy(() => import('./pages/Gallery'));
 
 // Student Dashboard - Lazy loaded
 const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
@@ -35,11 +38,33 @@ export const routes = [
     name: 'Home',
     showInNav: true,
     protected: false,
+    index: true
   },
   {
     path: '/about',
     element: <About /> ,
     name: 'About',
+    showInNav: true,
+    protected: false,
+  },
+  {
+    path: '/gallery',
+    element: <GalleryPage />,
+    name: 'Gallery',
+    showInNav: true,
+    protected: false,
+  },
+  {
+    path: '/gallary',
+    element: <Gallary />,
+    name: 'Project Gallary',
+    showInNav: true,
+    protected: false,
+  },
+  {
+    path: '/projects',
+    element: <Projects />,
+    name: 'Projects',
     showInNav: true,
     protected: false,
   },
