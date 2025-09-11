@@ -12,6 +12,9 @@ const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const AdminLogin = lazy(() => import('./pages/auth/AdminLogin'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(()=> import('./pages/Privacy'));
+const Contact = lazy (()=> import ('./pages/Contact'))
 // const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
@@ -100,6 +103,30 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
+
+    {
+    path: '/terms',
+    element: <Terms/>,
+    name: 'Terms of Service',
+    showInNav: false,
+    protected: false,
+  },
+
+  {
+    path: '/privacy',
+    element: <Privacy/>,
+    name: 'Privacy Policy',
+    showInNav: false,
+    protected: false,
+  },
+
+  {
+    path: '/Contact',
+    element: <Contact/>,
+    name: 'Contact',
+    showInNav: false,
+    protected: false,
+  },
   
   // Service Routes
   {
@@ -144,6 +171,7 @@ export const routes = [
     showInNav: true,
     protected: false,
   },
+
 
 
   // {
