@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router';
 import Examination from './pages/exam/Index';
+import Test from './pages/test/Index';
 
 // Lazy load all components for better performance
 const NotFound = lazy(() => import('./pages/Notfound'));
@@ -11,8 +12,9 @@ const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const AdminLogin = lazy(() => import('./pages/auth/AdminLogin'));
 const Register = lazy(() => import('./pages/auth/Register'));
-const Gallary = lazy(() => import('./components/Gallary'));
-const Projects = lazy(() => import('./pages/Projects/Index'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(()=> import('./pages/Privacy'));
+const Contact = lazy (()=> import ('./pages/Contact'))
 // const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
@@ -111,23 +113,40 @@ export const routes = [
     protected: false,
   },
   {
-    path: '/exam/finals',
-    element: <Examination /> ,
+    path: '/test',
+    element: <Test /> ,
     name: 'Examination',
     showInNav: false,
     protected: false,
   },
-  // {
-  //   path: '/exam',
-  //   element: <ExamPage />,
-  //   name: 'Exam',
-  //   showInNav: false,
-  //   protected: false,
-  // },
   {
     path: '/student',
     element:<ProtectedRoute > <StudentDashboard /> </ProtectedRoute> ,
     name: 'StudentDashboard',
+    showInNav: false,
+    protected: false,
+  },
+
+    {
+    path: '/terms',
+    element: <Terms/>,
+    name: 'Terms of Service',
+    showInNav: false,
+    protected: false,
+  },
+
+  {
+    path: '/privacy',
+    element: <Privacy/>,
+    name: 'Privacy Policy',
+    showInNav: false,
+    protected: false,
+  },
+
+  {
+    path: '/Contact',
+    element: <Contact/>,
+    name: 'Contact',
     showInNav: false,
     protected: false,
   },
@@ -175,6 +194,7 @@ export const routes = [
     showInNav: true,
     protected: false,
   },
+
 
 
   // {
