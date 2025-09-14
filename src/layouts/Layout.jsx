@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { routes } from '../routes';
-// import ChatModal from '../components/ChatModal';
 import TelegramIcon from '@mui/icons-material/Telegram';
 
 const Layout = () => {
