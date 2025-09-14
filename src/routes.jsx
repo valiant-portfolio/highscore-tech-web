@@ -133,7 +133,7 @@ export const routes = [
     path: '/terms',
     element: <Terms/>,
     name: 'Terms of Service',
-    showInNav: false,
+    showInNav: true,
     protected: false,
   },
 
@@ -141,7 +141,7 @@ export const routes = [
     path: '/privacy',
     element: <Privacy/>,
     name: 'Privacy Policy',
-    showInNav: false,
+    showInNav: true,
     protected: false,
   },
 

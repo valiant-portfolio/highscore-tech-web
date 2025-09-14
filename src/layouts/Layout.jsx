@@ -3,7 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { routes } from '../routes';
-import ChatModal from '../components/ChatModal';
+// import ChatModal from '../components/ChatModal';
+import TelegramIcon from '@mui/icons-material/Telegram';
 
 const Layout = () => {
   const location = useLocation();
@@ -40,8 +41,30 @@ const Layout = () => {
         <main className="pl-0 mx-auto">
           <Outlet />
         </main>
+                <a
+            href="https://t.me/valiant_joe"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              position: 'fixed',
+              bottom: '2rem',
+              right: '2rem',
+              backgroundColor: 'var(--primary-blue)',
+              color: 'white',
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+              zIndex: 1000,
+            }}
+          >
+            <TelegramIcon />
+          </a>
       {showNavigation && <Footer />}
-      <ChatModal />
+      {/* <ChatModal /> */}
     </div>
   )
 }
