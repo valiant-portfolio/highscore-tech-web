@@ -15,7 +15,7 @@ const Register = lazy(() => import('./pages/auth/Register'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(()=> import('./pages/Privacy'));
 const Contact = lazy (()=> import ('./pages/Contact'))
-// const ExamPage = lazy(() => import('./pages/Exam'));
+const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
 const IGamingDetail = lazy(() => import('./pages/services/iGamingDetail'));
@@ -152,7 +152,13 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
-  
+    {
+    path: '/exam',
+    element: <ExamPage/>,
+    name: 'Contact',
+    showInNav: false,
+    protected: false,
+  },
   // Service Routes
   {
     path: '/services/igaming',
