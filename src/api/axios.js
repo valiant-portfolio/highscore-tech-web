@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 export const backendUrl = () => {
   let localhostUrl = "http://localhost:8000";
-  let remoteUrl = "https://highscore-tech-server.onrender.com";
+  let remoteUrl = "https://love-meet.onrender.com/highscore-tech";
   
   // Check if window is defined (client-side) before accessing location
   const isLocalhost = typeof window !== 'undefined' && 
