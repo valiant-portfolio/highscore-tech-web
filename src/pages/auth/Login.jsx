@@ -55,6 +55,7 @@ export default function Login() {
     
     try { 
       const response = await api.post("/auth/login",formData )
+      console.log(response)
         if(response?.success){
           toast.success(response?.message)
           setstudentData(response?.data?.user)

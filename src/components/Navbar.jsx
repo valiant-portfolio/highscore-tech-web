@@ -30,7 +30,6 @@ export default function Navbar() {
     },
     { name: 'About Us', href: '/about' },
     { name: 'Courses', href: '/courses' },
-
   ];
 
   const toggleMobileMenu = () => {
@@ -88,7 +87,7 @@ export default function Navbar() {
   }, [isMobileMenuOpen]);
 
   const handleLogin = () =>{
-    navigate("/student")
+    window.location.href = "/student"
     setIsMobileMenuOpen(false)
   }
 
