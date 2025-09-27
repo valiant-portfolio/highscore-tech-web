@@ -1,8 +1,8 @@
 export const coursesData = [
   {
     id: "ui-ux-design",
-    name: "UI/UX Design",
-    price: 100000,
+    name: "Product Developer",
+    price: 160000,
     duration: 2,
     level: "Beginner to Advanced",
     icon: "🎨",
@@ -648,7 +648,7 @@ export const coursesData = [
   },
   {
     id: "data-science",
-    name: "Data Science & Analytics Mastery",
+    name: "Data Science ",
     duration: 6,
     price: 300000,
     level: "Intermediate to Advanced",
@@ -848,16 +848,17 @@ export const coursesData = [
     id: "react-native-development",
     name: "React Native Mobile Development",
     duration: 2,
-    price: 100000,
+    price: 200000, // updated price
     level: "Intermediate",
     icon: "📱",
     shortDescription:
-      "Build cross-platform mobile apps with React Native for iOS and Android platforms.",
+      "Learn React.js and then build cross-platform mobile apps with React Native for iOS and Android platforms.",
     longDescription:
-      "Specialized React Native development program designed for developers who already have React.js knowledge. This course focuses on mobile-specific concepts and React Native framework to build native mobile applications. You'll learn to leverage your existing React skills to create high-performance mobile apps with native-like user experiences. The curriculum covers React Native components, navigation, state management, device integration, and platform-specific features. You'll master mobile UI patterns, performance optimization, and app store deployment processes. Through hands-on projects, you'll build real-world mobile applications including social media apps, e-commerce platforms, and productivity tools. The course emphasizes the differences between web and mobile development, native module integration, and best practices for React Native development.",
+      "This program is designed for aspiring mobile developers who want to master both React.js and React Native. You'll start by learning React.js fundamentals—components, hooks, state management, and modern frontend patterns—before progressing to mobile-specific concepts with React Native. The course covers React Native components, navigation, device integration, and platform-specific features. You'll master mobile UI patterns, performance optimization, and app store deployment processes. Through hands-on projects, you'll build real-world mobile applications including social media apps, e-commerce platforms, and productivity tools. The course emphasizes the differences between web and mobile development, native module integration, and best practices for React Native development.",
     gradient: "from-[#61dafb] to-[#21759b]",
     bgGradient: "from-[#61dafb]/10 to-[#21759b]/10",
     features: [
+      "React.js Fundamentals",
       "React Native Components & APIs",
       "Mobile Navigation Systems",
       "State Management for Mobile",
@@ -870,6 +871,17 @@ export const coursesData = [
       "Production Best Practices",
     ],
     modules: [
+      {
+        title: "React.js Fundamentals",
+        duration: "2 weeks",
+        topics: [
+          "JSX & Components",
+          "Props & State",
+          "Hooks",
+          "Event Handling",
+          "Routing & Navigation",
+        ],
+      },
       {
         title: "React Native Fundamentals",
         duration: "2 weeks",
@@ -916,7 +928,7 @@ export const coursesData = [
       },
     ],
     requirements: [
-      "Solid React.js knowledge and experience",
+      "Willingness to learn React.js before React Native",
       "JavaScript ES6+ proficiency",
       "Understanding of React Hooks and state management",
       "Basic knowledge of mobile app concepts",
@@ -928,8 +940,9 @@ export const coursesData = [
       "Time commitment of 12-15 hours per week",
     ],
     outcomes: [
+      "Learn React.js fundamentals for frontend development",
       "Build production-ready React Native mobile applications",
-      "Leverage existing React skills for mobile development",
+      "Leverage React skills for mobile development",
       "Integrate native device features and APIs",
       "Implement platform-specific functionality for iOS and Android",
       "Deploy apps to Apple App Store and Google Play Store",

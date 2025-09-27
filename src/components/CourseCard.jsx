@@ -8,7 +8,7 @@ const CourseCard = ({ course, index }) => {
   const navigate = useNavigate();
 
   const handleCourseClick = () => {
-    navigate(`/course/${course.id}`);
+     window.location.href = `/course/${course.id}`;
   };
 
   return (

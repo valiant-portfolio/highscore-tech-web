@@ -35,19 +35,19 @@ export default function Footer() {
   ]
 
   const services = [
-    { name: 'Web Development', href: '/services/web' },
-    { name: 'Mobile Apps', href: '/services/mobile' },
-    { name: 'AI Solutions', href: '/services/ai' },
-    { name: 'Blockchain', href: '/services/blockchain' },
-    { name: 'Gaming Systems', href: '/services/gaming' }
+    { name: 'Web Development', href: '/react-frontend-development' },
+    { name: 'Mobile Apps', href: '/course/react-native-development' },
+    { name: 'AI Solutions', href: '/course/machine-learning-engineering' },
+    { name: 'Blockchain', href: '/course/blockchain-development' },
+    { name: 'Gaming Systems', href: '/course/web-gaming-development' }
   ]
 
   const courses = [
-    { name: 'Frontend Development', href: '/course/frontend-development' },
-    { name: 'Backend Development', href: '/course/backend-development' },
+    { name: 'Frontend Development', href: '/react-frontend-development' },
+    { name: 'Backend Development', href: '/course/nodejs-mongodb-backend' },
     { name: 'Data Science', href: '/course/data-science' },
-    { name: 'AI & Machine Learning', href: '/course/artificial-intelligence' },
-    { name: 'Mobile Development', href: '/course/mobile-development' }
+    { name: 'AI & Machine Learning', href: '/course/machine-learning-engineering' },
+    { name: 'Mobile Development', href: '/course/react-native-development' }
   ]
 
   const socialMediaLinks = [
