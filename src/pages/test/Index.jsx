@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { mathQuestions } from './questions/mathQuestions';
+import { webDevQuestions } from './questions/mathQuestions';
 import Answers from './Answers';
 
 const Test = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState(Array(mathQuestions.length).fill(null));
+  const [selectedAnswers, setSelectedAnswers] = useState(Array(webDevQuestions.length).fill(null));
   const [showResult, setShowResult] = useState(false);
   const [showAnswers, setShowAnswers] = useState(false);
   const [score, setScore] = useState(0);
@@ -27,8 +27,8 @@ const Test = () => {
 
   const handleSubmit = () => {
     let newScore = 0;
-    for (let i = 0; i < mathQuestions.length; i++) {
-      if (selectedAnswers[i] === mathQuestions[i].correctAnswer) {
+    for (let i = 0; i < webDevQuestions.length; i++) {
+      if (selectedAnswers[i] === webDevQuestions[i].correctAnswer) {
         newScore++;
       }
     }
@@ -37,7 +37,7 @@ const Test = () => {
   };
 
   const handleNext = () => {
-    if (currentQuestion < mathQuestions.length - 1) {
+    if (currentQuestion < webDevQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
@@ -60,7 +60,7 @@ const Test = () => {
 
   // const restartTest = () => {
   //   setCurrentQuestion(0);
-  //   setSelectedAnswers(Array(mathQuestions.length).fill(null));
+  //   setSelectedAnswers(Array(webDevQuestions.length).fill(null));
   //   setShowResult(false);
   //   setShowAnswers(false);
   //   setScore(0);
@@ -78,13 +78,13 @@ const Test = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--bg-primary)] p-4 text-[var(--text-primary)]">
         {showAnswers ? (
-            <Answers questions={mathQuestions} userAnswers={selectedAnswers} onBackToScore={handleBackToScore} />
+            <Answers questions={webDevQuestions} userAnswers={selectedAnswers} onBackToScore={handleBackToScore} />
         ) : (
             <div className="w-full max-w-2xl bg-[var(--bg-secondary)] rounded-lg shadow-md p-6">
                 {showResult ? (
                 <div className="text-center">
                     <h2 className="text-2xl font-bold mb-4">Test Results</h2>
-                    <p className="text-xl mb-4">Your score: {score} out of {mathQuestions.length} ({((score / mathQuestions.length) * 100).toFixed(2)}%)</p>
+                    <p className="text-xl mb-4">Your score: {score} out of {webDevQuestions.length} ({((score / webDevQuestions.length) * 100).toFixed(2)}%)</p>
                     <div className="flex justify-center space-x-4">
                         <button
                         onClick={handleViewAnswers}
@@ -97,16 +97,16 @@ const Test = () => {
                 ) : (
                 <>
                     <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">Question {currentQuestion + 1} of {mathQuestions.length}</h2>
+                    <h2 className="text-xl font-bold">Question {currentQuestion + 1} of {webDevQuestions.length}</h2>
                     <div className="text-lg font-mono bg-[var(--bg-tertiary)] px-3 py-1 rounded">
                         Time Left: {formatTime(timeLeft)}
                     </div>
                     </div>
                     <div className="mb-4">
-                    <p className="text-lg">{mathQuestions[currentQuestion].question}</p>
+                    <p className="text-lg">{webDevQuestions[currentQuestion].question}</p>
                     </div>
                     <div className="flex flex-col space-y-2">
-                    {mathQuestions[currentQuestion].options.map((option, index) => (
+                    {webDevQuestions[currentQuestion].options.map((option, index) => (
                         <button
                         key={index}
                         onClick={() => handleAnswerSelect(option)}
@@ -138,7 +138,7 @@ const Test = () => {
                     )}
                     <button
                         onClick={handleNext}
-                        disabled={currentQuestion === mathQuestions.length - 1}
+                        disabled={currentQuestion === webDevQuestions.length - 1}
                         className="bg-[var(--color-gray-700)] text-[var(--text-primary)] px-4 py-2 rounded hover:bg-[var(--color-gray-800)] disabled:opacity-50"
                     >
                         Next
