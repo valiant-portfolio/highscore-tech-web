@@ -9,14 +9,14 @@ const Exam = () => {
   const [activeTab, setActiveTab] = useState('question');
   const [htmlCode, setHtmlCode] = useState(
     `<!-- Your HTML structure goes here -->
-<div id="app">
-  <h1>My To-Do List</h1>
-  <form id="todo-form">
-    <input type="text" id="todo-input" placeholder="Add a new task..." />
-    <button type="submit">Add</button>
-  </form>
-  <ul id="todo-list"></ul>
-</div>`
+    <div id="app">
+      <h1>My To-Do List</h1>
+      <form id="todo-form">
+        <input type="text" id="todo-input" placeholder="Add a new task..." />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="todo-list"></ul>
+    </div>`
   );
   const [cssCode, setCssCode] = useState(
     `/* Your CSS styles go here */
