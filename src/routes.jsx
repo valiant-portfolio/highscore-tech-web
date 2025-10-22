@@ -28,6 +28,8 @@ const NDAIndex = lazy(() => import('./pages/NDA/Index'));
 const GalleryPage = lazy(() => import('./pages/Gallery'));
 const Gallary = lazy(() => import('./components/Gallary'));
 const Projects = lazy(() => import('./pages/Projects/Index'));
+const Careers = lazy(() => import('./pages/career/Careers'));
+const JobDetail = lazy(() => import('./pages/career/JobDetail'));
 
 // Student Dashboard - Lazy loaded
 const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
@@ -156,6 +158,20 @@ export const routes = [
     path: '/exam',
     element: <ExamPage/>,
     name: 'Contact',
+    showInNav: false,
+    protected: false,
+  },
+  {
+    path: '/careers',
+    element: <Careers />,
+    name: 'Careers',
+    showInNav: false,
+    protected: false,
+  },
+  {
+    path: '/careers/:jobId',
+    element: <JobDetail />,
+    name: 'Job Detail',
     showInNav: false,
     protected: false,
   },

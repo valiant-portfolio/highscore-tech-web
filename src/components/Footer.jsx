@@ -31,7 +31,8 @@ export default function Footer() {
     { name: 'About Us', href: '/about' },
     { name: 'Courses', href: '/courses' },
     { name: 'Gallery', href: '/gallery' },
-    { name: 'Contact', href: '/contact' }
+    { name: 'Contact', href: '/contact' },
+    { name: 'Careers', href: '/careers' },
   ]
 
   const services = [
