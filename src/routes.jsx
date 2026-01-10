@@ -13,8 +13,8 @@ const Login = lazy(() => import('./pages/auth/Login'));
 const AdminLogin = lazy(() => import('./pages/auth/AdminLogin'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const Terms = lazy(() => import('./pages/Terms'));
-const Privacy = lazy(()=> import('./pages/Privacy'));
-const Contact = lazy (()=> import ('./pages/Contact'))
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Contact = lazy(() => import('./pages/Contact'));
 const ExamPage = lazy(() => import('./pages/Exam'));
 
 // Service Components - Lazy loaded
@@ -24,12 +24,15 @@ const AISolutionsDetail = lazy(() => import('./pages/services/AISolutionsDetail'
 const MobileAppsDetail = lazy(() => import('./pages/services/MobileAppsDetail'));
 const EcommerceDetail = lazy(() => import('./pages/services/EcommerceDetail'));
 const TechTrainingDetail = lazy(() => import('./pages/services/TechTrainingDetail'));
+
 const NDAIndex = lazy(() => import('./pages/NDA/Index'));
 const GalleryPage = lazy(() => import('./pages/Gallery'));
 const Gallary = lazy(() => import('./components/Gallary'));
-const Projects = lazy(() => import('./pages/Projects/Index'));
 const Careers = lazy(() => import('./pages/career/Careers'));
 const JobDetail = lazy(() => import('./pages/career/JobDetail'));
+
+// ✅ PORTFOLIO PAGE (ADDED)
+const Portfolio = lazy(() => import('./pages/Portfolio'));
 
 // Student Dashboard - Lazy loaded
 const StudentDashboard = lazy(() => import('./pages/students/StudentDashboard'));
@@ -40,7 +43,7 @@ const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 export const routes = [
   {
     path: '/',
-    element: <HomePage /> ,
+    element: <HomePage />,
     name: 'Home',
     showInNav: true,
     protected: false,
@@ -48,11 +51,20 @@ export const routes = [
   },
   {
     path: '/about',
-    element: <About /> ,
+    element: <About />,
     name: 'About',
     showInNav: true,
     protected: false,
   },
+
+  {
+    path: '/portfolio',
+    element: <Portfolio />,
+    name: 'Portfolio',
+    showInNav: true,
+    protected: false,
+  },
+
   {
     path: '/gallery',
     element: <GalleryPage />,
@@ -61,102 +73,85 @@ export const routes = [
     protected: false,
   },
   {
-    path: '/gallary',
-    element: <Gallary />,
-    name: 'Project Gallary',
-    showInNav: true,
-    protected: false,
-  },
-  {
-    path: '/projects',
-    element: <Projects />,
-    name: 'Projects',
-    showInNav: true,
-    protected: false,
-  },
-  {
     path: '/courses',
-    element: <Course /> ,
+    element: <Course />,
     name: 'About',
     showInNav: true,
     protected: false,
   },
-    {
+  {
     path: '/course/:courseId',
-    element: <CourseDetail /> ,
+    element: <CourseDetail />,
     name: 'About',
     showInNav: true,
     protected: false,
   },
   {
     path: '/login',
-    element: <Login /> ,
+    element: <Login />,
     name: 'Login',
     showInNav: false,
     protected: false,
   },
   {
     path: '/admin-login',
-    element: <AdminLogin /> ,
+    element: <AdminLogin />,
     name: 'Login',
     showInNav: false,
     protected: false,
   },
   {
     path: '/register',
-    element:  <Register /> ,
+    element: <Register />,
     name: 'Register',
     showInNav: false,
     protected: false,
   },
   {
     path: '/nd-agreement',
-    element:  <NDAIndex /> ,
+    element: <NDAIndex />,
     name: 'agreement',
     showInNav: false,
     protected: false,
   },
   {
     path: '/test',
-    element: <Test /> ,
+    element: <Test />,
     name: 'Examination',
     showInNav: false,
     protected: false,
   },
   {
     path: '/student',
-    element:<ProtectedRoute > <StudentDashboard /> </ProtectedRoute> ,
+    element: <ProtectedRoute><StudentDashboard /></ProtectedRoute>,
     name: 'StudentDashboard',
     showInNav: false,
     protected: false,
   },
-
-    {
+  {
     path: '/terms',
-    element: <Terms/>,
+    element: <Terms />,
     name: 'Terms of Service',
     showInNav: true,
     protected: false,
   },
-
   {
     path: '/privacy',
-    element: <Privacy/>,
+    element: <Privacy />,
     name: 'Privacy Policy',
     showInNav: true,
     protected: false,
   },
-
   {
     path: '/Contact',
-    element: <Contact/>,
+    element: <Contact />,
     name: 'Contact',
     showInNav: false,
     protected: false,
   },
-    {
+  {
     path: '/exam',
-    element: <ExamPage/>,
+    element: <ExamPage />,
     name: 'Contact',
     showInNav: false,
     protected: false,
@@ -175,6 +170,7 @@ export const routes = [
     showInNav: false,
     protected: false,
   },
+
   // Service Routes
   {
     path: '/services/igaming',
@@ -218,23 +214,6 @@ export const routes = [
     showInNav: true,
     protected: false,
   },
-
-
-
-  // {
-  //   path: '/transactions',
-  //   element: <ProtectedRoute><Transactions /></ProtectedRoute>,
-  //   name: 'Transactions',
-  //   showInNav: true,
-  //   protected: true,
-  //   children: [
-  //     {
-  //       index: true,
-  //       element: <DepositsTable />,
-  //     },
- 
-  //   ],
-  // },
   {
     path: '*',
     element: <NotFound />,

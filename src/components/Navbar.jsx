@@ -30,6 +30,7 @@ export default function Navbar() {
     },
     { name: 'About Us', href: '/about' },
     { name: 'Courses', href: '/courses' },
+    { name: 'Portfolio', href: '/portfolio' },   // ✅ ADDED
   ];
 
   const toggleMobileMenu = () => {
