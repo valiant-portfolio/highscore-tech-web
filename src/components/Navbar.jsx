@@ -124,10 +124,10 @@ export default function Navbar() {
                     }`}
                   >
                     {link.name}
-                    <ExpandMore className="text-sm" />
                     <span className={`absolute bottom-0 left-0 h-0.5 bg-gradient-red transition-all duration-300 ${
                       activeLink === link.name ? 'w-full' : 'w-0'
                     }`}></span>
+                    <ExpandMore className="text-sm" />
                   </button>
                   
                   {isTrainingDropdownOpen && (
@@ -161,10 +161,11 @@ export default function Navbar() {
             </div>
           ))}
           
-          {/* Join Our Forum Button */}
+          {/* Join Our Forum Button 
           <button onClick={handleLogin} className="button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
             {studentData ? "View your profile" : "Join Academy"}  
           </button>
+          */}
         </div>
 
         {/* Mobile Menu Button */}
@@ -234,10 +235,11 @@ export default function Navbar() {
                 </div>
               ))}
               
-              {/* Mobile Join Our Forum Button */}
+              {/* Mobile Join Our Forum Button 
               <button onClick={handleLogin} className="w-full button-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg mt-4">
                 {studentData ? "View your profile" : "Join Academy"}  
               </button>
+              */}
             </div>
           </div>
         </div>
