@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   Launch,
   Lock,
-  VerifiedUser,
   Shield
 } from '@mui/icons-material';
 import 'animate.css';
@@ -10,58 +9,15 @@ import 'animate.css';
 export default function HighScorePortfolio() {
   const [filter, setFilter] = useState('All');
 
+  // I have moved Nanogames and Rainbet to the top of the array
   const projects = [
-    {
-      title: "LoveMeet Website",
-      description: "A high-conversion landing page and web platform for the LoveMeet ecosystem. Features integrated user dashboards and real-time analytics.",
-      tags: ["Web3", "Next.js", "Tailwind"],
-      category: "Web3",
-      link: "https://lovemeetapp.com/",
-      gradient: "from-[#2563eb] to-[#06b6d4]",
-      isPrivate: false
-    },
-    {
-      title: "LoveMeet Mobile",
-      description: "Native iOS/Android social discovery app featuring real-time matching, push notifications, and high-performance UX.",
-      tags: ["React Native", "Firebase", "Mobile"],
-      category: "Mobile App",
-      link: "https://lovemeetapp.com/",
-      gradient: "from-[#7c3aed] to-[#ec4899]",
-      isPrivate: false
-    },
-    {
-      title: "CoreBanking Ledger",
-      description: "Private high-security transaction engine for a major financial institution. Handles 10k+ TPS with multi-layer encryption.",
-      tags: ["Fintech", "Security", "Backend"],
-      category: "Web3",
-      link: "#",
-      gradient: "from-[#475569] to-[#1e293b]",
-      isPrivate: true
-    },
-    {
-      title: "Logistics Fleet AI",
-      description: "Proprietary mobile solution for real-time driver tracking and AI-based route optimization for international logistics.",
-      tags: ["Mobile", "AI", "Fleet"],
-      category: "Mobile App",
-      link: "#",
-      gradient: "from-[#0f172a] to-[#334155]",
-      isPrivate: true
-    },
-    {
-      title: "HireLocalUSA.com",
-      description: "Comprehensive local services marketplace connecting skilled professionals with businesses via robust verification.",
-      tags: ["Marketplace", "B2B", "SEO"],
-      category: "E-commerce",
-      link: "https://www.hirelocalusa.com/",
-      gradient: "from-[#10b981] to-[#06b6d4]",
-      isPrivate: false
-    },
     {
       title: "Nanogames.io",
       description: "Pioneering social crypto gaming platform built with Provably Fair technology and a vibrant community ecosystem.",
       tags: ["Web3", "Gaming", "DeFi"],
       category: "Web3",
       link: "https://nanogames.io",
+      thumbnail: "/assets/thumbnail/nano.png", // Replace with your high-res screenshot path
       gradient: "from-[#f97316] to-[#f59e0b]",
       isPrivate: false
     },
@@ -71,7 +27,58 @@ export default function HighScorePortfolio() {
       tags: ["Casino", "Solana", "Gaming"],
       category: "Gaming",
       link: "https://rainbet.com",
+      thumbnail: "/assets/thumbnail/rain bet.png",// Replace with your high-res screenshot path
       gradient: "from-[#ec4899] to-[#f97316]",
+      isPrivate: false
+    },
+    {
+      title: "LoveMeet Website",
+      description: "A high-conversion landing page and web platform for the LoveMeet ecosystem. Features integrated user dashboards and real-time analytics.",
+      tags: ["Web3", "Next.js", "Tailwind"],
+      category: "Web3",
+      link: "https://lovemeetapp.com/",
+      thumbnail: "/assets/thumbnail/lovemeet.png", 
+      gradient: "from-[#2563eb] to-[#06b6d4]",
+      isPrivate: false
+    },
+    {
+      title: "LoveMeet Mobile",
+      description: "Native iOS/Android social discovery app featuring real-time matching, push notifications, and high-performance UX.",
+      tags: ["React Native", "Firebase", "Mobile"],
+      category: "Mobile App",
+      link: "https://lovemeetapp.com/",
+      thumbnail: "/assets/thumbnail/lovemeet2.png",
+      gradient: "from-[#7c3aed] to-[#ec4899]",
+      isPrivate: false
+    },
+    {
+      title: "CoreBanking Ledger",
+      description: "Private high-security transaction engine for a major financial institution. Handles 10k+ TPS with multi-layer encryption.",
+      tags: ["Fintech", "Security", "Backend"],
+      category: "Web3",
+      link: "#",
+      thumbnail: null,
+      gradient: "from-[#475569] to-[#1e293b]",
+      isPrivate: true
+    },
+    {
+      title: "Logistics Fleet AI",
+      description: "Proprietary mobile solution for real-time driver tracking and AI-based route optimization for international logistics.",
+      tags: ["Mobile", "AI", "Fleet"],
+      category: "Mobile App",
+      link: "#",
+      thumbnail: null,
+      gradient: "from-[#0f172a] to-[#334155]",
+      isPrivate: true
+    },
+    {
+      title: "HireLocalUSA.com",
+      description: "Comprehensive local services marketplace connecting skilled professionals with businesses via robust verification.",
+      tags: ["Marketplace", "B2B", "SEO"],
+      category: "E-commerce",
+      link: "https://www.hirelocalusa.com/",
+      thumbnail: "/assets/thumbnail/HireLocalUSA.png",
+      gradient: "from-[#10b981] to-[#06b6d4]",
       isPrivate: false
     },
     {
@@ -80,6 +87,7 @@ export default function HighScorePortfolio() {
       tags: ["Privacy", "Web3", "Casino"],
       category: "Gaming",
       link: "https://wagergames.casino",
+      thumbnail: "/assets/thumbnail/wager.png",
       gradient: "from-[#4f46e5] to-[#7c3aed]",
       isPrivate: false
     },
@@ -89,6 +97,7 @@ export default function HighScorePortfolio() {
       tags: ["Payments", "API", "B2B"],
       category: "E-commerce",
       link: "#",
+      thumbnail: null,
       gradient: "from-[#1e1b4b] to-[#312e81]",
       isPrivate: true
     },
@@ -98,6 +107,7 @@ export default function HighScorePortfolio() {
       tags: ["E-commerce", "Logistics", "Payments"],
       category: "E-commerce",
       link: "https://earnestmall.com",
+      thumbnail: "/assets/thumbnail/earnestmall.png",
       gradient: "from-[#06b6d4] to-[#2563eb]",
       isPrivate: false
     }
@@ -105,14 +115,6 @@ export default function HighScorePortfolio() {
 
   const categories = ['All', 'Web3', 'Gaming', 'E-commerce', 'Mobile App'];
   const filteredProjects = filter === 'All' ? projects : projects.filter(p => p.category === filter);
-
-  const getScreenshotUrl = (url, category) => {
-    const isMobile = category === 'Mobile App';
-    const params = isMobile 
-      ? `&screenshot=true&viewport.width=375&viewport.height=812&viewport.isMobile=true`
-      : `&screenshot=true&viewport.width=1280&viewport.height=800`;
-    return `https://api.microlink.io/?url=${encodeURIComponent(url)}${params}&meta=false&embed=screenshot.url`;
-  };
 
   return (
     <div className="bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] min-h-screen text-white font-sans selection:bg-[#06b6d4]/30">
@@ -162,15 +164,18 @@ export default function HighScorePortfolio() {
                   {project.isPrivate ? (
                     <div className="text-center p-6 flex flex-col items-center">
                       <Shield className="text-slate-600 text-6xl mb-3 opacity-30 animate-pulse" />
-                      <div className="text-[9px] font-mono text-slate-500 tracking-[0.3em] uppercase">-</div>
+                      <div className="text-[9px] font-mono text-slate-500 tracking-[0.3em] uppercase">Private Infrastructure</div>
                     </div>
                   ) : (
                     <img
-                      src={getScreenshotUrl(project.link, project.category)}
+                      src={project.thumbnail}
                       alt={project.title}
-                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/800x450/1a1a2e/60a5fa?text=HighScore+Tech'; }}
                     />
                   )}
+                  
+                  {/* Category Badge */}
                   <div className="absolute top-4 left-4">
                     <span className={`text-[10px] font-bold px-3 py-1 rounded-lg bg-gradient-to-r ${project.gradient} text-white uppercase`}>
                       {project.category}
