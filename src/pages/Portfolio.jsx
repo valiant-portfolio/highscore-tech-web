@@ -364,7 +364,7 @@ function HighScorePortfolio() {
       gradient: "from-[#22c55e] to-[#3b82f6]",
       isPrivate: false
     },
-    // --- New E-commerce Projects (3) ---
+    // --- New E-commerce Projects (4) ---
     {
       id: "shopai",
       title: "ShopAI Assistant",
@@ -399,6 +399,30 @@ function HighScorePortfolio() {
       thumbnail: "/assets/thumbnail/wholesalehub.png",
       images: ["/bulkhub-png/iPhone-13-PRO-wholesalehub.org%20(1).png", "/bulkhub-png/iPhone-13-PRO-wholesalehub.org%20(2).png", "/assets/thumbnail/wholesalehub.png","/bulkhub-png/iPhone-13-PRO-wholesalehub.org.png"],
       gradient: "from-[#65a30d] to-[#4d7c0f]",
+      isPrivate: false
+    },
+    {
+      id: "Solo-stove",
+      title: "Solo stove E-Commerce",
+      description: "Solo Stove is an outdoor lifestyle brand and product line best known for its high-efficiency,.",
+      tags: ["E-commerce", "SaaS", "Cloud"],
+      category: "E-commerce",
+      link: "https://www.solostove.com/us/en-us/",
+      thumbnail: "/assets/thumbnail/Solostove.png",
+      images: ["/solostove-png/iPhone-13-PRO-www.solostove.com (1).png", "/solostove-png/iPhone-13-PRO-www.solostove.com (2).png", "/solostove-png/iPhone-13-PRO-www.solostove.com.png","/assets/thumbnail/Solostove.png"],
+      gradient: "from-[#0ea5e9] to-[#6366f1]",
+      isPrivate: false
+    },
+    {
+      id: "Simply-commerce",
+      title: "Simply Commerce",
+      description: "Simply Chocolate CPH is a Danish brand offering premium, natural chocolates, gift boxes, and protein treats.",
+      tags: ["E-commerce", "Multi-Region", "SaaS"],
+      category: "E-commerce",
+      link: "https://www.simplychocolatecph.com/",
+      thumbnail: "/assets/gallery/simply.png",
+      images: ["/assets/gallery/simply.png","/simply-png/iPhone-13-PRO-www.simplychocolatecph.com (1).png","/simply-png/iPhone-13-PRO-www.simplychocolatecph.com (2).png","/simply-png/iPhone-13-PRO-www.simplychocolatecph.com.png"],
+      gradient: "from-[#14b8a6] to-[#3b82f6]",
       isPrivate: false
     },
     // --- New Mobile App Projects (4) ---
