@@ -53,16 +53,23 @@ export async function submitContactForm(
     };
   }
 
-  // Fire the notification + auto-reply emails. Failures are swallowed
-  // (logged inside sendContactEmails) so the user still sees success — the
-  // row was saved to the DB regardless.
-  void sendContactEmails({
-    name,
-    email,
-    phone: phone || null,
-    subject: subject || null,
-    message,
-  });
+  // Await the email sends. On serverless (Netlify Functions / AWS Lambda)
+  // the function freezes the moment we return — fire-and-forget promises
+  // get killed before SMTP completes, so the admin notification just
+  // never arrives. Costs us ~1-2s of response latency but is the only
+  // reliable pattern. Errors are caught inside sendContactEmails and
+  // logged; they don't bubble.
+  try {
+    await sendContactEmails({
+      name,
+      email,
+      phone: phone || null,
+      subject: subject || null,
+      message,
+    });
+  } catch (err) {
+    console.error('[contact] sendContactEmails threw:', err);
+  }
 
   return {
     status: 'success',

@@ -56,6 +56,7 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; id?: str
     );
     return { ok: true, id: 'noop' };
   }
+  const to = Array.isArray(args.to) ? args.to.join(', ') : args.to;
   try {
     const info = await transporter.sendMail({
       from: emailConfig.from,
@@ -71,10 +72,11 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; id?: str
         })),
       }),
     });
+    console.log(`[email:sent] "${args.subject}" → ${to} (id=${info.messageId})`);
     return { ok: true, id: info.messageId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error('[email] send threw:', message);
+    console.error(`[email:fail] "${args.subject}" → ${to} :: ${message}`);
     return { ok: false, error: message };
   }
 }

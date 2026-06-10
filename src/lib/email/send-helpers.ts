@@ -40,8 +40,10 @@ export async function sendContactEmails(args: {
     createElement(ContactAckEmail, { name: args.name }),
   );
 
+  console.log(`[contact] sending admin notify → ${emailConfig.admin}, ack → ${args.email}`);
+
   // Send both in parallel; failures are logged but don't bubble up.
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     sendEmail({
       to: emailConfig.admin,
       subject: `New contact: ${args.name}${args.subject ? ` — ${args.subject}` : ''}`,
@@ -54,6 +56,10 @@ export async function sendContactEmails(args: {
       html: ackHtml,
     }),
   ]);
+
+  for (const r of results) {
+    if (r.status === 'rejected') console.error('[contact] send rejected:', r.reason);
+  }
 }
 
 // ── Enrolment welcome (sent once, when first instalment lands) ──────────

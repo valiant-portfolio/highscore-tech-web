@@ -163,13 +163,18 @@ export async function amendStaffAction(_prev: AdminStaffState, formData: FormDat
   }
 
   // Notify staff if something changed AND we have an email to reach them.
+  // Await — fire-and-forget kills the SMTP mid-flight on serverless.
   const notifyTo = patch.work_email ?? before?.users?.email;
   if (changes.length > 0 && notifyTo) {
-    void sendStaffAmendmentEmail({
-      to: notifyTo,
-      firstName: fullName.split(' ')[0] || 'Team',
-      changes,
-    });
+    try {
+      await sendStaffAmendmentEmail({
+        to: notifyTo,
+        firstName: fullName.split(' ')[0] || 'Team',
+        changes,
+      });
+    } catch (err) {
+      console.error('[staff-amend] sendStaffAmendmentEmail threw:', err);
+    }
   }
 
   revalidatePath('/admin/staff');

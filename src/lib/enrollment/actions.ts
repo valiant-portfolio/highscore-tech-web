@@ -248,19 +248,25 @@ export async function markPaymentSucceededAction(reference: string, rawPayload?:
 
   revalidatePath('/profile');
 
-  // Side effects (emails). Don't block the action result — failures are
-  // logged inside the helpers. Fire-and-forget.
+  // Side-effect emails. AWAIT, don't fire-and-forget — on serverless the
+  // function freezes the moment we return so any pending promise gets
+  // killed mid-flight and the email never sends. Errors are caught
+  // inside sendPaymentEmails and logged.
   if (enrollment) {
-    void sendPaymentEmails({
-      paymentId: payment.id,
-      enrollmentId: payment.enrollment_id,
-      studentId: enrollment.student_id,
-      courseId: enrollment.course_id,
-      amountNgn: payment.amount_ngn,
-      paidNgn: paid,
-      totalNgn: enrollment.total_ngn,
-      isFirstPayment,
-    });
+    try {
+      await sendPaymentEmails({
+        paymentId: payment.id,
+        enrollmentId: payment.enrollment_id,
+        studentId: enrollment.student_id,
+        courseId: enrollment.course_id,
+        amountNgn: payment.amount_ngn,
+        paidNgn: paid,
+        totalNgn: enrollment.total_ngn,
+        isFirstPayment,
+      });
+    } catch (err) {
+      console.error('[enrollment] sendPaymentEmails threw:', err);
+    }
   }
 }
 
@@ -313,8 +319,8 @@ async function sendPaymentEmails(args: PaymentEmailArgs): Promise<void> {
     enrollmentPaidNgn: args.paidNgn,
   };
 
-  // Receipt always.
-  void sendReceiptEmail({
+  // Receipt always — await so the SMTP completes before the function dies.
+  await sendReceiptEmail({
     to: user.email,
     firstName,
     receipt,
@@ -328,7 +334,7 @@ async function sendPaymentEmails(args: PaymentEmailArgs): Promise<void> {
 
   // Welcome only on the first payment of the enrolment.
   if (args.isFirstPayment) {
-    void sendEnrollmentWelcome({
+    await sendEnrollmentWelcome({
       to: user.email,
       firstName,
       courseTitle,
