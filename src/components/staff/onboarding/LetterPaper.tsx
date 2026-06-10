@@ -74,7 +74,7 @@ export function LetterPaper({
     <div className="mx-auto max-w-[760px]">
       {/* Subtle "page on desk" shadow */}
       <div
-        className="bg-[#FBFAF6] text-[#1A1B1E] rounded-md shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55),0_18px_32px_-12px_rgba(0,0,0,0.35)] overflow-hidden"
+        className="bg-white text-[#1A1B1E] rounded-md shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55),0_18px_32px_-12px_rgba(0,0,0,0.35)] overflow-hidden"
         style={{ fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' }}
       >
         {/* Letterhead */}
@@ -155,11 +155,12 @@ function SignatureSlot({
       <div className="mt-3 relative">
         <div className="h-20 flex items-end justify-start">
           {imageUrl ? (
+            // Processed signature is a transparent PNG, so no blend mode
+            // is needed — drop it straight onto the white paper.
             <img
               src={imageUrl}
               alt=""
               className="max-h-20 max-w-full object-contain object-bottom"
-              style={{ mixBlendMode: 'multiply' }}
             />
           ) : scriptName ? (
             <span
