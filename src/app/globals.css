@@ -1,0 +1,199 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* =============================================================================
+   Tailwind v4 theme — exposes the tokens from styles/tokens.css to the
+   Tailwind utility namespace (bg-brand, text-fg, shadow-elev-2, etc.).
+   Components prefer semantic tokens; raw palette utilities exist for the
+   rare cases where a specific hue is required (e.g. product accents).
+   ========================================================================== */
+
+@theme inline {
+  /* ── Fonts ──────────────────────────────────────────────────────────────── */
+  --font-sans:    var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Semantic colors (preferred for components) ─────────────────────────── */
+  --color-bg:                 var(--bg);
+  --color-bg-elevated:        var(--bg-elevated);
+  --color-surface:            var(--surface);
+  --color-surface-hover:      var(--surface-hover);
+  --color-surface-active:     var(--surface-active);
+  --color-surface-raised:     var(--surface-raised);
+
+  --color-fg:                 var(--fg);
+  --color-fg-muted:           var(--fg-muted);
+  --color-fg-subtle:          var(--fg-subtle);
+  --color-fg-on-brand:        var(--fg-on-brand);
+  --color-fg-inverse:         var(--fg-inverse);
+
+  --color-border:             var(--border);
+  --color-border-strong:      var(--border-strong);
+
+  --color-brand:              var(--brand);
+  --color-brand-hover:        var(--brand-hover);
+  --color-brand-active:       var(--brand-active);
+  --color-brand-fg:           var(--brand-fg);
+  --color-brand-tint:         var(--brand-tint);
+
+  --color-success:            var(--c-success);
+  --color-warning:            var(--c-warning);
+  --color-danger:             var(--c-danger);
+  --color-info:               var(--c-info);
+
+  /* ── Brand palette (raw) ───────────────────────────────────────────────── */
+  --color-brand-50:   var(--c-brand-50);
+  --color-brand-100:  var(--c-brand-100);
+  --color-brand-200:  var(--c-brand-200);
+  --color-brand-300:  var(--c-brand-300);
+  --color-brand-400:  var(--c-brand-400);
+  --color-brand-500:  var(--c-brand-500);
+  --color-brand-600:  var(--c-brand-600);
+  --color-brand-700:  var(--c-brand-700);
+  --color-brand-800:  var(--c-brand-800);
+  --color-brand-900:  var(--c-brand-900);
+
+  /* ── Neutrals (raw) ────────────────────────────────────────────────────── */
+  --color-ink:           var(--c-ink);
+  --color-graphite-50:   var(--c-graphite-50);
+  --color-graphite-100:  var(--c-graphite-100);
+  --color-graphite-200:  var(--c-graphite-200);
+  --color-graphite-300:  var(--c-graphite-300);
+  --color-graphite-400:  var(--c-graphite-400);
+  --color-graphite-500:  var(--c-graphite-500);
+  --color-graphite-600:  var(--c-graphite-600);
+  --color-graphite-700:  var(--c-graphite-700);
+  --color-graphite-800:  var(--c-graphite-800);
+  --color-graphite-900:  var(--c-graphite-900);
+  --color-paper:         var(--c-paper);
+
+  /* ── Product accents ────────────────────────────────────────────────────── */
+  --color-product-insights:  var(--c-product-insights);
+  --color-product-abtest:    var(--c-product-abtest);
+  --color-product-promote:   var(--c-product-promote);
+  --color-product-collab:    var(--c-product-collab);
+  --color-product-boost:     var(--c-product-boost);
+
+  /* ── Radii ──────────────────────────────────────────────────────────────── */
+  --radius-xs:    var(--r-xs);
+  --radius-sm:    var(--r-sm);
+  --radius-md:    var(--r-md);
+  --radius-lg:    var(--r-lg);
+  --radius-xl:    var(--r-xl);
+  --radius-2xl:   var(--r-2xl);
+  --radius-full:  var(--r-full);
+
+  /* ── Shadows / elevation ────────────────────────────────────────────────── */
+  --shadow-elev-1:     var(--elevation-1);
+  --shadow-elev-2:     var(--elevation-2);
+  --shadow-elev-3:     var(--elevation-3);
+  --shadow-brand-glow: var(--shadow-glow-brand);
+
+  /* ── Easing + duration (for `transition-*` and Tailwind `duration-*`) ──── */
+  --ease-out:        var(--ease-out);
+  --ease-in-out:     var(--ease-in-out);
+}
+
+/* ─── Theme-aware class variant: `dark:` works on .dark root ──────────────── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =============================================================================
+   Base styles
+   ========================================================================== */
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-feature-settings: "ss01", "cv11";  /* Inter — alt 1, modern style set */
+  font-optical-sizing: auto;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular figures for any element that displays numbers — opt-in via class. */
+.tabular {
+  font-feature-settings: "tnum";
+}
+
+/* Display-headline typography helper — used by hero copy and section openers. */
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "ss01", "cv11";
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Vertical scroll without scrollbar — used on modals/sheets where chrome
+   would clash with rounded corners. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* iOS Safari zooms when a tapped input has font-size < 16px. The mini app
+   runs in Telegram's WebView which behaves like Safari/Chrome — keep
+   inputs >= 16px on mobile to prevent the jolt. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 14px;
+  }
+}
+
+/* Strip iOS Safari grey tap-highlight; components render their own active states. */
+a, button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Selection color uses the brand at low opacity. */
+::selection {
+  background: color-mix(in srgb, var(--brand) 30%, transparent);
+  color: var(--fg);
+}
+
+/* Focus visibility — a single canonical focus ring across all interactive elements. */
+:where(button, [role='button'], a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Skeleton shimmer — keyframe consumed by the <Skeleton> primitive. */
+@keyframes skeleton-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Reduced-motion compliance — neutralises any leftover transforms across
+   the app so users with the OS preference see no motion at all. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

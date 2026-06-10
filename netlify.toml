@@ -1,0 +1,55 @@
+# Netlify build + runtime config for Highscore Tech.
+# The official Next.js plugin (@netlify/plugin-nextjs) is auto-installed
+# when Netlify detects a Next.js project, so we don't list it here.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--no-audit --no-fund --legacy-peer-deps"
+
+# ── Function timeouts ───────────────────────────────────────────────────────
+# Default Netlify free-tier limit is 26s. PDF generation routes hit the
+# react-pdf renderer which can take a few seconds when warm.
+[functions."api/cron/installments"]
+  timeout = 26
+
+[functions."api/cron/weekly-summary"]
+  timeout = 26
+
+[functions."api/staff/[slug]/contract.pdf"]
+  timeout = 26
+
+[functions."api/staff/[slug]/offer-letter.pdf"]
+  timeout = 26
+
+[functions."api/staff/[slug]/job-description.pdf"]
+  timeout = 26
+
+[functions."api/staff/[slug]/id-card.pdf"]
+  timeout = 26
+
+[functions."api/academy/[slug]/syllabus.pdf"]
+  timeout = 26
+
+[functions."api/payments/[id]/receipt.pdf"]
+  timeout = 26
+
+# ── Scheduled functions ─────────────────────────────────────────────────────
+# The actual schedules live inside each function's `export const config`
+# block (see netlify/functions/cron-*.mjs):
+#
+#   netlify/functions/cron-installments.mjs    → Mon 08:00 UTC
+#   netlify/functions/cron-weekly-summary.mjs  → Fri 16:00 UTC
+#
+# Both functions proxy to the Next.js cron API routes using CRON_SECRET.
+
+# ── Headers ─────────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
