@@ -1,17 +1,18 @@
 // Shared font loader for every @react-pdf/renderer document. Reads the
-// woff files from @fontsource at module load time so PDF rendering needs
-// no network access. The previous setup fetched from fonts.gstatic.com
-// which started returning 404 when Google rotated their font hashes —
-// local files are immune.
+// woff files from @fontsource at module load time, encodes them as
+// base64 data URIs, and registers them with react-pdf.
 //
-// The Next.js + Netlify bundler includes these specific files in the
-// function output via `outputFileTracingIncludes` in next.config.ts.
+// Why data URIs?
+//   • @react-pdf/font's `src` field is strictly typed as `string`. It
+//     parses URLs, local paths, and data URIs — but throws when given a
+//     Buffer / Uint8Array (`dataUrl.substring is not a function`).
+//   • Encoding inline avoids the runtime needing to know the absolute
+//     file path on the Netlify Lambda container.
+//   • Data-URI strings work in browser, Node, and serverless identically.
 //
-// We resolve the file paths via process.cwd() + a string join (not
-// require.resolve) so Turbopack doesn't try to parse the .woff files as
-// JavaScript modules — that would fail at build time. The files are
-// present on disk at runtime because outputFileTracingIncludes explicitly
-// names them.
+// The Netlify Next plugin needs to bundle the woff files so this module
+// can read them at startup — that's done via `outputFileTracingIncludes`
+// in next.config.ts.
 
 import 'server-only';
 import { readFileSync } from 'fs';
@@ -20,10 +21,15 @@ import { Font } from '@react-pdf/renderer';
 
 const fsRoot = join(process.cwd(), 'node_modules', '@fontsource');
 
-const interRegular   = readFileSync(join(fsRoot, 'inter',  'files', 'inter-latin-400-normal.woff'));
-const interSemibold  = readFileSync(join(fsRoot, 'inter',  'files', 'inter-latin-600-normal.woff'));
-const interExtrabold = readFileSync(join(fsRoot, 'inter',  'files', 'inter-latin-800-normal.woff'));
-const alluraScript   = readFileSync(join(fsRoot, 'allura', 'files', 'allura-latin-400-normal.woff'));
+function loadAsDataUri(rel: string): string {
+  const buf = readFileSync(join(fsRoot, rel));
+  return `data:font/woff;base64,${buf.toString('base64')}`;
+}
+
+const interRegular   = loadAsDataUri('inter/files/inter-latin-400-normal.woff');
+const interSemibold  = loadAsDataUri('inter/files/inter-latin-600-normal.woff');
+const interExtrabold = loadAsDataUri('inter/files/inter-latin-800-normal.woff');
+const alluraScript   = loadAsDataUri('allura/files/allura-latin-400-normal.woff');
 
 let registered = false;
 
@@ -34,17 +40,17 @@ export function registerPdfFonts(): void {
   Font.register({
     family: 'Inter',
     fonts: [
-      { src: interRegular   as unknown as string, fontWeight: 400 },
-      { src: interSemibold  as unknown as string, fontWeight: 600 },
-      { src: interExtrabold as unknown as string, fontWeight: 800 },
+      { src: interRegular,   fontWeight: 400 },
+      { src: interSemibold,  fontWeight: 600 },
+      { src: interExtrabold, fontWeight: 800 },
     ],
   });
 
   Font.register({
     family: 'Allura',
-    src: alluraScript as unknown as string,
+    src: alluraScript,
   });
 
-  // Disable hyphenation — react-pdf otherwise wraps mid-word in tight slots.
+  // Disable hyphenation — wraps mid-word inside narrow slots otherwise.
   Font.registerHyphenationCallback((w) => [w]);
 }
