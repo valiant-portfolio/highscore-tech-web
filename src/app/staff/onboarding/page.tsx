@@ -1,8 +1,8 @@
 // Staff onboarding wizard — multi-step flow that runs before the regular
 // dashboard unlocks. Steps:
-//   1. signature — upload signature photo, background-removed
-//   2. offer     — review offer letter, sign
-//   3. nda       — review employment contract + NDA, sign
+//   1. signature — upload + crop signature photo, background-removed
+//   2. offer     — review offer letter (paper view), sign
+//   3. nda       — review employment contract + NDA (paper view), sign
 //   4. done      — celebrate, unlock dashboard
 
 import type { Metadata } from 'next';
@@ -32,6 +32,12 @@ interface PageProps {
 const ALLOWED_STEPS = ['signature', 'offer', 'nda', 'done'] as const;
 type Step = (typeof ALLOWED_STEPS)[number];
 
+function formatDate(d: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  }).format(d);
+}
+
 export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user) redirect('/login?next=/staff/onboarding');
@@ -45,28 +51,95 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
 
   const state = getOnboardingState(staff);
   const { step: stepParam } = await searchParams;
-  // Default = next required step. If they jump ahead via URL, we snap them
-  // back to the next required step. The exception is `?step=done` — only
-  // valid once everything's signed.
   const requestedStep = (ALLOWED_STEPS as readonly string[]).includes(stepParam ?? '')
     ? (stepParam as Step)
     : state.nextStep;
 
   let activeStep: Step = state.nextStep;
-  // Allow staying on a step that matches what's still needed, or going
-  // back to a completed step to re-read.
   if (requestedStep === 'signature') activeStep = 'signature';
   else if (requestedStep === 'offer' && state.hasSignature) activeStep = 'offer';
   else if (requestedStep === 'nda'   && state.hasSignature && state.offerSigned) activeStep = 'nda';
   else if (requestedStep === 'done'  && state.complete) activeStep = 'done';
 
-  // Onboarding finished — show the done screen then redirect to /staff
-  // via the dashboard button. Hitting /staff/onboarding after completion
-  // is harmless — we just show the success card.
-
   const content = ROLE_CONTENT[staff.slug];
   const salary  = breakdownSalary(staff.slug, staff.salary_ngn);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
+
+  const today = formatDate(new Date());
+  const startDateText = staff.start_date
+    ? formatDate(new Date(staff.start_date))
+    : 'a date to be confirmed';
+  const recipient = `${staff.full_name}\n${staff.role_title}\nLagos, Nigeria`;
+
+  // ── Offer letter content ──────────────────────────────────────────────
+  const offerParagraphs: React.ReactNode[] = [
+    <p key="p1">
+      We are pleased to offer you the position of <strong>{staff.role_title}</strong>
+      {staff.department ? <> in our {staff.department}</> : null} at Highscore Tech,
+      reporting to <strong>{staff.reports_to_name ?? 'Victor Otung, the Chief Executive Officer'}</strong>.
+      Your appointment will take effect from <strong>{startDateText}</strong>.
+    </p>,
+    <p key="p2">
+      Your monthly compensation will be <strong>{formatNgnPlain(salary.total)}</strong>
+      {salary.allowance ? (
+        <> ({formatNgnPlain(salary.base)} basic salary plus {formatNgnPlain(salary.allowance.amount)} {salary.allowance.label.toLowerCase()})</>
+      ) : null}, paid on the <strong>15th of every month</strong> by bank transfer to a Nigerian account you nominate.
+    </p>,
+    ...(content
+      ? [
+          <p key="p3">
+            In this role you will own, among other things: {content.responsibilities.slice(0, 3).join('; ')}.
+            A complete role description is provided as a separate document and forms part of this agreement.
+          </p>,
+        ]
+      : []),
+    <p key="p4">
+      You agree to treat all confidential information about our products, clients, team and financials in
+      strict confidence, both during your employment and after it ends. The full confidentiality and
+      intellectual-property terms are set out in your employment contract.
+    </p>,
+    <p key="p5">
+      To accept this offer, sign in the indicated space below. We are looking forward to having you join the
+      team.
+    </p>,
+  ];
+
+  // ── Contract content ──────────────────────────────────────────────────
+  const contractParagraphs: React.ReactNode[] = [
+    <p key="c1">
+      This Employment Contract is entered into between <strong>Highscore Tech</strong> (the "Company") and
+      <strong> {staff.full_name}</strong> (the "Employee"), and takes effect from <strong>{startDateText}</strong>.
+      The Employee accepts employment in the role of <strong>{staff.role_title}</strong>, reporting to
+      <strong> {staff.reports_to_name ?? 'Victor Otung, the Chief Executive Officer'}</strong>, with duties as
+      described in the Job Description issued alongside this contract.
+    </p>,
+    <p key="c2">
+      <strong>Compensation.</strong> The Company will pay the Employee a monthly salary of
+      <strong> {formatNgnPlain(salary.total)}</strong>, payable on the 15th of every month, less any deductions
+      required by law. The Company may review salary annually at its discretion.
+    </p>,
+    <p key="c3">
+      <strong>Confidentiality and intellectual property.</strong> The Employee will treat all confidential
+      information of the Company in confidence indefinitely. All work product, code, designs and inventions
+      created by the Employee in the course of duties are assigned to the Company on creation.
+    </p>,
+    <p key="c4">
+      <strong>Termination.</strong> Either party may terminate this agreement by giving the other thirty (30)
+      days' written notice. The Company may terminate without notice in the case of gross misconduct.
+    </p>,
+    <p key="c5">
+      <strong>Non-solicitation.</strong> For twelve (12) months following the end of employment, the Employee
+      will not solicit Company clients or employees for the benefit of any competing business.
+    </p>,
+    <p key="c6">
+      <strong>Governing law.</strong> This contract is governed by the laws of the Federal Republic of
+      Nigeria. The Nigerian courts have exclusive jurisdiction over any disputes arising from it.
+    </p>,
+    <p key="c7">
+      The Employee confirms that they have read and understood this contract and accept its terms by signing
+      below.
+    </p>,
+  ];
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
@@ -96,7 +169,7 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
                   Your signature, once.
                 </h1>
                 <p className="mt-2 text-fg-muted">
-                  Sign on a clean white sheet of paper and upload a photo. We crop it to a horizontal signature shape and remove the background so it embeds cleanly in every document you sign here.
+                  Sign on a clean white sheet of paper and upload a photo. You'll crop it to the horizontal signature shape; we'll strip the white background and reuse it on every document you sign here.
                 </p>
               </div>
               <UploadSignatureStep initialHasSignature={state.hasSignature} />
@@ -111,27 +184,20 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
                   Sign the offer letter.
                 </h1>
                 <p className="mt-2 text-fg-muted">
-                  Read the key terms below and download the full PDF if you want every word. Your signature appears in the slot at the bottom — click sign when you're ready.
+                  Read the letter below. Your signature shows on the right-hand signature line. When you're ready, confirm and sign.
                 </p>
               </div>
               <AgreementSignBlock
                 title="Offer of Employment"
                 documentLabel="Offer Letter"
+                documentDate={today}
+                recipient={recipient}
+                firstName={firstName}
+                paragraphs={offerParagraphs}
+                signOff="Yours sincerely,"
                 pdfHref={`/api/staff/${staff.slug}/offer-letter.pdf`}
                 staffFullName={staff.full_name}
                 ceoName="Victor Otung"
-                summary={[
-                  { heading: 'Position', body:
-                    `${staff.role_title}${staff.department ? ` (${staff.department})` : ''}.\nReports to ${staff.reports_to_name ?? 'Victor Otung — CEO'}.\nWork arrangement: Hybrid — Nigeria.\nStart date: ${staff.start_date ? new Date(staff.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}.` },
-                  { heading: 'Compensation', body:
-                    `${formatNgnPlain(salary.total)} monthly${salary.allowance ? ` (${formatNgnPlain(salary.base)} base + ${formatNgnPlain(salary.allowance.amount)} ${salary.allowance.label.toLowerCase()})` : ''}.\nPayday: 15th of every month.` },
-                  ...(content ? [{
-                    heading: "What you'll own",
-                    body: content.responsibilities.map((r) => `• ${r}`).join('\n'),
-                  }] : []),
-                  { heading: 'Confidentiality', body:
-                    'By signing, you agree to treat all confidential information about products, clients, team, and financials in confidence — during employment and after it ends.' },
-                ]}
                 action={signOfferLetterAction}
                 nextHref="/staff/onboarding?step=nda"
                 nextLabel="Continue to contract"
@@ -147,31 +213,20 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
                   Employment contract + NDA.
                 </h1>
                 <p className="mt-2 text-fg-muted">
-                  The formal agreement governing your employment. Includes the NDA. Same signature you uploaded — no need to upload again.
+                  The formal agreement governing your employment, including confidentiality and IP. Same signature you uploaded — no need to upload again.
                 </p>
               </div>
               <AgreementSignBlock
                 title="Employment Contract"
                 documentLabel="Employment Contract"
+                documentDate={today}
+                recipient={recipient}
+                firstName={firstName}
+                paragraphs={contractParagraphs}
+                signOff="Yours faithfully,"
                 pdfHref={`/api/staff/${staff.slug}/contract.pdf`}
                 staffFullName={staff.full_name}
                 ceoName="Victor Otung"
-                summary={[
-                  { heading: 'Parties', body:
-                    `Highscore Tech (the "Company") and ${staff.full_name} (the "Employee"), with effect from ${staff.start_date ? new Date(staff.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}.` },
-                  { heading: 'Position & duties', body:
-                    `${staff.role_title}, reporting to ${staff.reports_to_name ?? 'Victor Otung, CEO'}. Duties per the Job Description.` },
-                  { heading: 'Compensation', body:
-                    `${formatNgnPlain(salary.total)} per month, paid on the 15th of each month.` },
-                  { heading: 'Confidentiality + IP', body:
-                    'You will treat company information in confidence indefinitely and assign all work product created in the course of duties to the Company.' },
-                  { heading: 'Termination', body:
-                    'Either party may terminate with 30 days written notice. Gross misconduct allows immediate termination.' },
-                  { heading: 'Non-solicitation', body:
-                    '12-month non-solicit of Company clients and employees from end of employment.' },
-                  { heading: 'Governing law', body:
-                    'Laws of the Federal Republic of Nigeria; Nigerian courts have exclusive jurisdiction.' },
-                ]}
                 action={signNdaAction}
                 nextHref="/staff/onboarding?step=done"
                 nextLabel="Finish onboarding"
