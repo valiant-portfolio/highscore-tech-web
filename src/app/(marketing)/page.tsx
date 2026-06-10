@@ -3,6 +3,7 @@
 // academy callout → FAQ → final CTA.
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Bot, Code2, Compass, GraduationCap, Layers } from 'lucide-react';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { Reveal, SectionHeading } from '@/components/marketing/sections';
@@ -11,6 +12,7 @@ import { LinkButton } from '@/components/ui';
 import JsonLd from '@/components/seo/JsonLd';
 import { academySchema } from '@/components/seo/structured-data';
 import { getPublicStats } from '@/lib/stats/public';
+import { listProjects } from '@/lib/portfolio/queries';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 
@@ -64,7 +66,11 @@ const FAQS = [
 ];
 
 export default async function HomePage() {
-  const stats = await getPublicStats();
+  const [stats, projects] = await Promise.all([
+    getPublicStats(),
+    listProjects(),
+  ]);
+  const featured = projects.slice(0, 3);
   return (
     <>
       <JsonLd data={academySchema(SITE_URL)} />
@@ -130,20 +136,46 @@ export default async function HomePage() {
           description="From AI-powered platforms to consumer software, here's a sample of what we've shipped."
         />
         <div className="mt-10 md:mt-14 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          {[1, 2, 3].map((i) => (
-            <PremiumCard key={i} href="/portfolio" className="h-full">
-              <div className="p-6 md:p-7 min-h-[180px] flex flex-col justify-between">
-                <Layers className="h-6 w-6 text-fg-subtle" />
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] font-semibold text-fg-subtle">
-                    Case study {i}
-                  </p>
-                  <h3 className="mt-1 text-lg font-semibold text-fg group-hover:text-brand transition-colors">
-                    Coming soon
+          {featured.map((p) => (
+            <PremiumCard key={p.id} href={`/portfolio/${p.slug}`} className="h-full">
+              <div className="flex flex-col h-full">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-[15px] bg-surface-hover" aria-hidden="true">
+                  {p.cover_image_url ? (
+                    <Image
+                      src={p.cover_image_url}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{
+                        background:
+                          'radial-gradient(80% 50% at 50% 30%, color-mix(in srgb, #18C2DC 18%, transparent) 0%, transparent 70%), linear-gradient(135deg, var(--c-graphite-800), var(--c-graphite-900))',
+                      }}
+                    >
+                      <Layers className="h-10 w-10 text-fg-subtle/40" />
+                    </div>
+                  )}
+                  {p.category && (
+                    <span className="absolute top-3 left-3 inline-flex h-6 items-center px-2.5 rounded-full bg-bg/70 backdrop-blur text-[10px] font-bold uppercase tracking-wider text-fg">
+                      {p.category}
+                    </span>
+                  )}
+                </div>
+                <div className="p-5 md:p-6 flex-1 flex flex-col">
+                  <h3 className="text-lg font-semibold text-fg group-hover:text-brand transition-colors leading-tight">
+                    {p.title}
                   </h3>
-                  <p className="mt-1 text-sm text-fg-muted">
-                    Real case studies land as we publish them.
-                  </p>
+                  {p.client && (
+                    <p className="mt-1 text-xs text-fg-subtle uppercase tracking-wider font-semibold">{p.client}</p>
+                  )}
+                  <p className="mt-3 text-sm text-fg-muted leading-relaxed flex-1 line-clamp-3">{p.summary}</p>
+                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand opacity-0 group-hover:opacity-100 transition-opacity">
+                    Read case study <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </div>
               </div>
             </PremiumCard>

@@ -17,6 +17,12 @@ export interface PublicStats {
   projectCount: number;
 }
 
+// Display floor for the student count. Shows "100+" until we have more
+// than 100 real active enrolments — a blank "0+" on a freshly-launched
+// site scares prospective students away. Once real numbers cross the
+// floor, the actual count shows.
+const STUDENT_FLOOR = 100;
+
 export async function getPublicStats(): Promise<PublicStats> {
   const supabase = anonClient();
   const [c, s, p] = await Promise.all([
@@ -26,7 +32,7 @@ export async function getPublicStats(): Promise<PublicStats> {
   ]);
   return {
     courseCount:  c.count ?? 0,
-    studentCount: s.count ?? 0,
+    studentCount: Math.max(STUDENT_FLOOR, s.count ?? 0),
     projectCount: p.count ?? 0,
   };
 }

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, websiteSchema } from "@/components/seo/structured-data";
@@ -134,6 +135,15 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-sans bg-bg text-fg">
+        {/* Top progress bar — visible during route transitions + slow loads */}
+        <NextTopLoader
+          color="#18C2DC"
+          height={3}
+          showSpinner={false}
+          shadow="0 0 10px #18C2DC, 0 0 5px #18C2DC"
+          easing="ease"
+          speed={400}
+        />
         <ThemeProvider>
           <JsonLd data={organizationSchema(SITE_URL, SITE_NAME)} />
           <JsonLd data={websiteSchema(SITE_URL, SITE_NAME)} />
