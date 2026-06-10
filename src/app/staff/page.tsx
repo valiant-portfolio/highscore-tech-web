@@ -5,10 +5,12 @@
 
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
+import { StaffShell } from '@/components/staff/StaffShell';
 import { StaffDashboard } from '@/components/staff/StaffDashboard';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { listReportsForStaff } from '@/lib/admin/staff-queries';
-import { getCurrentUser } from '@/lib/auth/queries';
+import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
 
 export const metadata: Metadata = {
   title: 'Staff portal — Highscore Tech',
@@ -38,8 +40,6 @@ export default async function StaffPage({ searchParams }: PageProps) {
   if (!staff) redirect('/profile');
   if (staff.status !== 'active') redirect('/login?inactive=1');
 
-  // Onboarding incomplete → push them through the wizard. They can't see
-  // the dashboard until they upload a signature + sign both agreements.
   const onboarding = getOnboardingState(staff);
   if (!onboarding.complete) redirect('/staff/onboarding');
 
@@ -49,29 +49,45 @@ export default async function StaffPage({ searchParams }: PageProps) {
 
   const reports = await listReportsForStaff(staff.id, 30);
 
-  // Has the staff member uploaded their NIN? Pulled from the users mirror.
   const { serviceClient } = await import('@/lib/supabase/service');
   const admin = serviceClient();
   const { data: meRow } = await admin.from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
   const ninUploaded = !!meRow?.nin_doc_url;
 
+  const employeeId = EMPLOYEE_IDS[staff.slug] ?? `HST-${staff.slug.toUpperCase().slice(0, 3)}`;
+
   return (
-    <StaffDashboard
-      staff={staff}
-      employeeId={EMPLOYEE_IDS[staff.slug] ?? `HST-${staff.slug.toUpperCase().slice(0, 3)}`}
-      activeTab={activeTab}
-      signedInEmail={user.email}
-      signedInName={user.full_name ?? ''}
-      signedInPhone={user.phone ?? ''}
-      ninUploaded={ninUploaded}
-      ownReports={reports.map((r) => ({
-        id: r.id,
-        kind: r.kind,
-        report_date: r.report_date,
-        content: r.content,
-        is_admin_override: r.is_admin_override,
-        created_at: r.created_at,
-      }))}
-    />
+    <Suspense>
+      <StaffShell
+        user={{
+          fullName: user.full_name,
+          email: user.email,
+          initials: initialsOf(user),
+        }}
+        staff={{
+          fullName: staff.full_name,
+          roleTitle: staff.role_title,
+          employeeId,
+        }}
+      >
+        <StaffDashboard
+          staff={staff}
+          employeeId={employeeId}
+          activeTab={activeTab}
+          signedInEmail={user.email}
+          signedInName={user.full_name ?? ''}
+          signedInPhone={user.phone ?? ''}
+          ninUploaded={ninUploaded}
+          ownReports={reports.map((r) => ({
+            id: r.id,
+            kind: r.kind,
+            report_date: r.report_date,
+            content: r.content,
+            is_admin_override: r.is_admin_override,
+            created_at: r.created_at,
+          }))}
+        />
+      </StaffShell>
+    </Suspense>
   );
 }

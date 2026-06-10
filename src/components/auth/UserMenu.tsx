@@ -1,13 +1,16 @@
 'use client';
 
 // Signed-in user menu — avatar bubble that opens a dropdown with quick
-// links + logout. Admins get a top "Admin dashboard" entry so the route
-// is reachable without typing /admin into the URL.
+// links + logout. Items are role-aware:
+//   • student → "Profile" links to /profile, "Browse courses" shown
+//   • staff   → "Staff portal" links to /staff, no "Browse courses"
+//   • admin   → "Admin dashboard" + "My profile" link to /admin and
+//                /profile respectively, no "Browse courses"
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  LogOut, User, ChevronDown, GraduationCap, LayoutDashboard, Shield,
+  LogOut, User, ChevronDown, GraduationCap, LayoutDashboard, Shield, IdCard,
 } from 'lucide-react';
 import { logoutAction } from '@/lib/auth/actions';
 import { cn } from '@/lib/utils';
@@ -22,7 +25,9 @@ interface Props {
 export function UserMenu({ fullName, email, initials, role = 'student' }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const isAdmin = role === 'admin';
+  const isAdmin   = role === 'admin';
+  const isStaff   = role === 'staff';
+  const isStudent = role === 'student';
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +53,14 @@ export function UserMenu({ fullName, email, initials, role = 'student' }: Props)
           title="You're signed in as an admin"
         >
           <Shield className="h-3 w-3" /> Admin
+        </span>
+      )}
+      {isStaff && (
+        <span
+          className="hidden sm:inline-flex h-7 items-center gap-1 px-2.5 rounded-full bg-brand-tint border border-brand/30 text-brand text-[11px] font-bold uppercase tracking-wider"
+          title="You're signed in as staff"
+        >
+          <IdCard className="h-3 w-3" /> Staff
         </span>
       )}
       <button
@@ -86,9 +99,16 @@ export function UserMenu({ fullName, email, initials, role = 'student' }: Props)
                   Admin
                 </span>
               )}
+              {isStaff && (
+                <span className="sm:hidden inline-flex h-5 items-center gap-1 px-1.5 rounded-md bg-brand-tint text-brand text-[10px] font-bold uppercase">
+                  Staff
+                </span>
+              )}
             </div>
             <p className="text-xs text-fg-subtle truncate">{email}</p>
           </div>
+
+          {/* Primary destination per role */}
           {isAdmin && (
             <Link
               href="/admin"
@@ -99,22 +119,53 @@ export function UserMenu({ fullName, email, initials, role = 'student' }: Props)
               <LayoutDashboard className="h-4 w-4" /> Admin dashboard
             </Link>
           )}
-          <Link
-            href="/profile"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-fg hover:bg-surface-hover"
-            role="menuitem"
-          >
-            <User className="h-4 w-4 text-fg-muted" /> {isAdmin ? 'My profile' : 'Profile'}
-          </Link>
-          <Link
-            href="/academy"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-fg hover:bg-surface-hover"
-            role="menuitem"
-          >
-            <GraduationCap className="h-4 w-4 text-fg-muted" /> Browse courses
-          </Link>
+          {isStaff && (
+            <Link
+              href="/staff"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-brand hover:bg-brand-tint/50 border-b border-border"
+              role="menuitem"
+            >
+              <IdCard className="h-4 w-4" /> Staff portal
+            </Link>
+          )}
+          {isStudent && (
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-fg hover:bg-surface-hover"
+              role="menuitem"
+            >
+              <User className="h-4 w-4 text-fg-muted" /> Profile
+            </Link>
+          )}
+
+          {/* Admin gets a secondary 'My profile' link to see their own
+              student-style page if they ever need it. Staff don't — the
+              staff portal IS their profile. */}
+          {isAdmin && (
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-fg hover:bg-surface-hover"
+              role="menuitem"
+            >
+              <User className="h-4 w-4 text-fg-muted" /> My profile
+            </Link>
+          )}
+
+          {/* "Browse courses" only makes sense for students who can enrol. */}
+          {isStudent && (
+            <Link
+              href="/academy"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-fg hover:bg-surface-hover"
+              role="menuitem"
+            >
+              <GraduationCap className="h-4 w-4 text-fg-muted" /> Browse courses
+            </Link>
+          )}
+
           <form action={logoutAction}>
             <button
               type="submit"

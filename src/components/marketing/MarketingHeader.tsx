@@ -204,11 +204,22 @@ export function MarketingHeader({ user }: { user?: HeaderUser | null }) {
               <div className="px-4 py-4 border-t border-border space-y-2.5">
                 {user ? (
                   <>
-                    <span onClick={() => setOpen(false)}>
-                      <LinkButton href="/profile" fullWidth size="lg">
-                        My profile
-                      </LinkButton>
-                    </span>
+                    {(() => {
+                      // Role-aware "go to my portal" target.
+                      const href =
+                        user.role === 'admin' ? '/admin' :
+                        user.role === 'staff' ? '/staff' : '/profile';
+                      const label =
+                        user.role === 'admin' ? 'Admin dashboard' :
+                        user.role === 'staff' ? 'Staff portal'    : 'My profile';
+                      return (
+                        <span onClick={() => setOpen(false)}>
+                          <LinkButton href={href} fullWidth size="lg">
+                            {label}
+                          </LinkButton>
+                        </span>
+                      );
+                    })()}
                     <p className="text-xs text-fg-subtle text-center pt-1 truncate">
                       Signed in as {user.email}
                     </p>
