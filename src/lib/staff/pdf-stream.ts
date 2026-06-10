@@ -1,33 +1,62 @@
-// Helper that converts a Node readable stream from @react-pdf into a Web
-// stream + a NextResponse body. Used by all four staff PDF routes so we
-// only write the boilerplate once.
+// Renders a @react-pdf React tree to a PDF Buffer + returns it as the
+// Response body. Buffered (not streaming) for two reasons:
+//   1. Streaming through ReadableStream had cold-start race conditions
+//      on Netlify's serverless runtime.
+//   2. All our PDFs are small (< 1 MB) so buffering the whole document is
+//      essentially free.
+//
+// On any failure during render, returns a JSON error response with the
+// real message + a snipped stack trace so we can see WHAT went wrong
+// instead of an opaque 500.
 
 import 'server-only';
-import { renderToStream } from '@react-pdf/renderer';
+import { renderToBuffer } from '@react-pdf/renderer';
 import type { ReactElement } from 'react';
 
 export async function pdfResponse(
-  // @react-pdf's element type narrows internally; the application boundary
-  // is the same shape as any ReactElement.
   element: ReactElement,
   filename: string,
   cacheSeconds = 300,
 ): Promise<Response> {
-  // @ts-expect-error react-pdf's internal element type
-  const pdfStream = await renderToStream(element);
-  const webStream = new ReadableStream({
-    start(controller) {
-      pdfStream.on('data',  (chunk) => controller.enqueue(chunk));
-      pdfStream.on('end',   () => controller.close());
-      pdfStream.on('error', (err) => controller.error(err));
-    },
-  });
-  return new Response(webStream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Cache-Control': `private, max-age=${cacheSeconds}`,
-    },
-  });
+  try {
+    // @ts-expect-error react-pdf's internal element type
+    const buffer = await renderToBuffer(element) as Buffer;
+    // Cast Buffer → Uint8Array so Response accepts it cleanly across TS lib versions.
+    const body = new Uint8Array(buffer);
+
+    return new Response(body, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Length': body.byteLength.toString(),
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': `private, max-age=${cacheSeconds}`,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    const stack = err instanceof Error ? (err.stack ?? '') : '';
+    console.error('[pdf] render failed:', message);
+    console.error(stack);
+
+    return new Response(
+      JSON.stringify(
+        {
+          error: 'PDF generation failed.',
+          message,
+          stackPreview: stack.split('\n').slice(0, 10),
+          hint:
+            'If you see "Yoga" or "WASM" — react-pdf bundling is wrong. ' +
+            'If you see "fetch failed" — font fetch from Google failed. ' +
+            'If you see Supabase / database — env vars missing on Netlify.',
+        },
+        null,
+        2,
+      ),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
 }

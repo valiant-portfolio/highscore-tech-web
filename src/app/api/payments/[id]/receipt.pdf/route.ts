@@ -1,13 +1,10 @@
 // GET /api/payments/[id]/receipt.pdf
-//
-// Streams a branded PDF receipt for the specified payment row. Access
-// scoped by RLS — the cookie-aware server client only returns the row if
-// the caller is the owner or an admin.
+// Branded PDF receipt — RLS-scoped so only the owner or admin can fetch.
 
-import { renderToStream } from '@react-pdf/renderer';
 import { createElement } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { ReceiptPdf, type ReceiptData } from '@/lib/payments/ReceiptPdf';
+import { pdfResponse } from '@/lib/staff/pdf-stream';
 
 export const runtime = 'nodejs';
 
@@ -54,14 +51,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     .eq('id', id)
     .maybeSingle<PaymentJoin>();
 
-  if (error || !payment) {
-    return new Response('Receipt not found.', { status: 404 });
-  }
-  if (payment.status !== 'succeeded') {
+  if (error || !payment) return new Response('Receipt not found.', { status: 404 });
+  if (payment.status !== 'succeeded')
     return new Response('Receipt is only available for completed payments.', { status: 400 });
-  }
 
-  // Count total installments for the enrolment so we can render "X of Y"
   let installmentTotal: number | null = null;
   if (payment.installment_id) {
     const { count } = await supabase
@@ -89,23 +82,5 @@ export async function GET(_req: Request, { params }: Ctx) {
   };
 
   const element = createElement(ReceiptPdf, { receipt: data, siteUrl: SITE_URL });
-  // @ts-expect-error react-pdf's internal element type
-  const pdfStream = await renderToStream(element);
-
-  const webStream = new ReadableStream({
-    start(controller) {
-      pdfStream.on('data',  (chunk) => controller.enqueue(chunk));
-      pdfStream.on('end',   () => controller.close());
-      pdfStream.on('error', (err) => controller.error(err));
-    },
-  });
-
-  return new Response(webStream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="highscore-tech-receipt-${data.receiptNumber}.pdf"`,
-      'Cache-Control': 'private, max-age=300',
-    },
-  });
+  return pdfResponse(element, `highscore-tech-receipt-${data.receiptNumber}.pdf`, 300);
 }
