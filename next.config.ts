@@ -1,16 +1,29 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Tell Next.js NOT to bundle these packages into the serverless function —
-  // they ship native binaries (sharp) or large WASM payloads (@react-pdf
-  // uses Yoga for layout) that must be loaded from node_modules at runtime
-  // on the Netlify Linux container. Bundling them into the function output
-  // causes the 500s we hit on the contract / syllabus / receipt PDF routes.
+  // Tell Next.js NOT to bundle these packages — they ship native binaries
+  // (sharp) or WASM payloads (@react-pdf/renderer uses Yoga for layout)
+  // that must be loaded from node_modules at runtime on the Netlify
+  // Linux container. Bundling them into the function output causes 500s
+  // on the PDF + image-processing routes.
   serverExternalPackages: [
     'sharp',
     '@react-pdf/renderer',
     'react-pdf',
   ],
+
+  // Force the bundler to include @fontsource woff files in the function
+  // output. Without this, react-pdf can't find them at runtime even
+  // though we createRequire.resolve() them. We bundle Inter (400/600/800)
+  // for body + headings, and Allura for the cursive signature fallback.
+  outputFileTracingIncludes: {
+    '/api/**/*': [
+      './node_modules/@fontsource/inter/files/inter-latin-400-normal.woff',
+      './node_modules/@fontsource/inter/files/inter-latin-600-normal.woff',
+      './node_modules/@fontsource/inter/files/inter-latin-800-normal.woff',
+      './node_modules/@fontsource/allura/files/allura-latin-400-normal.woff',
+    ],
+  },
 
   // Loosen the Image optimizer so the Supabase Storage URLs we render in
   // /admin/staff and on the About page don't get rejected.

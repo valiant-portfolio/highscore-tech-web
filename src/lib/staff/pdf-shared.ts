@@ -1,21 +1,10 @@
 // Shared style tokens + helpers for the four staff PDFs. Keeps the brand
 // band, colors, and font registration in one place.
 
-import { Font, StyleSheet } from '@react-pdf/renderer';
+import { StyleSheet } from '@react-pdf/renderer';
+import { registerPdfFonts } from '@/lib/pdf-fonts';
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa1ZL7.woff2' },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa3JL7.woff2', fontWeight: 600 },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa9ZL7.woff2', fontWeight: 800 },
-  ],
-});
-
-Font.register({
-  family: 'Allura',
-  src: 'https://fonts.gstatic.com/s/allura/v21/9oRPNYsQpSyG3wL3kHNQOA.woff2',
-});
+registerPdfFonts();
 
 export const BRAND      = '#18C2DC';
 export const BRAND_DEEP = '#0A8EA8';

@@ -1,19 +1,11 @@
 // Employee ID Card — A4 landscape with front and back side-by-side, sized
 // so each face prints to a standard ISO/IEC 7810 ID-1 card (~85.6 x 54 mm).
 
-import { Document, Page, Text, View, Image } from '@react-pdf/renderer';
-import { Font, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { BRAND, BRAND_DEEP, INK, PAPER, MUTED, LINE } from './pdf-shared';
 import type { StaffRecord } from './queries';
-
-Font.register({
-  family: 'InterId',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa1ZL7.woff2' },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa3JL7.woff2', fontWeight: 600 },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa9ZL7.woff2', fontWeight: 800 },
-  ],
-});
+// pdf-shared already registers Inter via the shared loader; the ID card
+// uses the same family ("Inter") so no extra registration needed.
 
 // A4 landscape is 842 x 595 points. The two cards sit centered horizontally
 // with a small gap between them. Card dimensions roughly 320 x 200 points
@@ -24,7 +16,7 @@ const CARD_H = 200;
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: 'InterId',
+    fontFamily: 'Inter',
     padding: 40,
     backgroundColor: '#ECEFF2',
     flexDirection: 'row',

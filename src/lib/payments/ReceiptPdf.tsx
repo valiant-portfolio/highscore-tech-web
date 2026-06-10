@@ -1,17 +1,11 @@
 // React-PDF document for the payment receipt. Rendered by
 // /api/payments/[id]/receipt.pdf into a real PDF binary.
 
-import { Document, Page, Text, View, StyleSheet, Font, Link } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Link } from '@react-pdf/renderer';
 import { formatNgn } from '@/lib/academy/queries';
+import { registerPdfFonts } from '@/lib/pdf-fonts';
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa1ZL7.woff2' },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa3JL7.woff2', fontWeight: 600 },
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa9ZL7.woff2', fontWeight: 800 },
-  ],
-});
+registerPdfFonts();
 
 const BRAND      = '#18C2DC';
 const BRAND_DEEP = '#0A8EA8';
