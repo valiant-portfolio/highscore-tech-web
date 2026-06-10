@@ -17,6 +17,7 @@ export interface StaffRecord {
   status: 'active' | 'former';
   work_email: string | null;
   signature_url: string | null;
+  offer_signed_at: string | null;
   nda_signed_at: string | null;
   reports_to_name: string | null;
 }
@@ -33,12 +34,13 @@ interface StaffRow {
   status: 'active' | 'former';
   work_email: string | null;
   signature_url: string | null;
+  offer_signed_at: string | null;
   nda_signed_at: string | null;
   reports_to: { full_name: string } | { full_name: string }[] | null;
 }
 
 const STAFF_COLS =
-  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, signature_url, nda_signed_at, reports_to:reports_to(full_name)';
+  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, signature_url, offer_signed_at, nda_signed_at, reports_to:reports_to(full_name)';
 
 function reportsToName(rel: StaffRow['reports_to']): string | null {
   if (!rel) return null;
@@ -59,9 +61,34 @@ function shape(row: StaffRow): StaffRecord {
     status: row.status,
     work_email: row.work_email,
     signature_url: row.signature_url,
+    offer_signed_at: row.offer_signed_at,
     nda_signed_at: row.nda_signed_at,
     reports_to_name: reportsToName(row.reports_to),
   };
+}
+
+// ── Onboarding state helper ──────────────────────────────────────────────
+// Multi-step wizard tracks: (1) signature uploaded, (2) offer signed,
+// (3) NDA/contract signed. When all three are done, the dashboard unlocks.
+export interface OnboardingState {
+  hasSignature: boolean;
+  offerSigned:  boolean;
+  ndaSigned:    boolean;
+  complete:     boolean;
+  /** The next step to take. 'done' means the dashboard is unlocked. */
+  nextStep: 'signature' | 'offer' | 'nda' | 'done';
+}
+
+export function getOnboardingState(staff: StaffRecord): OnboardingState {
+  const hasSignature = !!staff.signature_url;
+  const offerSigned  = !!staff.offer_signed_at;
+  const ndaSigned    = !!staff.nda_signed_at;
+  const complete = hasSignature && offerSigned && ndaSigned;
+  const nextStep: OnboardingState['nextStep'] =
+    !hasSignature ? 'signature' :
+    !offerSigned  ? 'offer'     :
+    !ndaSigned    ? 'nda'       : 'done';
+  return { hasSignature, offerSigned, ndaSigned, complete, nextStep };
 }
 
 export async function getStaffBySlug(slug: string): Promise<StaffRecord | null> {

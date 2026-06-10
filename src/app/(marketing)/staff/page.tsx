@@ -1,11 +1,12 @@
 // Staff portal entry — auth-gated. Anyone hitting /staff without a session
 // gets bounced to /login; signed-in users without a linked staff record
 // (students, admins without staff seat) get bounced to their own dashboard.
+// Staff whose onboarding is incomplete get pushed to /staff/onboarding.
 
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { StaffDashboard } from '@/components/staff/StaffDashboard';
-import { getStaffByUserId } from '@/lib/staff/queries';
+import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { listReportsForStaff } from '@/lib/admin/staff-queries';
 import { getCurrentUser } from '@/lib/auth/queries';
 
@@ -33,15 +34,18 @@ export default async function StaffPage({ searchParams }: PageProps) {
   if (!user) redirect('/login?next=/staff');
 
   const staff = await getStaffByUserId(user.id);
-  // Admin without staff seat → admin dashboard.
   if (!staff && user.role === 'admin') redirect('/admin');
-  // Student or unlinked → student dashboard.
   if (!staff) redirect('/profile');
-  // Former / suspended staff → log them out gently.
   if (staff.status !== 'active') redirect('/login?inactive=1');
 
+  // Onboarding incomplete → push them through the wizard. They can't see
+  // the dashboard until they upload a signature + sign both agreements.
+  const onboarding = getOnboardingState(staff);
+  if (!onboarding.complete) redirect('/staff/onboarding');
+
   const { tab } = await searchParams;
-  const activeTab = (tab === 'documents' || tab === 'settings' || tab === 'sign' || tab === 'reports') ? tab : 'profile';
+  const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
+    tab === 'documents' || tab === 'settings' || tab === 'reports' ? tab : 'profile';
 
   const reports = await listReportsForStaff(staff.id, 30);
 

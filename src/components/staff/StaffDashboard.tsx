@@ -1,21 +1,23 @@
-// Authenticated staff view — tabbed: Profile, Documents, Sign agreement, Settings.
+// Authenticated staff view — tabbed: Profile, Documents, Reports, Settings.
+// Signing the offer letter + contract is handled by /staff/onboarding —
+// staff can't reach /staff until they finish the wizard, so the dashboard
+// can assume both agreements are signed.
 
 import Link from 'next/link';
 import {
   Download, FileText, IdCard, ScrollText, FileSignature,
-  User, FolderOpen, Settings, PenTool, CheckCircle2,
+  User, FolderOpen, Settings, CheckCircle2,
   MessageSquare, ShieldAlert,
 } from 'lucide-react';
 import { PremiumCard } from '@/components/marketing/PremiumCard';
 import { StaffPasswordForm } from './StaffPasswordForm';
 import { StaffProfileForm } from './StaffProfileForm';
-import { SignAgreementBlock } from './SignAgreementBlock';
 import { StaffReportForm } from './StaffReportForm';
 import { StaffNinUpload } from './StaffNinUpload';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
-type Tab = 'profile' | 'documents' | 'sign' | 'reports' | 'settings';
+type Tab = 'profile' | 'documents' | 'reports' | 'settings';
 
 interface OwnReport {
   id: string;
@@ -41,7 +43,6 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'profile',   label: 'Profile',         icon: <User className="h-4 w-4" /> },
   { id: 'documents', label: 'Documents',       icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'reports',   label: 'Reports',         icon: <MessageSquare className="h-4 w-4" /> },
-  { id: 'sign',      label: 'Sign agreement',  icon: <PenTool className="h-4 w-4" /> },
   { id: 'settings',  label: 'Settings',        icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -73,25 +74,21 @@ export function StaffDashboard({ staff, employeeId, activeTab, signedInEmail, si
           <p className="mt-2 text-fg-muted">
             {staff.role_title} · Employee ID <span className="font-mono tabular text-fg">{employeeId}</span>
           </p>
-          {!staff.nda_signed_at && (
-            <Link
-              href="/staff?tab=sign"
-              className="mt-4 inline-flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-3 pr-4 text-left max-w-2xl hover:bg-warning/10 transition-colors"
-            >
-              <PenTool className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-              <span className="text-sm text-fg">
-                <span className="font-semibold">Your agreement isn't signed yet.</span>{' '}
-                <span className="text-fg-muted">
-                  Sign your contract + NDA to formally accept the position — your signatory date is recorded on file.
-                </span>
-              </span>
-            </Link>
-          )}
-          {staff.nda_signed_at && (
-            <p className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-success">
-              <CheckCircle2 className="h-4 w-4" /> Agreement signed on {new Date(staff.nda_signed_at).toLocaleDateString('en-GB')}
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            {staff.offer_signed_at && (
+              <p className="inline-flex items-center gap-2 font-semibold text-success">
+                <CheckCircle2 className="h-4 w-4" /> Offer letter signed {new Date(staff.offer_signed_at).toLocaleDateString('en-GB')}
+              </p>
+            )}
+            {staff.nda_signed_at && (
+              <p className="inline-flex items-center gap-2 font-semibold text-success">
+                <CheckCircle2 className="h-4 w-4" /> Contract + NDA signed {new Date(staff.nda_signed_at).toLocaleDateString('en-GB')}
+              </p>
+            )}
+            <p className="inline-flex items-center gap-2 text-fg-muted">
+              · Next payday <span className="font-semibold text-fg">{payday.copy}</span>
             </p>
-          )}
+          </div>
         </div>
       </section>
 
@@ -195,23 +192,6 @@ export function StaffDashboard({ staff, employeeId, activeTab, signedInEmail, si
                       </PremiumCard>
                     </a>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'sign' && (
-              <div className="max-w-[760px]">
-                <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight text-fg">
-                  Sign your agreement
-                </h2>
-                <p className="mt-2 text-sm text-fg-muted leading-relaxed">
-                  Upload a photo of your signature on white paper. We'll process it so it appears cleanly in the contract PDF, then you confirm and sign.
-                </p>
-                <div className="mt-6">
-                  <SignAgreementBlock
-                    hasSignature={!!staff.signature_url}
-                    ndaSignedAt={staff.nda_signed_at}
-                  />
                 </div>
               </div>
             )}

@@ -23,6 +23,7 @@ interface StaffContextStaff {
   slug: string;
   signature_url: string | null;
   nda_signed_at: string | null;
+  offer_signed_at: string | null;
   status: 'active' | 'former';
 }
 interface StaffContext {
@@ -41,7 +42,7 @@ async function loadCurrentStaff(): Promise<StaffContext | StaffContextError> {
   const admin = serviceClient();
   const { data: staff } = await admin
     .from('staff')
-    .select('id, user_id, slug, signature_url, nda_signed_at, status')
+    .select('id, user_id, slug, signature_url, nda_signed_at, offer_signed_at, status')
     .eq('user_id', user.id)
     .maybeSingle();
   if (!staff) return { ok: false, error: 'You are not registered as staff.' };
@@ -106,6 +107,32 @@ export async function signNdaAction(_prev: SigActionState, _formData: FormData):
   return {
     status: 'success',
     message: `Signed and on file (${new Date(now).toLocaleString('en-GB')}). Your contract and NDA are confirmed.`,
+  };
+}
+
+// ── signOfferLetterAction ────────────────────────────────────────────────
+// First agreement in the staff onboarding wizard. Requires a signature on
+// file. After this, the staff moves on to the employment contract / NDA.
+export async function signOfferLetterAction(_prev: SigActionState, _formData: FormData): Promise<SigActionState> {
+  const ctx = await loadCurrentStaff();
+  if (!ctx.ok) return { status: 'error', message: ctx.error };
+
+  if (!ctx.staff.signature_url) {
+    return { status: 'error', message: 'Upload your signature first.' };
+  }
+  type ExtendedStaff = typeof ctx.staff & { offer_signed_at?: string | null };
+  const sExt = ctx.staff as ExtendedStaff;
+  if (sExt.offer_signed_at) {
+    return { status: 'success', message: 'Offer letter already signed.' };
+  }
+
+  const now = new Date().toISOString();
+  await ctx.admin.from('staff').update({ offer_signed_at: now }).eq('id', ctx.staff.id);
+  revalidatePath('/staff');
+  revalidatePath('/staff/onboarding');
+  return {
+    status: 'success',
+    message: `Offer letter signed (${new Date(now).toLocaleString('en-GB')}).`,
   };
 }
 

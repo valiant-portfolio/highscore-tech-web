@@ -208,8 +208,11 @@ CREATE TABLE staff (
   -- Public photo path inside the 'staff-photos' storage bucket. Admin
   -- uploads via /admin/staff/[id]; goes on the ID card PDF + dashboard.
   photo_url       TEXT,
-  -- When the staff member signed the NDA + contract. Recorded for HR
-  -- compliance. Payday is the 15th of every month regardless of NDA state.
+  -- When the staff member signed the offer letter. First step of the
+  -- onboarding wizard (after uploading their signature).
+  offer_signed_at TIMESTAMPTZ,
+  -- When the staff member signed the NDA + employment contract. Recorded
+  -- for HR compliance. Payday is the 15th of every month regardless.
   nda_signed_at   TIMESTAMPTZ,
   -- Legacy cookie-gate hash. Kept for migration safety but no longer used —
   -- staff sign in via regular auth in M9+.
