@@ -24,6 +24,7 @@ interface StaffContextStaff {
   signature_url: string | null;
   nda_signed_at: string | null;
   offer_signed_at: string | null;
+  policy_signed_at: string | null;
   status: 'active' | 'former';
 }
 interface StaffContext {
@@ -42,7 +43,7 @@ async function loadCurrentStaff(): Promise<StaffContext | StaffContextError> {
   const admin = serviceClient();
   const { data: staff } = await admin
     .from('staff')
-    .select('id, user_id, slug, signature_url, nda_signed_at, offer_signed_at, status')
+    .select('id, user_id, slug, signature_url, nda_signed_at, offer_signed_at, policy_signed_at, status')
     .eq('user_id', user.id)
     .maybeSingle();
   if (!staff) return { ok: false, error: 'You are not registered as staff.' };
@@ -133,6 +134,71 @@ export async function signOfferLetterAction(_prev: SigActionState, _formData: Fo
   return {
     status: 'success',
     message: `Offer letter signed (${new Date(now).toLocaleString('en-GB')}).`,
+  };
+}
+
+// ── signCompanyPolicyAction ──────────────────────────────────────────────
+// Final agreement in the onboarding flow. Records the policy
+// acknowledgement timestamp and triggers the welcome / employment-
+// confirmation email to the staff member.
+export async function signCompanyPolicyAction(_prev: SigActionState, _formData: FormData): Promise<SigActionState> {
+  const ctx = await loadCurrentStaff();
+  if (!ctx.ok) return { status: 'error', message: ctx.error };
+
+  if (!ctx.staff.signature_url) return { status: 'error', message: 'Upload your signature first.' };
+  if (!ctx.staff.offer_signed_at || !ctx.staff.nda_signed_at) {
+    return { status: 'error', message: 'Sign the offer letter and contract first.' };
+  }
+  if (ctx.staff.policy_signed_at) {
+    return { status: 'success', message: 'Policy already signed.' };
+  }
+
+  const now = new Date().toISOString();
+  await ctx.admin.from('staff').update({ policy_signed_at: now }).eq('id', ctx.staff.id);
+
+  // Send the employment confirmation email. AWAIT — serverless will kill
+  // the function before SMTP completes if we fire-and-forget.
+  try {
+    const { data: full } = await ctx.admin
+      .from('staff')
+      .select('full_name, role_title, salary_ngn, start_date, slug, work_email, users:user_id(email, full_name)')
+      .eq('id', ctx.staff.id)
+      .maybeSingle();
+
+    type StaffJoin = {
+      full_name: string;
+      role_title: string;
+      salary_ngn: number;
+      start_date: string | null;
+      slug: string;
+      work_email: string | null;
+      users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null;
+    };
+    const f = full as unknown as StaffJoin | null;
+    const userRel = Array.isArray(f?.users) ? f?.users?.[0] : f?.users;
+    const sendTo = f?.work_email ?? userRel?.email;
+
+    if (sendTo && f) {
+      const { sendEmploymentConfirmation } = await import('@/lib/email/send-helpers');
+      await sendEmploymentConfirmation({
+        to: sendTo,
+        firstName: f.full_name.split(' ')[0] ?? 'Team',
+        fullName: f.full_name,
+        roleTitle: f.role_title,
+        monthlySalaryNgn: f.salary_ngn,
+        startDate: f.start_date,
+        slug: f.slug,
+      });
+    }
+  } catch (err) {
+    console.error('[policy-sign] confirmation email failed:', err);
+  }
+
+  revalidatePath('/staff');
+  revalidatePath('/staff/onboarding');
+  return {
+    status: 'success',
+    message: `Policy signed (${new Date(now).toLocaleString('en-GB')}). Welcome to the team!`,
   };
 }
 

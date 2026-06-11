@@ -35,8 +35,9 @@ export function OfferLetterPdf({ staff, issuedDate, ceoSignatureDataUri, staffSi
   return (
     <Document title={`Offer of Employment — ${staff.full_name}`} author={COMPANY_NAME}>
       <Page size="A4" style={shared.page}>
-        {/* Header */}
-        <View style={shared.header} fixed>
+        {/* Header — page 1 only. `fixed` would re-render it on every
+            continuation page, which we don't want. */}
+        <View style={shared.header}>
           <View style={shared.logoMark}>
             <Text style={shared.logoMarkText}>H</Text>
           </View>

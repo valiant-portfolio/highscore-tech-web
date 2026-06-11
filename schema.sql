@@ -214,6 +214,9 @@ CREATE TABLE staff (
   -- When the staff member signed the NDA + employment contract. Recorded
   -- for HR compliance. Payday is the 15th of every month regardless.
   nda_signed_at   TIMESTAMPTZ,
+  -- When the staff member signed the Company Policy & Staff Agreement
+  -- (third + final onboarding document).
+  policy_signed_at TIMESTAMPTZ,
   -- Legacy cookie-gate hash. Kept for migration safety but no longer used —
   -- staff sign in via regular auth in M9+.
   personal_email_hash TEXT,

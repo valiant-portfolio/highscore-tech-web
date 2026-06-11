@@ -18,7 +18,9 @@ import { DoneStep } from '@/components/staff/onboarding/DoneStep';
 import { OnboardingWizardChrome } from '@/components/staff/onboarding/OnboardingWizardChrome';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { getCurrentUser } from '@/lib/auth/queries';
-import { signOfferLetterAction, signNdaAction } from '@/lib/staff/signature-actions';
+import {
+  signOfferLetterAction, signNdaAction, signCompanyPolicyAction,
+} from '@/lib/staff/signature-actions';
 import { ROLE_CONTENT, breakdownSalary } from '@/lib/staff/role-content';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 
@@ -33,7 +35,7 @@ interface PageProps {
   searchParams: Promise<{ step?: string }>;
 }
 
-const ALLOWED_STEPS = ['offer', 'nda', 'done'] as const;
+const ALLOWED_STEPS = ['offer', 'nda', 'policy', 'done'] as const;
 type Step = (typeof ALLOWED_STEPS)[number];
 
 function formatDate(d: Date): string {
@@ -75,8 +77,9 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   // Snap forward if the user tries to jump past an unfinished step.
   let activeStep: Step = state.nextStep;
   if (requestedStep === 'offer') activeStep = 'offer';
-  else if (requestedStep === 'nda'  && state.offerSigned) activeStep = 'nda';
-  else if (requestedStep === 'done' && state.complete)    activeStep = 'done';
+  else if (requestedStep === 'nda'    && state.offerSigned)                       activeStep = 'nda';
+  else if (requestedStep === 'policy' && state.offerSigned && state.ndaSigned)    activeStep = 'policy';
+  else if (requestedStep === 'done'   && state.complete)                          activeStep = 'done';
 
   const content   = ROLE_CONTENT[staff.slug];
   const salary    = breakdownSalary(staff.slug, staff.salary_ngn);
@@ -272,12 +275,13 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
             current={activeStep}
             offerSigned={state.offerSigned}
             ndaSigned={state.ndaSigned}
+            policySigned={state.policySigned}
           />
 
           {activeStep === 'offer' && (
             <div>
               <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">Step 1 of 2</p>
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">Step 1 of 3</p>
                 <h1 className="mt-1 font-display text-3xl md:text-5xl font-extrabold tracking-[-0.025em] text-fg">
                   Read your offer letter.
                 </h1>
@@ -309,7 +313,7 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
           {activeStep === 'nda' && (
             <div>
               <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">Step 2 of 2</p>
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">Step 2 of 3</p>
                 <h1 className="mt-1 font-display text-3xl md:text-5xl font-extrabold tracking-[-0.025em] text-fg">
                   Employment contract + NDA.
                 </h1>
@@ -332,6 +336,123 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
                 staffFullName={staff.full_name}
                 ceoName="Victor Otung"
                 action={signNdaAction}
+                nextHref="/staff/onboarding?step=policy"
+                nextLabel="Continue to company policy"
+                initiallyHasSignature={state.hasSignature}
+              />
+            </div>
+          )}
+
+          {activeStep === 'policy' && (
+            <div>
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">Step 3 of 3</p>
+                <h1 className="mt-1 font-display text-3xl md:text-5xl font-extrabold tracking-[-0.025em] text-fg">
+                  Company policy and staff agreement.
+                </h1>
+                <p className="mt-2 text-fg-muted">
+                  The day-to-day rules of working at Highscore Tech — working hours, leave, notice
+                  periods, IT security, disciplinary process. After you sign, we'll email you a
+                  welcome pack with all four signed documents.
+                </p>
+              </div>
+              <AgreementSignBlock
+                title="Company Policy and Staff Agreement"
+                documentLabel="Company Policy"
+                documentDate={today}
+                recipient={recipient}
+                firstName={firstName}
+                paragraphs={[
+                  <p key="intro">
+                    This Policy supplements your Offer Letter and Employment Contract, and sets out
+                    the day-to-day terms of working at Highscore Tech. It binds you for the
+                    duration of your employment and survives where indicated.
+                  </p>,
+
+                  <p key="c1">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">1. Working hours and location</strong>
+                    Standard hours are <strong>09:00–17:00 Lagos time, Monday to Friday</strong>,
+                    with a one-hour break 13:00–14:00. We operate a hybrid model — at least two
+                    days per week onsite at the Lagos office, remaining days from any quiet,
+                    secure location in Nigeria. Persistent or unexplained lateness is a
+                    disciplinary matter.
+                  </p>,
+
+                  <p key="c2">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">2. Probation</strong>
+                    Every new staff serves a <strong>three (3) month probation</strong>. During
+                    probation either side may end the employment by giving as little as
+                    <strong> three (3) working days&apos; notice in writing</strong>. Probation may be
+                    extended once by a further month if performance is borderline.
+                  </p>,
+
+                  <p key="c3">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">3. Notice after probation</strong>
+                    Once probation is confirmed, either party may end employment on
+                    <strong> thirty (30) days&apos; written notice</strong>. The Company may pay
+                    salary in lieu of notice. Termination for gross misconduct (breach of
+                    confidentiality, theft, harassment, etc.) is immediate without notice.
+                  </p>,
+
+                  <p key="c4">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">4. Annual leave and sick leave</strong>
+                    Twenty (20) paid working days&apos; annual leave per year plus all gazetted Nigerian
+                    public holidays. Up to ten (10) paid sick days per year — absences over two
+                    consecutive days may require a doctor&apos;s certificate.
+                  </p>,
+
+                  <p key="c5">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">5. Code of conduct</strong>
+                    Treat colleagues, clients, students and partners with respect at all times.
+                    Discrimination, harassment and bullying are zero-tolerance. External
+                    communication about the Company — including social media — must not disclose
+                    confidential information and must not bring the Company into disrepute.
+                  </p>,
+
+                  <p key="c6">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">6. IT and security</strong>
+                    All Company devices, accounts and systems are for Company purposes. MFA is
+                    mandatory wherever supported. Workstations must be locked when unattended.
+                    <strong> Source code, customer data, AI models, prompts and other Confidential
+                    Information may never be copied to personal devices, personal cloud storage
+                    or personal repositories — no exceptions.</strong> Security incidents must be
+                    reported to the CEO within four hours of discovery.
+                  </p>,
+
+                  <p key="c7">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">7. Outside work and conflicts</strong>
+                    No outside paid work, consulting, or directorships that compete with — or
+                    create a conflict of interest with — Highscore Tech without prior written
+                    approval from the CEO. Disclose any personal investment or relationship that
+                    could affect your judgement.
+                  </p>,
+
+                  <p key="c8">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">8. Reviews, reports, and disciplinary process</strong>
+                    Performance is reviewed informally every quarter and formally each year. Salary
+                    is reviewed at the annual review. Daily SOD/EOD reports are submitted via the
+                    staff portal. Minor breaches follow a verbal → written → final written warning
+                    process; gross misconduct may bypass earlier steps.
+                  </p>,
+
+                  <p key="c9">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">9. Survival and amendments</strong>
+                    Clauses 5, 6, 7 and the confidentiality terms in your Employment Contract survive
+                    the end of employment. The Company may amend this Policy with at least fourteen
+                    (14) days&apos; written notice via the staff portal and email.
+                  </p>,
+
+                  <p key="ack" className="mt-2 italic text-[#3B4651]">
+                    By signing below, I confirm that I have read this Policy in full, understood
+                    its terms, and agree to abide by it for the duration of my employment with
+                    Highscore Tech.
+                  </p>,
+                ]}
+                signOff="Issued and accepted,"
+                pdfHref={`/api/staff/${staff.slug}/policy.pdf`}
+                staffFullName={staff.full_name}
+                ceoName="Victor Otung"
+                action={signCompanyPolicyAction}
                 nextHref="/staff/onboarding?step=done"
                 nextLabel="Finish onboarding"
                 initiallyHasSignature={state.hasSignature}

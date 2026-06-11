@@ -16,6 +16,7 @@ import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
 import { InstallmentReminderEmail } from './templates/InstallmentReminderEmail';
 import { WeeklyCeoSummaryEmail } from './templates/WeeklyCeoSummaryEmail';
+import { EmploymentConfirmationEmail } from './templates/EmploymentConfirmationEmail';
 import { ReceiptPdf, type ReceiptData } from '@/lib/payments/ReceiptPdf';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
@@ -177,6 +178,51 @@ export async function sendWeeklyCeoSummary(args: Parameters<typeof WeeklyCeoSumm
   await sendEmail({
     to,
     subject: `Weekly summary — ${args.weekRange}`,
+    html,
+  });
+}
+
+// ── Employment confirmation (sent after the final onboarding step) ──────
+export async function sendEmploymentConfirmation(args: {
+  to: string;
+  firstName: string;
+  fullName: string;
+  roleTitle: string;
+  monthlySalaryNgn: number;
+  startDate: string | null;
+  slug: string;
+}): Promise<void> {
+  const formatDate = (d: Date): string =>
+    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  const formatNgn = (n: number): string =>
+    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
+
+  const startStr = args.startDate ? formatDate(new Date(args.startDate)) : '—';
+
+  // Payday is the 15th of every month — find the next 15th.
+  const today = new Date();
+  const nextPayday = new Date(today.getFullYear(), today.getMonth(), 15);
+  if (nextPayday <= today) nextPayday.setMonth(nextPayday.getMonth() + 1);
+
+  const html = await render(
+    createElement(EmploymentConfirmationEmail, {
+      firstName: args.firstName,
+      fullName: args.fullName,
+      roleTitle: args.roleTitle,
+      monthlySalary: formatNgn(args.monthlySalaryNgn),
+      startDate: startStr,
+      nextPayday: formatDate(nextPayday),
+      dashboardHref:   `${SITE_URL}/staff`,
+      offerPdfHref:    `${SITE_URL}/api/staff/${args.slug}/offer-letter.pdf`,
+      contractPdfHref: `${SITE_URL}/api/staff/${args.slug}/contract.pdf`,
+      policyPdfHref:   `${SITE_URL}/api/staff/${args.slug}/policy.pdf`,
+      jobDescPdfHref:  `${SITE_URL}/api/staff/${args.slug}/job-description.pdf`,
+      idCardPdfHref:   `${SITE_URL}/api/staff/${args.slug}/id-card.pdf`,
+    }),
+  );
+  await sendEmail({
+    to: args.to,
+    subject: `Welcome to Highscore Tech, ${args.firstName}`,
     html,
   });
 }

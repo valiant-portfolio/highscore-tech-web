@@ -7,6 +7,7 @@ import Link from 'next/link';
 import {
   Download, FileText, IdCard, ScrollText, FileSignature,
   CheckCircle2, ShieldAlert, Flame, Calendar, CircleDollarSign, Users as UsersIcon,
+  BookOpenCheck,
 } from 'lucide-react';
 import { StaffPasswordForm } from './StaffPasswordForm';
 import { StaffProfileForm } from './StaffProfileForm';
@@ -81,6 +82,8 @@ export function StaffDashboard({
       description: 'The original offer of employment — position, terms, start date.' },
     { title: 'Employment contract', href: `/api/staff/${staff.slug}/contract.pdf`,        icon: <FileSignature className="h-5 w-5" />,
       description: 'Your signed contract with NDA. Includes both signatures.' },
+    { title: 'Company policy',      href: `/api/staff/${staff.slug}/policy.pdf`,          icon: <BookOpenCheck className="h-5 w-5" />,
+      description: 'Day-to-day rules: working hours, leave, notice periods, IT security, conduct.' },
     { title: 'Staff ID card',       href: `/api/staff/${staff.slug}/id-card.pdf`,         icon: <IdCard className="h-5 w-5" />,
       description: 'A4 landscape with front and back. Print to a card or carry the PDF.' },
   ];
