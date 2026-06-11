@@ -101,6 +101,9 @@ export const COMPANY_DOMAIN = 'highzcore.tech';
 // CAC business-name registration. Issued by the Corporate Affairs
 // Commission on 14 November 2023 under the Companies and Allied Matters
 // Act 2020. Printed at the bottom of every legal document.
+// Note: the original registered office on the CAC certificate is Port
+// Harcourt; the company has since relocated to Lagos. Use Lagos as the
+// current address on all live documents.
 export const COMPANY_REG_NO = '7223102';
-export const COMPANY_ADDRESS = 'No. 237 1st Artellary, Aba Road, Port Harcourt, Rivers State, Nigeria';
+export const COMPANY_ADDRESS = 'Lagos, Nigeria';
 export const COMPANY_REG_DATE = '14 November 2023';

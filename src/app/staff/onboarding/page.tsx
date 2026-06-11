@@ -135,9 +135,9 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   const contractParagraphs: React.ReactNode[] = [
     <Clause key="c1" heading="1. Parties and commencement">
       This Employment Contract and Non-Disclosure Agreement (the "Agreement") is entered into
-      between <strong>Highscore Tech</strong>, a business name registered under the Companies and
-      Allied Matters Act 2020 with CAC RC No. 7223102 and registered office at No. 237 1st
-      Artellary, Aba Road, Port Harcourt, Rivers State (the "Company"), and
+      between <strong>Highscore Tech</strong>, a business name registered under the Companies
+      and Allied Matters Act 2020 with CAC RC No. 7223102, with its current operating address
+      in Lagos, Nigeria (the "Company"), and
       <strong> {staff.full_name}</strong> (the "Employee"), taking effect from
       <strong> {startDateText}</strong>. The Employee accepts employment in the role of
       <strong> {staff.role_title}</strong>, reporting to

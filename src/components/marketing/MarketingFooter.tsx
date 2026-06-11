@@ -57,7 +57,7 @@ export function MarketingFooter() {
             <div className="text-xs text-fg-subtle space-y-1 pt-2 border-t border-border/60 max-w-xs">
               <p>Highscore Tech</p>
               <p className="font-mono tabular">CAC RC No. 7223102</p>
-              <p>No. 237 1st Artellary, Aba Road,<br />Port Harcourt, Rivers State, Nigeria.</p>
+              <p>Lagos, Nigeria.</p>
             </div>
           </div>
 

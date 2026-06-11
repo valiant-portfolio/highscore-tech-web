@@ -30,7 +30,7 @@ function buildSections(role: string): Section[] {
     {
       heading: '1. Remote-first work model',
       paragraphs: [
-        'Highscore Tech operates as a fully remote company. Every staff member works from a quiet, secure location of their choosing within Nigeria. There is no requirement to attend any physical office for routine work. The Company\'s registered office in Port Harcourt is for legal correspondence only.',
+        'Highscore Tech operates as a fully remote company based in Lagos, Nigeria. Every staff member works from a quiet, secure location of their choosing within Nigeria. There is no requirement to attend any physical office for routine work.',
         'You must maintain a stable internet connection adequate for video calls, screen sharing and access to the Company\'s development tools. The Company will not provide internet allowance unless explicitly stated in your offer letter.',
       ],
     },
