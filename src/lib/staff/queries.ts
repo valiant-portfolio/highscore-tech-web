@@ -22,6 +22,12 @@ export interface StaffRecord {
   policy_signed_at: string | null;
   /** Storage path inside the `staff-photos` public bucket (e.g. "<id>.jpg"). */
   photo_url: string | null;
+  // Payroll details. Staff manages these in their Settings tab with a
+  // 3-month change lock (see lib/staff/bank.ts).
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  bank_updated_at: string | null;
   reports_to_name: string | null;
 }
 
@@ -41,11 +47,15 @@ interface StaffRow {
   nda_signed_at: string | null;
   policy_signed_at: string | null;
   photo_url: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  bank_updated_at: string | null;
   reports_to: { full_name: string } | { full_name: string }[] | null;
 }
 
 const STAFF_COLS =
-  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, signature_url, offer_signed_at, nda_signed_at, policy_signed_at, photo_url, reports_to:reports_to(full_name)';
+  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, signature_url, offer_signed_at, nda_signed_at, policy_signed_at, photo_url, bank_name, bank_account_number, bank_account_name, bank_updated_at, reports_to:reports_to(full_name)';
 
 function reportsToName(rel: StaffRow['reports_to']): string | null {
   if (!rel) return null;
@@ -70,6 +80,10 @@ function shape(row: StaffRow): StaffRecord {
     nda_signed_at: row.nda_signed_at,
     policy_signed_at: row.policy_signed_at,
     photo_url: row.photo_url,
+    bank_name: row.bank_name,
+    bank_account_number: row.bank_account_number,
+    bank_account_name: row.bank_account_name,
+    bank_updated_at: row.bank_updated_at,
     reports_to_name: reportsToName(row.reports_to),
   };
 }

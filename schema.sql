@@ -217,6 +217,15 @@ CREATE TABLE staff (
   -- When the staff member signed the Company Policy & Staff Agreement
   -- (third + final onboarding document).
   policy_signed_at TIMESTAMPTZ,
+
+  -- Payroll. Staff manages from their Settings tab; the 90-day edit lock
+  -- is enforced by the server action (lib/staff/bank-actions.ts), not the
+  -- database — easier to override from admin if a staff genuinely needs
+  -- a faster change (e.g. lost / fraudulent account).
+  bank_name            TEXT,
+  bank_account_number  TEXT,
+  bank_account_name    TEXT,
+  bank_updated_at      TIMESTAMPTZ,
   -- Legacy cookie-gate hash. Kept for migration safety but no longer used —
   -- staff sign in via regular auth in M9+.
   personal_email_hash TEXT,

@@ -14,6 +14,7 @@ import { StaffProfileForm } from './StaffProfileForm';
 import { StaffReportForm } from './StaffReportForm';
 import { StaffNinUpload } from './StaffNinUpload';
 import { StaffPhotoUpload } from './StaffPhotoUpload';
+import { StaffBankAccount } from './StaffBankAccount';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
@@ -317,6 +318,21 @@ export function StaffDashboard({
             </p>
             <div className="mt-6">
               <StaffPasswordForm />
+            </div>
+          </Card>
+
+          <Card className="p-5 md:p-7 lg:col-span-2">
+            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Bank account · for payroll</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Add the Nigerian bank account your monthly salary should land in. Changes are limited to once every 90 days.
+            </p>
+            <div className="mt-6">
+              <StaffBankAccount
+                initialBankName={staff.bank_name}
+                initialAccountNumber={staff.bank_account_number}
+                initialAccountName={staff.bank_account_name}
+                initialUpdatedAt={staff.bank_updated_at}
+              />
             </div>
           </Card>
 
