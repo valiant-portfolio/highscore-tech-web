@@ -1,6 +1,26 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
 
+/* react-image-crop overrides — brand colors for the crop selection
+   handles + corner pulls inside the signature cropper. */
+.signature-crop .ReactCrop__crop-selection {
+  border: 2px solid #18C2DC;
+  box-shadow: 0 0 0 9999em rgba(5, 14, 20, 0.55);
+}
+.signature-crop .ReactCrop__drag-handle::after {
+  background: #18C2DC;
+  border: 1px solid #fff;
+}
+.signature-crop .ReactCrop__drag-handle:hover::after {
+  background: #6CE8FA;
+}
+.signature-crop .ReactCrop__rule-of-thirds-vt::before,
+.signature-crop .ReactCrop__rule-of-thirds-vt::after,
+.signature-crop .ReactCrop__rule-of-thirds-hz::before,
+.signature-crop .ReactCrop__rule-of-thirds-hz::after {
+  background: rgba(24, 194, 220, 0.3);
+}
+
 /* =============================================================================
    Tailwind v4 theme — exposes the tokens from styles/tokens.css to the
    Tailwind utility namespace (bg-brand, text-fg, shadow-elev-2, etc.).

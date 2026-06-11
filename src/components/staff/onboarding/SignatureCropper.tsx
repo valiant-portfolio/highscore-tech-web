@@ -1,21 +1,24 @@
 'use client';
 
 // Interactive signature cropper used by step 1 of the staff onboarding
-// wizard. Flow:
-//   1. User picks an image file
-//   2. We display react-easy-crop with a 4:1 horizontal aspect lock —
-//      they pan and zoom to position just the signature ink inside the
-//      crop window
-//   3. On confirm, we extract the cropped region into a Blob via canvas
-//      and POST it as a File to the existing uploadSignatureAction. The
-//      server then strips the white paper background via sharp.
+// wizard. Built on react-image-crop so the staff can:
+//   • See the entire uploaded photo at all times
+//   • Draw a crop box of any shape and size by dragging edges/corners
+//   • Move the crop box freely over the image
+//   • Save when the box surrounds just the signature
+// On save we extract the cropped region client-side via canvas and POST
+// it as a File to the existing uploadSignatureAction. The server then
+// strips the paper background via Otsu adaptive thresholding.
 
-import { useCallback, useRef, useState, useTransition } from 'react';
-import Cropper from 'react-easy-crop';
-import { AlertCircle, CheckCircle2, RotateCcw, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import ReactCrop, {
+  centerCrop, makeAspectCrop, type Crop, type PixelCrop,
+} from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import { AlertCircle, CheckCircle2, RotateCcw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { uploadSignatureAction } from '@/lib/staff/signature-actions';
-import { getCroppedBlob, type PixelArea } from '@/lib/signature/crop-canvas';
+import { getCroppedBlob } from '@/lib/signature/crop-canvas';
 
 interface Props {
   onComplete: () => void;
@@ -23,16 +26,12 @@ interface Props {
 
 export function SignatureCropper({ onComplete }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedArea, setCroppedArea] = useState<PixelArea | null>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, startTransition] = useTransition();
-
-  const onCropComplete = useCallback((_cropped: PixelArea, croppedPixels: PixelArea) => {
-    setCroppedArea(croppedPixels);
-  }, []);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -49,24 +48,64 @@ export function SignatureCropper({ onComplete }: Props) {
     const reader = new FileReader();
     reader.onload = () => setImageSrc(reader.result as string);
     reader.readAsDataURL(f);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
+    setCrop(undefined);
+    setCompletedCrop(null);
+  }
+
+  function onImgLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    // Default crop = centered, 80% of image (most photos have padding around
+    // the signature so this is a sensible starting point the user can adjust).
+    const initialCrop = centerCrop(
+      makeAspectCrop({ unit: '%', width: 80 }, width / height, width, height),
+      width,
+      height,
+    );
+    setCrop(initialCrop);
+    // Compute pixel-coords for the initial crop so "Save" works without any
+    // user interaction if the default is already correct.
+    setCompletedCrop({
+      unit: 'px',
+      x: (initialCrop.x! / 100) * width,
+      y: (initialCrop.y! / 100) * height,
+      width:  (initialCrop.width!  / 100) * width,
+      height: (initialCrop.height! / 100) * height,
+    });
   }
 
   function reset() {
     setImageSrc(null);
-    setCroppedArea(null);
+    setCrop(undefined);
+    setCompletedCrop(null);
     setError(null);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
     if (fileInput.current) fileInput.current.value = '';
   }
 
   async function confirm() {
-    if (!imageSrc || !croppedArea) return;
+    if (!imageSrc || !completedCrop || !imgRef.current) {
+      setError('Draw a crop box first.');
+      return;
+    }
     setError(null);
     try {
-      const blob = await getCroppedBlob(imageSrc, croppedArea, 1400, 'image/png');
+      const img = imgRef.current;
+      // react-image-crop reports coords in the DISPLAYED image's space;
+      // scale up to the natural image so canvas extraction matches the
+      // source pixels exactly.
+      const scaleX = img.naturalWidth  / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      const area = {
+        x: completedCrop.x * scaleX,
+        y: completedCrop.y * scaleY,
+        width:  completedCrop.width  * scaleX,
+        height: completedCrop.height * scaleY,
+      };
+      if (area.width < 50 || area.height < 20) {
+        setError('Crop area is too small. Make it bigger.');
+        return;
+      }
+
+      const blob = await getCroppedBlob(imageSrc, area, 1600, 'image/png');
       const file = new File([blob], 'signature.png', { type: 'image/png' });
       const fd = new FormData();
       fd.set('signature', file);
@@ -110,45 +149,35 @@ export function SignatureCropper({ onComplete }: Props) {
     );
   }
 
-  // ── Image loaded → crop UI ───────────────────────────────────────────
+  // ── Image loaded → free-form crop UI ─────────────────────────────────
   return (
     <div className="space-y-4">
-      <div className="relative w-full aspect-[4/1] rounded-md overflow-hidden bg-ink/80 border border-border">
-        <Cropper
-          image={imageSrc}
-          crop={crop}
-          zoom={zoom}
-          aspect={4 / 1}
-          showGrid={true}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-          objectFit="contain"
-          restrictPosition={false}
-        />
-      </div>
-
-      {/* Zoom slider */}
-      <div className="flex items-center gap-3">
-        <ZoomOut className="h-4 w-4 text-fg-muted shrink-0" />
-        <input
-          type="range"
-          min={1}
-          max={5}
-          step={0.05}
-          value={zoom}
-          onChange={(e) => setZoom(Number(e.target.value))}
-          className="flex-1 h-1.5 rounded-full appearance-none bg-surface-hover [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand"
-          aria-label="Zoom"
-        />
-        <ZoomIn className="h-4 w-4 text-fg-muted shrink-0" />
-        <span className="text-xs font-mono tabular text-fg-subtle w-10 text-right">{zoom.toFixed(1)}x</span>
-      </div>
-
-      <p className="text-xs text-fg-subtle leading-relaxed">
-        Drag the photo behind the frame. Zoom in or out until only the signature is inside.
-        We'll strip the white paper background after you save.
+      <p className="text-sm text-fg-muted leading-relaxed">
+        Drag any corner or edge of the box to resize it. Drag the middle to move it.
+        Make the box hug just the signature — leave the paper outside. We'll strip the
+        background after you save.
       </p>
+
+      <div className="rounded-md border border-border bg-ink/80 p-2 overflow-hidden">
+        <div className="signature-crop max-h-[60vh] overflow-auto flex justify-center">
+          <ReactCrop
+            crop={crop}
+            onChange={(_pixel, percent) => setCrop(percent)}
+            onComplete={(c) => setCompletedCrop(c)}
+            ruleOfThirds
+            keepSelection
+            className="!max-w-full"
+          >
+            <img
+              ref={imgRef}
+              src={imageSrc}
+              alt="Uploaded signature"
+              onLoad={onImgLoad}
+              className="max-h-[60vh] w-auto"
+            />
+          </ReactCrop>
+        </div>
+      </div>
 
       {error && (
         <p className="flex items-start gap-2 text-sm text-danger">
@@ -157,7 +186,13 @@ export function SignatureCropper({ onComplete }: Props) {
       )}
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button type="button" size="lg" loading={submitting} onClick={confirm} rightIcon={!submitting ? <CheckCircle2 className="h-4 w-4" /> : undefined}>
+        <Button
+          type="button"
+          size="lg"
+          loading={submitting}
+          onClick={confirm}
+          rightIcon={!submitting ? <CheckCircle2 className="h-4 w-4" /> : undefined}
+        >
           {submitting ? 'Processing…' : 'Save signature'}
         </Button>
         <Button type="button" size="lg" variant="secondary" onClick={reset} leftIcon={<RotateCcw className="h-4 w-4" />}>
