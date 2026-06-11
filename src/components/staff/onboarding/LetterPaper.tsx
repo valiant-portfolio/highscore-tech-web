@@ -47,13 +47,15 @@ interface Props {
   /** CEO + staff names */
   ceoName: string;
   staffName: string;
+  /** Bump to force the staff signature URL to re-fetch (after upload). */
+  signatureRefreshKey?: number;
 }
 
 // 5-minute signed URL for a server-side signature. Used for both the
 // current staff member's own signature and the CEO's company-wide
 // signature. LetterPaper sits inside an authenticated page so these
 // calls are safe without extra plumbing.
-function useSignedUrl(endpoint: string): string | null {
+function useSignedUrl(endpoint: string, refreshKey: number = 0): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -62,14 +64,15 @@ function useSignedUrl(endpoint: string): string | null {
       .then(({ url }) => { if (!cancelled) setUrl(url); })
       .catch(() => { /* fall back to blank slot */ });
     return () => { cancelled = true; };
-  }, [endpoint]);
+  }, [endpoint, refreshKey]);
   return url;
 }
 
 export function LetterPaper({
   title, documentDate, recipient, firstName, paragraphs, signOff, ceoName, staffName,
+  signatureRefreshKey = 0,
 }: Props) {
-  const staffSig = useSignedUrl('/api/staff/me/signature-preview');
+  const staffSig = useSignedUrl('/api/staff/me/signature-preview', signatureRefreshKey);
   const ceoSig   = useSignedUrl('/api/ceo/signature-preview');
 
   return (

@@ -68,26 +68,28 @@ function shape(row: StaffRow): StaffRecord {
 }
 
 // ── Onboarding state helper ──────────────────────────────────────────────
-// Multi-step wizard tracks: (1) signature uploaded, (2) offer signed,
-// (3) NDA/contract signed. When all three are done, the dashboard unlocks.
+// Two-document wizard: (1) offer letter, (2) employment contract + NDA.
+// Signature is collected via a modal when the first document is signed,
+// not as a separate step — the staff reads the document FIRST so they
+// know what they're signing. Onboarding is complete once both documents
+// are signed.
 export interface OnboardingState {
   hasSignature: boolean;
   offerSigned:  boolean;
   ndaSigned:    boolean;
   complete:     boolean;
   /** The next step to take. 'done' means the dashboard is unlocked. */
-  nextStep: 'signature' | 'offer' | 'nda' | 'done';
+  nextStep: 'offer' | 'nda' | 'done';
 }
 
 export function getOnboardingState(staff: StaffRecord): OnboardingState {
   const hasSignature = !!staff.signature_url;
   const offerSigned  = !!staff.offer_signed_at;
   const ndaSigned    = !!staff.nda_signed_at;
-  const complete = hasSignature && offerSigned && ndaSigned;
+  const complete = offerSigned && ndaSigned;
   const nextStep: OnboardingState['nextStep'] =
-    !hasSignature ? 'signature' :
-    !offerSigned  ? 'offer'     :
-    !ndaSigned    ? 'nda'       : 'done';
+    !offerSigned ? 'offer' :
+    !ndaSigned   ? 'nda'   : 'done';
   return { hasSignature, offerSigned, ndaSigned, complete, nextStep };
 }
 

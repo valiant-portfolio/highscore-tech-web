@@ -2,29 +2,22 @@
 
 import { Check } from 'lucide-react';
 
-type Step = 'signature' | 'offer' | 'nda' | 'done';
+type Step = 'offer' | 'nda' | 'done';
 
 interface Props {
   current: Step;
-  ndaSigned: boolean;
   offerSigned: boolean;
-  hasSignature: boolean;
+  ndaSigned: boolean;
 }
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: 'signature', label: 'Signature' },
-  { id: 'offer',     label: 'Offer letter' },
-  { id: 'nda',       label: 'Contract & NDA' },
-  { id: 'done',      label: 'Done' },
+  { id: 'offer', label: 'Offer letter' },
+  { id: 'nda',   label: 'Contract & NDA' },
+  { id: 'done',  label: 'Done' },
 ];
 
-export function OnboardingWizardChrome({ current, ndaSigned, offerSigned, hasSignature }: Props) {
+export function OnboardingWizardChrome({ current, offerSigned, ndaSigned }: Props) {
   function statusOf(id: Step): 'done' | 'current' | 'pending' {
-    if (id === 'signature') {
-      if (hasSignature && current !== 'signature') return 'done';
-      if (current === 'signature') return 'current';
-      return 'pending';
-    }
     if (id === 'offer') {
       if (offerSigned) return 'done';
       if (current === 'offer') return 'current';

@@ -15,7 +15,7 @@ import ReactCrop, {
   centerCrop, makeAspectCrop, type Crop, type PixelCrop,
 } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { AlertCircle, CheckCircle2, RotateCcw, Upload } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, RotateCcw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { uploadSignatureAction, type SigActionState } from '@/lib/staff/signature-actions';
 import { getCroppedBlob } from '@/lib/signature/crop-canvas';
@@ -135,23 +135,49 @@ export function SignatureCropper({
     }
   }
 
-  // ── No image yet → file picker ───────────────────────────────────────
+  // ── No image yet → camera + upload buttons ───────────────────────────
   if (!imageSrc) {
     return (
       <div className="space-y-4">
-        <label className="flex items-center gap-3 px-4 py-3 rounded-md border-2 border-dashed border-border bg-surface/40 hover:bg-surface-hover cursor-pointer transition-colors">
-          <Upload className="h-5 w-5 text-brand" />
-          <span className="text-sm text-fg-muted">
-            <span className="font-semibold text-fg">Click to upload your signature photo</span> · JPG or PNG, max 8 MB
-          </span>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png"
-            className="sr-only"
-            onChange={onFile}
-          />
-        </label>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {/* Take a photo — mobile opens camera directly via `capture`,
+              desktop falls back to file picker. */}
+          <label className="flex items-center gap-3 px-4 py-4 rounded-md border-2 border-brand/40 bg-brand-tint/30 hover:bg-brand-tint/50 cursor-pointer transition-colors">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand text-brand-fg">
+              <Camera className="h-5 w-5" />
+            </span>
+            <span className="text-sm">
+              <span className="block font-semibold text-fg">Take a photo</span>
+              <span className="text-xs text-fg-muted">Use your camera now</span>
+            </span>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={onFile}
+            />
+          </label>
+
+          {/* Upload from existing file */}
+          <label className="flex items-center gap-3 px-4 py-4 rounded-md border-2 border-dashed border-border bg-surface/40 hover:bg-surface-hover cursor-pointer transition-colors">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-hover text-fg-muted">
+              <Upload className="h-5 w-5" />
+            </span>
+            <span className="text-sm">
+              <span className="block font-semibold text-fg">Upload a photo</span>
+              <span className="text-xs text-fg-muted">From your device</span>
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              className="sr-only"
+              onChange={onFile}
+            />
+          </label>
+        </div>
+
         {error && (
           <p className="flex items-start gap-2 text-sm text-danger">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> {error}
