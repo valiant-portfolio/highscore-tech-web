@@ -21,6 +21,16 @@ export default function OnboardingError({ error, reset }: Props) {
   useEffect(() => {
     console.error('[onboarding] render error:', error.message, error.digest);
     console.error(error.stack);
+    // Tell the server so admin actually gets an email.
+    fetch('/api/staff/report-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        route: '/staff/onboarding',
+        digest: error.digest,
+        message: error.message,
+      }),
+    }).catch(() => { /* if reporting fails, nothing to do client-side */ });
   }, [error]);
 
   return (

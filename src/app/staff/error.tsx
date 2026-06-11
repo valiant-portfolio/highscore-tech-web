@@ -19,6 +19,15 @@ export default function StaffError({ error, reset }: Props) {
   useEffect(() => {
     console.error('[staff] render error:', error.message, error.digest);
     console.error(error.stack);
+    fetch('/api/staff/report-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        route: '/staff',
+        digest: error.digest,
+        message: error.message,
+      }),
+    }).catch(() => { /* swallow */ });
   }, [error]);
 
   return (
