@@ -54,22 +54,24 @@ export function SignatureCropper({ onComplete }: Props) {
 
   function onImgLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { width, height } = e.currentTarget;
-    // Default crop = centered, 80% of image (most photos have padding around
-    // the signature so this is a sensible starting point the user can adjust).
-    const initialCrop = centerCrop(
-      makeAspectCrop({ unit: '%', width: 80 }, width / height, width, height),
-      width,
-      height,
-    );
-    setCrop(initialCrop);
-    // Compute pixel-coords for the initial crop so "Save" works without any
-    // user interaction if the default is already correct.
+    // Default crop = centered horizontal rectangle covering roughly the
+    // lower 40% of the photo (signatures usually live there). 70% wide so
+    // there's room to drag outward in either direction without the box
+    // hitting the image edge.
+    const cropPercent: Crop = {
+      unit: '%',
+      width: 70,
+      height: 40,
+      x: 15,
+      y: 45,
+    };
+    setCrop(cropPercent);
     setCompletedCrop({
       unit: 'px',
-      x: (initialCrop.x! / 100) * width,
-      y: (initialCrop.y! / 100) * height,
-      width:  (initialCrop.width!  / 100) * width,
-      height: (initialCrop.height! / 100) * height,
+      x: (cropPercent.x! / 100) * width,
+      y: (cropPercent.y! / 100) * height,
+      width:  (cropPercent.width!  / 100) * width,
+      height: (cropPercent.height! / 100) * height,
     });
   }
 
@@ -158,26 +160,40 @@ export function SignatureCropper({ onComplete }: Props) {
         background after you save.
       </p>
 
-      <div className="rounded-md border border-border bg-ink/80 p-2 overflow-hidden">
-        <div className="signature-crop max-h-[60vh] overflow-auto flex justify-center">
-          <ReactCrop
-            crop={crop}
-            onChange={(_pixel, percent) => setCrop(percent)}
-            onComplete={(c) => setCompletedCrop(c)}
-            ruleOfThirds
-            keepSelection
-            className="!max-w-full"
-          >
-            <img
-              ref={imgRef}
-              src={imageSrc}
-              alt="Uploaded signature"
-              onLoad={onImgLoad}
-              className="max-h-[60vh] w-auto"
-            />
-          </ReactCrop>
-        </div>
+      {/* Cropper canvas — image always fits the viewport, no scrolling.
+          Selection box overlays the rendered image so what you see is
+          exactly what you get. */}
+      <div className="signature-crop rounded-md border border-border bg-ink/80 p-3 flex items-center justify-center min-h-[300px]">
+        <ReactCrop
+          crop={crop}
+          onChange={(_pixel, percent) => setCrop(percent)}
+          onComplete={(c) => setCompletedCrop(c)}
+          ruleOfThirds
+          keepSelection
+          minWidth={40}
+          minHeight={20}
+        >
+          <img
+            ref={imgRef}
+            src={imageSrc}
+            alt="Uploaded signature"
+            onLoad={onImgLoad}
+            style={{
+              display: 'block',
+              maxWidth:  '100%',
+              maxHeight: '65vh',
+              width:  'auto',
+              height: 'auto',
+            }}
+          />
+        </ReactCrop>
       </div>
+
+      {completedCrop && (
+        <p className="text-[11px] font-mono tabular text-fg-subtle text-center">
+          Selection: {Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px
+        </p>
+      )}
 
       {error && (
         <p className="flex items-start gap-2 text-sm text-danger">
