@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox,
   CircleDollarSign, ExternalLink, LogOut, Menu, X,
-  Activity, ShieldCheck, FileText,
+  Activity, ShieldCheck, FileText, Settings,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -28,6 +28,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: '/admin/ledger',      label: 'Ledger',      icon: <CircleDollarSign className="h-4 w-4" /> },
   { href: '/admin/nin-docs',    label: 'NIN docs',    icon: <FileText className="h-4 w-4" /> },
   { href: '/admin/audit',       label: 'Audit log',   icon: <ShieldCheck className="h-4 w-4" /> },
+  { href: '/admin/settings',    label: 'Settings',    icon: <Settings className="h-4 w-4" /> },
 ];
 
 interface Props {

@@ -17,14 +17,24 @@ import ReactCrop, {
 import 'react-image-crop/dist/ReactCrop.css';
 import { AlertCircle, CheckCircle2, RotateCcw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { uploadSignatureAction } from '@/lib/staff/signature-actions';
+import { uploadSignatureAction, type SigActionState } from '@/lib/staff/signature-actions';
 import { getCroppedBlob } from '@/lib/signature/crop-canvas';
+
+type SigAction = (prev: SigActionState, fd: FormData) => Promise<SigActionState>;
 
 interface Props {
   onComplete: () => void;
+  /** Optional override. Defaults to the staff upload action. */
+  action?: SigAction;
+  /** Form-field name the action expects. Defaults to "signature". */
+  fieldName?: string;
 }
 
-export function SignatureCropper({ onComplete }: Props) {
+export function SignatureCropper({
+  onComplete,
+  action = uploadSignatureAction,
+  fieldName = 'signature',
+}: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -110,10 +120,10 @@ export function SignatureCropper({ onComplete }: Props) {
       const blob = await getCroppedBlob(imageSrc, area, 1600, 'image/png');
       const file = new File([blob], 'signature.png', { type: 'image/png' });
       const fd = new FormData();
-      fd.set('signature', file);
+      fd.set(fieldName, file);
 
       startTransition(async () => {
-        const res = await uploadSignatureAction({ status: 'idle' }, fd);
+        const res = await action({ status: 'idle' }, fd);
         if (res.status === 'success') {
           onComplete();
         } else if (res.status === 'error') {

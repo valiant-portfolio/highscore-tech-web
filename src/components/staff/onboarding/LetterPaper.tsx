@@ -49,26 +49,28 @@ interface Props {
   staffName: string;
 }
 
-// 5-minute signed URL for the current staff's processed signature. The
-// LetterPaper sits inside an authenticated page so this is safe to call
-// without an extra round-trip.
-function useStaffSignatureUrl(): string | null {
+// 5-minute signed URL for a server-side signature. Used for both the
+// current staff member's own signature and the CEO's company-wide
+// signature. LetterPaper sits inside an authenticated page so these
+// calls are safe without extra plumbing.
+function useSignedUrl(endpoint: string): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/staff/me/signature-preview')
+    fetch(endpoint)
       .then((r) => r.json())
       .then(({ url }) => { if (!cancelled) setUrl(url); })
-      .catch(() => { /* swallow — fall back to blank slot */ });
+      .catch(() => { /* fall back to blank slot */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [endpoint]);
   return url;
 }
 
 export function LetterPaper({
   title, documentDate, recipient, firstName, paragraphs, signOff, ceoName, staffName,
 }: Props) {
-  const staffSig = useStaffSignatureUrl();
+  const staffSig = useSignedUrl('/api/staff/me/signature-preview');
+  const ceoSig   = useSignedUrl('/api/ceo/signature-preview');
 
   return (
     <div className="mx-auto max-w-[760px]">
@@ -118,9 +120,7 @@ export function LetterPaper({
             label="For Highscore Tech"
             name={ceoName}
             title="Chief Executive Officer"
-            // CEO signature: render as a cursive script. The actual PDF
-            // embeds the real CEO signature image when available.
-            scriptName="Valiant"
+            imageUrl={ceoSig}
           />
           <SignatureSlot
             label="Accepted"
@@ -139,13 +139,12 @@ export function LetterPaper({
 }
 
 function SignatureSlot({
-  label, name, title, imageUrl, scriptName,
+  label, name, title, imageUrl,
 }: {
   label: string;
   name: string;
   title: string;
   imageUrl?: string | null;
-  scriptName?: string;
 }) {
   return (
     <div>
@@ -155,20 +154,11 @@ function SignatureSlot({
       <div className="mt-3 relative">
         <div className="h-20 flex items-end justify-start">
           {imageUrl ? (
-            // Processed signature is a transparent PNG, so no blend mode
-            // is needed — drop it straight onto the white paper.
             <img
               src={imageUrl}
               alt=""
               className="max-h-20 max-w-full object-contain object-bottom"
             />
-          ) : scriptName ? (
-            <span
-              className="text-4xl md:text-5xl text-[#0A8EA8] leading-none italic select-none"
-              style={{ fontFamily: 'var(--font-script, "Allura"), cursive', transform: 'rotate(-3deg)' }}
-            >
-              {scriptName}
-            </span>
           ) : (
             <span className="text-xs text-[#9aa3ad] italic">— signature pending —</span>
           )}

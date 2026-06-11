@@ -1,28 +1,67 @@
 // Server-side helpers for fetching signature image bytes at PDF render
-// time. The CEO sig sits in public/ as a processed PNG; staff sigs live
-// in Supabase Storage under the signatures bucket.
+// time.
+//
+//   • CEO signature → first tries Supabase Storage (signatures/ceo/
+//     signature.png — uploaded by the admin via /admin/settings).
+//     Falls back to the legacy local-disk path (_secrets/sigs/ceo.png)
+//     for dev environments where the Storage object isn't seeded.
+//   • Staff signature → Supabase Storage (signatures bucket, per-user
+//     path stored on the staff record).
+//
+// Both are cached in memory for the lifetime of the function instance
+// so repeated PDF renders don't re-download.
 
 import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { serviceClient } from '@/lib/supabase/service';
 
-// Stored OUTSIDE /public so Next.js doesn't serve it as a static asset.
-// Read at PDF render time, base64-encoded into the document.
-const CEO_PATH = join(process.cwd(), '_secrets', 'sigs', 'ceo.png');
+const CEO_STORAGE_PATH = 'ceo/signature.png';
+const CEO_LOCAL_PATH = join(process.cwd(), '_secrets', 'sigs', 'ceo.png');
 
-let cachedCeo: Buffer | null = null;
-let cachedCeoChecked = false;
+interface CachedBuffer {
+  buf: Buffer | null;
+  expires: number;
+}
+
+// 10-minute cache. Short enough that a fresh upload from /admin/settings
+// becomes visible quickly, long enough to avoid hammering Storage on
+// hot routes.
+const CACHE_TTL_MS = 10 * 60 * 1000;
+let ceoCache: CachedBuffer | null = null;
 
 export async function getCeoSignatureBuffer(): Promise<Buffer | null> {
-  if (cachedCeoChecked) return cachedCeo;
-  cachedCeoChecked = true;
+  if (ceoCache && ceoCache.expires > Date.now()) return ceoCache.buf;
+
+  let buf: Buffer | null = null;
+
+  // 1. Try Storage.
   try {
-    cachedCeo = await readFile(CEO_PATH);
+    const admin = serviceClient();
+    const { data } = await admin.storage.from('signatures').download(CEO_STORAGE_PATH);
+    if (data) {
+      buf = Buffer.from(await data.arrayBuffer());
+    }
   } catch {
-    cachedCeo = null;     // file not present yet — falls back to cursive Allura
+    /* fall through to local file */
   }
-  return cachedCeo;
+
+  // 2. Fallback for local development.
+  if (!buf) {
+    try {
+      buf = await readFile(CEO_LOCAL_PATH);
+    } catch {
+      buf = null;
+    }
+  }
+
+  ceoCache = { buf, expires: Date.now() + CACHE_TTL_MS };
+  return buf;
+}
+
+/** Force-clear the CEO sig cache (e.g. after a fresh upload). */
+export function clearCeoSignatureCache(): void {
+  ceoCache = null;
 }
 
 export async function getStaffSignatureBuffer(path: string | null): Promise<Buffer | null> {
@@ -30,8 +69,7 @@ export async function getStaffSignatureBuffer(path: string | null): Promise<Buff
   const admin = serviceClient();
   const { data } = await admin.storage.from('signatures').download(path);
   if (!data) return null;
-  const buf = Buffer.from(await data.arrayBuffer());
-  return buf;
+  return Buffer.from(await data.arrayBuffer());
 }
 
 // react-pdf can't take a Buffer directly — it expects a data: URI or a URL.
