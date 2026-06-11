@@ -13,6 +13,7 @@ import { StaffPasswordForm } from './StaffPasswordForm';
 import { StaffProfileForm } from './StaffProfileForm';
 import { StaffReportForm } from './StaffReportForm';
 import { StaffNinUpload } from './StaffNinUpload';
+import { StaffPhotoUpload } from './StaffPhotoUpload';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
@@ -35,6 +36,7 @@ interface Props {
   signedInName: string;
   signedInPhone: string;
   ninUploaded: boolean;
+  photoPublicUrl: string | null;
   ownReports: OwnReport[];
 }
 
@@ -70,7 +72,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 export function StaffDashboard({
-  staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone, ninUploaded, ownReports,
+  staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone, ninUploaded, photoPublicUrl, ownReports,
 }: Props) {
   const payday = computePayday(staff);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
@@ -315,6 +317,16 @@ export function StaffDashboard({
             </p>
             <div className="mt-6">
               <StaffPasswordForm />
+            </div>
+          </Card>
+
+          <Card className="p-5 md:p-7 lg:col-span-2">
+            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Passport photograph</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Add a clean head-and-shoulders shot. We crop to a square automatically and embed it on your staff ID card.
+            </p>
+            <div className="mt-6">
+              <StaffPhotoUpload initialPhotoUrl={photoPublicUrl} />
             </div>
           </Card>
 

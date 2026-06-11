@@ -56,6 +56,10 @@ export default async function StaffPage({ searchParams }: PageProps) {
 
   const employeeId = EMPLOYEE_IDS[staff.slug] ?? `HST-${staff.slug.toUpperCase().slice(0, 3)}`;
 
+  const photoPublicUrl = staff.photo_url
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')}/storage/v1/object/public/staff-photos/${staff.photo_url}`
+    : null;
+
   return (
     <Suspense>
       <StaffShell
@@ -78,6 +82,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
           signedInName={user.full_name ?? ''}
           signedInPhone={user.phone ?? ''}
           ninUploaded={ninUploaded}
+          photoPublicUrl={photoPublicUrl}
           ownReports={reports.map((r) => ({
             id: r.id,
             kind: r.kind,
