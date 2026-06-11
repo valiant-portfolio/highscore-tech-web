@@ -11,7 +11,7 @@ import { listPublicTeam } from '@/lib/stats/team';
 export const metadata: Metadata = {
   title: 'About — Highscore Tech',
   description:
-    'Highscore Tech is an AI development studio and in-house academy based in Nigeria, working with clients worldwide.',
+    'Highscore Tech is a fully remote Nigerian AI development studio and in-house academy (CAC RC No. 7223102), working with clients worldwide.',
   alternates: { canonical: '/about' },
 };
 
@@ -52,10 +52,11 @@ export default async function AboutPage() {
             A studio that builds, <br />and a school that hires.
           </h1>
           <p className="text-lg md:text-xl text-fg-muted leading-relaxed max-w-3xl">
-            Highscore Tech is an AI development studio based in Nigeria. We ship AI systems
-            and software for organisations across Africa, Europe, and beyond — and we run an
-            in-house academy that trains the next generation of engineers in the same stack
-            we use to build.
+            Highscore Tech is a fully remote Nigerian AI development studio, registered with
+            the Corporate Affairs Commission (CAC RC No. 7223102) and headquartered in
+            Port Harcourt. We ship AI systems and software for organisations across Africa,
+            Europe, and beyond — and we run an in-house academy that trains the next generation
+            of engineers in the same stack we use to build.
           </p>
         </div>
       </section>

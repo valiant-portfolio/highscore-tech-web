@@ -6,6 +6,7 @@ import { Document, Page, Text, View, Link, Image } from '@react-pdf/renderer';
 import {
   shared, BRAND_DEEP, INK, MUTED,
   COMPANY_NAME, COMPANY_TAGLINE, CEO_NAME, CEO_TITLE,
+  COMPANY_REG_NO, COMPANY_ADDRESS,
   formatDateLong, formatNgnPlain,
 } from './pdf-shared';
 import { ROLE_CONTENT, breakdownSalary } from './role-content';
@@ -79,7 +80,7 @@ export function OfferLetterPdf({ staff, issuedDate, ceoSignatureDataUri, staffSi
           </View>
           <View style={shared.kvRow}>
             <Text style={shared.kvKey}>Work arrangement</Text>
-            <Text style={shared.kvVal}>Hybrid — Nigeria</Text>
+            <Text style={shared.kvVal}>Fully remote — Nigeria</Text>
           </View>
           {staff.start_date && (
             <View style={shared.kvRow}>
@@ -168,7 +169,10 @@ export function OfferLetterPdf({ staff, issuedDate, ceoSignatureDataUri, staffSi
         </View>
 
         <View style={shared.footer} fixed>
-          <Text>{COMPANY_NAME} · Offer letter · {staff.full_name} · {issuedDate}</Text>
+          <View>
+            <Text>{COMPANY_NAME} · CAC RC No. {COMPANY_REG_NO} · Offer letter · {staff.full_name} · {issuedDate}</Text>
+            <Text style={{ marginTop: 2, fontSize: 7 }}>{COMPANY_ADDRESS}</Text>
+          </View>
           <Link src="https://highzcore.tech" style={shared.footerLink}>highzcore.tech</Link>
         </View>
       </Page>

@@ -49,11 +49,16 @@ export function MarketingFooter() {
             <Logo size="md" />
             <p className="text-sm text-fg-muted leading-relaxed max-w-xs">
               AI systems, software, and a training academy that hires its best students.
-              Built in Nigeria, working with clients worldwide.
+              Remote-first across Nigeria, working with clients worldwide.
             </p>
             <p className="text-xs text-fg-subtle">
               <a href="mailto:admin@highzcore.tech" className="hover:text-fg">admin@highzcore.tech</a>
             </p>
+            <div className="text-xs text-fg-subtle space-y-1 pt-2 border-t border-border/60 max-w-xs">
+              <p>Highscore Tech</p>
+              <p className="font-mono tabular">CAC RC No. 7223102</p>
+              <p>No. 237 1st Artellary, Aba Road,<br />Port Harcourt, Rivers State, Nigeria.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6">
@@ -83,7 +88,9 @@ export function MarketingFooter() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border flex items-center justify-between gap-4 flex-wrap text-xs text-fg-subtle">
-          <span>© {new Date().getFullYear()} Highscore Tech. All rights reserved.</span>
+          <span>
+            © {new Date().getFullYear()} Highscore Tech (CAC RC No. 7223102). All rights reserved.
+          </span>
           <span className="flex items-center gap-4">
             <Link href="/sitemap.xml" className="hover:text-fg">Sitemap</Link>
             <span aria-hidden="true">·</span>

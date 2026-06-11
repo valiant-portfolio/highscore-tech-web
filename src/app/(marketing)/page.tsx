@@ -53,7 +53,7 @@ const FAQS = [
   },
   {
     q: 'Where is the team based?',
-    a: 'Highscore Tech is based in Nigeria with engineers working both remote and onsite. We deliver to clients across Africa, Europe, and North America.',
+    a: 'Highscore Tech is a fully remote Nigerian company (CAC RC No. 7223102), registered in Port Harcourt. Our engineers work from across the country and we deliver to clients in Africa, Europe, and North America.',
   },
   {
     q: 'How does the academy connect to the studio?',

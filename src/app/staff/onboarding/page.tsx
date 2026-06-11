@@ -89,7 +89,8 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   const startDateText = staff.start_date
     ? formatDate(new Date(staff.start_date))
     : 'a date to be confirmed';
-  const recipient = `${staff.full_name}\n${staff.role_title}\nLagos, Nigeria`;
+  const recipient = `${staff.full_name}\n${staff.role_title}\nRemote · Nigeria`;
+  const isDev = /developer|engineer|dev/i.test(staff.role_title);
 
   // ── Offer letter content ──────────────────────────────────────────────
   const offerParagraphs: React.ReactNode[] = [
@@ -105,6 +106,13 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
         <> ({formatNgnPlain(salary.base)} basic salary plus {formatNgnPlain(salary.allowance.amount)} {salary.allowance.label.toLowerCase()})</>
       ) : null}, paid on the <strong>15th of every month</strong> by bank transfer to a Nigerian account you nominate.
     </p>,
+    <p key="p2b">
+      Highscore Tech operates as a <strong>fully remote</strong> company. You will work from a quiet,
+      secure location of your choosing within Nigeria.{' '}
+      {isDev
+        ? 'As a developer, you may set your own hours provided you meet agreed deadlines, attend scheduled meetings, and remain reachable for time-sensitive matters.'
+        : 'You will be expected to be available and active during standard business hours (09:00–17:00 West Africa Time) on working days.'}
+    </p>,
     ...(content
       ? [
           <p key="p3">
@@ -114,9 +122,9 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
         ]
       : []),
     <p key="p4">
-      Your employment will be governed by the Employment Contract and Non-Disclosure Agreement
-      you will be asked to sign next. By accepting this offer you confirm that you will read
-      and accept those documents in full.
+      Your employment will be governed by the Employment Contract and Non-Disclosure Agreement,
+      and by the Company Policy and Staff Agreement, which you will be asked to sign next. By
+      accepting this offer you confirm that you will read and accept those documents in full.
     </p>,
     <p key="p5">
       We are looking forward to having you join the team. To accept, sign in the space provided below.
@@ -127,11 +135,15 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   const contractParagraphs: React.ReactNode[] = [
     <Clause key="c1" heading="1. Parties and commencement">
       This Employment Contract and Non-Disclosure Agreement (the "Agreement") is entered into
-      between <strong>Highscore Tech</strong> (the "Company") and <strong>{staff.full_name}</strong>
-      {' '}(the "Employee"), taking effect from <strong>{startDateText}</strong>. The Employee accepts
-      employment in the role of <strong>{staff.role_title}</strong>, reporting to
+      between <strong>Highscore Tech</strong>, a business name registered under the Companies and
+      Allied Matters Act 2020 with CAC RC No. 7223102 and registered office at No. 237 1st
+      Artellary, Aba Road, Port Harcourt, Rivers State (the "Company"), and
+      <strong> {staff.full_name}</strong> (the "Employee"), taking effect from
+      <strong> {startDateText}</strong>. The Employee accepts employment in the role of
+      <strong> {staff.role_title}</strong>, reporting to
       <strong> {staff.reports_to_name ?? 'Victor Otung, the Chief Executive Officer'}</strong>,
-      with duties as described in the Job Description issued alongside this Agreement.
+      with duties as described in the Job Description issued alongside this Agreement. Employment
+      is fully remote within Nigeria.
     </Clause>,
 
     <Clause key="c2" heading="2. Compensation and benefits">
@@ -365,87 +377,121 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
                 paragraphs={[
                   <p key="intro">
                     This Policy supplements your Offer Letter and Employment Contract, and sets out
-                    the day-to-day terms of working at Highscore Tech. It binds you for the
-                    duration of your employment and survives where indicated.
+                    the day-to-day rules of working at Highscore Tech (CAC RC No. 7223102). It binds
+                    you for the duration of your employment and survives where indicated.
                   </p>,
 
                   <p key="c1">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">1. Working hours and location</strong>
-                    Standard hours are <strong>09:00–17:00 Lagos time, Monday to Friday</strong>,
-                    with a one-hour break 13:00–14:00. We operate a hybrid model — at least two
-                    days per week onsite at the Lagos office, remaining days from any quiet,
-                    secure location in Nigeria. Persistent or unexplained lateness is a
-                    disciplinary matter.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">1. Remote-first work model</strong>
+                    Highscore Tech is a <strong>fully remote company</strong>. You will work from any
+                    quiet, secure location of your choosing within Nigeria. There is no requirement
+                    to attend any office for routine work. You must maintain a stable internet
+                    connection sufficient for video calls, screen sharing, and access to Company
+                    development tools.
                   </p>,
 
                   <p key="c2">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">2. Probation</strong>
-                    Every new staff serves a <strong>three (3) month probation</strong>. During
-                    probation either side may end the employment by giving as little as
-                    <strong> three (3) working days&apos; notice in writing</strong>. Probation may be
-                    extended once by a further month if performance is borderline.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">2. Working hours</strong>
+                    {isDev ? (
+                      <>
+                        As a <strong>developer</strong>, you are evaluated on delivery, not hours.
+                        You may work at any time of day or night provided you (a) deliver assigned
+                        tasks on or before agreed deadlines, (b) attend scheduled meetings, and
+                        (c) respond to time-sensitive communication during business hours.
+                      </>
+                    ) : (
+                      <>
+                        You must be <strong>available and active</strong> during standard business
+                        hours (<strong>09:00–17:00 West Africa Time</strong>, Monday to Friday).
+                        Active means online in the Company&apos;s communication tools and able to
+                        respond to messages within about thirty minutes during those hours.
+                      </>
+                    )}{' '}
+                    Scheduled meetings are mandatory unless prior approval to skip has been
+                    obtained from the meeting organiser.
                   </p>,
 
                   <p key="c3">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">3. Notice after probation</strong>
-                    Once probation is confirmed, either party may end employment on
-                    <strong> thirty (30) days&apos; written notice</strong>. The Company may pay
-                    salary in lieu of notice. Termination for gross misconduct (breach of
-                    confidentiality, theft, harassment, etc.) is immediate without notice.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">3. Attendance, strikes and termination triggers</strong>
+                    The following events are tracked as <strong>strikes</strong> against your
+                    attendance record: <strong>(a)</strong> missing an important meeting without
+                    prior approval; <strong>(b)</strong> missing an agreed deadline without timely
+                    notice and a valid reason; <strong>(c)</strong> failing to submit an SOD/EOD
+                    report without notice; <strong>(d)</strong> being unavailable during your
+                    required hours without prior approval; <strong>(e)</strong> failing to respond
+                    to time-sensitive communication during business hours.
+                    <span className="block mt-2 text-[#1A1B1E]">
+                      <strong>Accumulating three (3) strikes within any two (2) month window is
+                      grounds for immediate termination of employment.</strong> Constantly missing
+                      deadlines or sustained poor performance may also lead to termination at the
+                      Company&apos;s discretion, independent of the strikes process.
+                    </span>
                   </p>,
 
                   <p key="c4">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">4. Annual leave and sick leave</strong>
-                    Twenty (20) paid working days&apos; annual leave per year plus all gazetted Nigerian
-                    public holidays. Up to ten (10) paid sick days per year — absences over two
-                    consecutive days may require a doctor&apos;s certificate.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">4. Probation</strong>
+                    Every new staff serves a <strong>three (3) month probation</strong>. During
+                    probation either side may end the employment by giving as little as
+                    <strong> three (3) working days&apos; written notice</strong>. Probation may be
+                    extended once by a further month if performance is borderline.
                   </p>,
 
                   <p key="c5">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">5. Code of conduct</strong>
-                    Treat colleagues, clients, students and partners with respect at all times.
-                    Discrimination, harassment and bullying are zero-tolerance. External
-                    communication about the Company — including social media — must not disclose
-                    confidential information and must not bring the Company into disrepute.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">5. Notice after probation</strong>
+                    Once probation is confirmed, either party may end employment on
+                    <strong> thirty (30) days&apos; written notice</strong>. The Company may pay
+                    salary in lieu of notice. Termination for gross misconduct, three-strikes
+                    accumulation, or breach of confidentiality is immediate without notice.
                   </p>,
 
                   <p key="c6">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">6. IT and security</strong>
-                    All Company devices, accounts and systems are for Company purposes. MFA is
-                    mandatory wherever supported. Workstations must be locked when unattended.
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">6. Leave and sick days</strong>
+                    Twenty (20) paid working days&apos; annual leave per year plus all gazetted
+                    Nigerian public holidays. Up to ten (10) paid sick days per year — absences
+                    over two consecutive days may require a doctor&apos;s certificate. Leave
+                    requests are submitted via the staff portal at least seven (7) working days
+                    in advance.
+                  </p>,
+
+                  <p key="c7">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">7. Code of conduct</strong>
+                    Treat colleagues, clients, students and partners with respect at all times.
+                    Discrimination, harassment and bullying are zero-tolerance and may result in
+                    immediate termination. External communication about the Company — including
+                    social media — must not disclose confidential information or bring the Company
+                    into disrepute.
+                  </p>,
+
+                  <p key="c8">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">8. IT and security</strong>
+                    MFA is mandatory on every Company account that supports it. Devices must be
+                    encrypted at rest and locked when unattended.
                     <strong> Source code, customer data, AI models, prompts and other Confidential
                     Information may never be copied to personal devices, personal cloud storage
                     or personal repositories — no exceptions.</strong> Security incidents must be
                     reported to the CEO within four hours of discovery.
                   </p>,
 
-                  <p key="c7">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">7. Outside work and conflicts</strong>
+                  <p key="c9">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">9. Outside work, reviews, disciplinary</strong>
                     No outside paid work, consulting, or directorships that compete with — or
                     create a conflict of interest with — Highscore Tech without prior written
-                    approval from the CEO. Disclose any personal investment or relationship that
-                    could affect your judgement.
+                    approval from the CEO. Performance is reviewed quarterly (informal) and yearly
+                    (formal). Minor breaches follow a verbal → written → final written warning
+                    process; gross misconduct and three-strikes may bypass earlier steps.
                   </p>,
 
-                  <p key="c8">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">8. Reviews, reports, and disciplinary process</strong>
-                    Performance is reviewed informally every quarter and formally each year. Salary
-                    is reviewed at the annual review. Daily SOD/EOD reports are submitted via the
-                    staff portal. Minor breaches follow a verbal → written → final written warning
-                    process; gross misconduct may bypass earlier steps.
-                  </p>,
-
-                  <p key="c9">
-                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">9. Survival and amendments</strong>
-                    Clauses 5, 6, 7 and the confidentiality terms in your Employment Contract survive
-                    the end of employment. The Company may amend this Policy with at least fourteen
-                    (14) days&apos; written notice via the staff portal and email.
+                  <p key="c10">
+                    <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">10. Survival and amendments</strong>
+                    Clauses 7, 8, 9 and the confidentiality terms in your Employment Contract
+                    survive the end of employment. The Company may amend this Policy with at least
+                    fourteen (14) days&apos; written notice via the staff portal and email.
                   </p>,
 
                   <p key="ack" className="mt-2 italic text-[#3B4651]">
                     By signing below, I confirm that I have read this Policy in full, understood
-                    its terms, and agree to abide by it for the duration of my employment with
-                    Highscore Tech.
+                    its terms — including the strikes policy and termination triggers — and agree
+                    to abide by it for the duration of my employment with Highscore Tech.
                   </p>,
                 ]}
                 signOff="Issued and accepted,"

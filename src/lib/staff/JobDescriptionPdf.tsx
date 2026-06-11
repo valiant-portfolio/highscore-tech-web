@@ -4,7 +4,8 @@
 import { Document, Page, Text, View, Link } from '@react-pdf/renderer';
 import {
   shared, BRAND, BRAND_DEEP, INK, PAPER, MUTED, LINE,
-  COMPANY_NAME, COMPANY_TAGLINE, formatDateLong,
+  COMPANY_NAME, COMPANY_TAGLINE, COMPANY_REG_NO, COMPANY_ADDRESS,
+  formatDateLong,
 } from './pdf-shared';
 import { ROLE_CONTENT } from './role-content';
 import type { StaffRecord } from './queries';
@@ -82,7 +83,7 @@ export function JobDescriptionPdf({ staff, issuedDate }: Props) {
           )}
           <View style={shared.kvRow}>
             <Text style={shared.kvKey}>Work arrangement</Text>
-            <Text style={shared.kvVal}>Hybrid — remote with onsite blocks as required</Text>
+            <Text style={shared.kvVal}>Fully remote — Nigeria</Text>
           </View>
 
           {/* Responsibilities */}
@@ -116,8 +117,11 @@ export function JobDescriptionPdf({ staff, issuedDate }: Props) {
 
         {/* Footer */}
         <View style={shared.footer} fixed>
-          <Text>{COMPANY_NAME} · Job description · {staff.full_name} · {issuedDate}</Text>
-          <Link src={`https://${'highzcore.tech'}`} style={shared.footerLink}>highzcore.tech</Link>
+          <View>
+            <Text>{COMPANY_NAME} · CAC RC No. {COMPANY_REG_NO} · Job description · {staff.full_name} · {issuedDate}</Text>
+            <Text style={{ marginTop: 2, fontSize: 7 }}>{COMPANY_ADDRESS}</Text>
+          </View>
+          <Link src="https://highzcore.tech" style={shared.footerLink}>highzcore.tech</Link>
         </View>
       </Page>
     </Document>
