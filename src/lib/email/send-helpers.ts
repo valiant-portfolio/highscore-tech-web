@@ -17,6 +17,7 @@ import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
 import { InstallmentReminderEmail } from './templates/InstallmentReminderEmail';
 import { WeeklyCeoSummaryEmail } from './templates/WeeklyCeoSummaryEmail';
 import { EmploymentConfirmationEmail } from './templates/EmploymentConfirmationEmail';
+import { TeamEodReportEmail } from './templates/TeamEodReportEmail';
 import { ReceiptPdf, type ReceiptData } from '@/lib/payments/ReceiptPdf';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
@@ -178,6 +179,26 @@ export async function sendWeeklyCeoSummary(args: Parameters<typeof WeeklyCeoSumm
   await sendEmail({
     to,
     subject: `Weekly summary — ${args.weekRange}`,
+    html,
+  });
+}
+
+// ── Team EOD report (sent to admin when Olivia posts) ────────────────────
+export async function sendTeamEodReport(args: {
+  reportDate: string;
+  postedBy: string;
+  summary: string;
+  entries: { full_name: string; did_work: boolean; notes: string }[];
+}): Promise<void> {
+  const html = await render(
+    createElement(TeamEodReportEmail, {
+      ...args,
+      dashboardHref: `${SITE_URL}/admin/reports`,
+    }),
+  );
+  await sendEmail({
+    to: emailConfig.admin,
+    subject: `Team EOD · ${args.reportDate} · ${args.entries.filter((e) => e.did_work).length}/${args.entries.length} worked`,
     html,
   });
 }

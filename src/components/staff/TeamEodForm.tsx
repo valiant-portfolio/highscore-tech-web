@@ -107,7 +107,7 @@ export function TeamEodForm({ activeStaff }: Props) {
             <div
               key={s.id}
               className={`rounded-md border p-4 transition-colors ${
-                isPresent ? 'border-border bg-surface/30' : 'border-border bg-surface-hover/40 opacity-75'
+                isPresent ? 'border-border bg-surface/30' : 'border-danger/30 bg-danger/5'
               }`}
             >
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -129,12 +129,31 @@ export function TeamEodForm({ activeStaff }: Props) {
                 </label>
               </div>
 
+              <label
+                htmlFor={`notes-${s.id}`}
+                className="block mt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle"
+              >
+                {isPresent
+                  ? 'What they shipped / blockers'
+                  : `Reason given by ${s.full_name.split(' ')[0]}`}
+              </label>
               <textarea
+                id={`notes-${s.id}`}
                 name={`entry.${s.id}.notes`}
                 rows={3}
-                placeholder={isPresent ? 'What they shipped · what they worked on · blockers' : 'Reason for absence (optional)'}
-                className="mt-3 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm leading-relaxed"
+                placeholder={
+                  isPresent
+                    ? 'Tasks completed · in-progress · what blocked them'
+                    : 'Why they did not work today (sick, family emergency, no notice…)'
+                }
+                className="mt-1.5 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm leading-relaxed"
               />
+              {!isPresent && (
+                <p className="mt-1.5 text-[11px] text-danger inline-flex items-center gap-1">
+                  <UserX className="h-3 w-3" />
+                  Recorded as not worked — entry will appear in the CEO's email even if reason is blank.
+                </p>
+              )}
             </div>
           );
         })}

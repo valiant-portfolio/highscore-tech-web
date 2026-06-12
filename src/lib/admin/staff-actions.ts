@@ -418,23 +418,29 @@ export async function submitTeamEodAction(
 
   // Pull all per-staff entries from the form. Convention: each field is
   // named `entry.<staff_id>.<key>`.
+  // EVERY active staff is included in the saved record — even if Olivia
+  // didn't tick "worked today" AND didn't enter a reason. That way the
+  // CEO can see at a glance who skipped without notice, rather than that
+  // staff member silently disappearing from the report.
   const allActive = await admin
     .from('staff')
     .select('id, full_name')
-    .eq('status', 'active');
-  const staffMap = new Map<string, string>();
-  for (const s of allActive.data ?? []) staffMap.set(s.id as string, s.full_name as string);
+    .eq('status', 'active')
+    .order('full_name', { ascending: true });
+  const staffList: { id: string; full_name: string }[] = (allActive.data ?? []).map((s) => ({
+    id: s.id as string,
+    full_name: s.full_name as string,
+  }));
 
-  const entries: TeamEodEntry[] = [];
-  for (const [staffId, full_name] of staffMap.entries()) {
-    const did_work = formData.get(`entry.${staffId}.did_work`) === 'on';
-    const notes = String(formData.get(`entry.${staffId}.notes`) ?? '').trim();
-    if (!did_work && !notes) continue;            // No entry — skip
-    entries.push({ staff_id: staffId, full_name, did_work, notes });
-  }
+  const entries: TeamEodEntry[] = staffList.map((s) => ({
+    staff_id: s.id,
+    full_name: s.full_name,
+    did_work: formData.get(`entry.${s.id}.did_work`) === 'on',
+    notes:    String(formData.get(`entry.${s.id}.notes`) ?? '').trim(),
+  }));
 
   if (entries.length === 0) {
-    return { status: 'error', message: 'Tick at least one staff member or add a note.' };
+    return { status: 'error', message: 'No active staff found.' };
   }
 
   const reportDate = String(formData.get('report_date') ?? new Date().toISOString().slice(0, 10));
@@ -452,15 +458,35 @@ export async function submitTeamEodAction(
   });
   if (insErr) return { status: 'error', message: `Could not save: ${insErr.message}` };
 
+  const workedCount = entries.filter((e) => e.did_work).length;
+
   await logAudit({
     action: 'staff.team_eod_submit',
     targetType: 'staff',
     targetId: me.id,
     targetLabel: 'Team EOD',
-    notes: `${entries.length} staff covered · ${entries.filter((e) => e.did_work).length} worked`,
+    notes: `${entries.length} staff covered · ${workedCount} worked`,
   });
+
+  // Notify admin. Awaited (not fire-and-forget) so the email actually
+  // sends on serverless before the function freezes.
+  try {
+    const { sendTeamEodReport } = await import('@/lib/email/send-helpers');
+    const formattedDate = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    }).format(new Date(reportDate));
+    await sendTeamEodReport({
+      reportDate: formattedDate,
+      postedBy: 'Olivia (Operations Manager)',
+      summary,
+      entries: entries.map((e) => ({ full_name: e.full_name, did_work: e.did_work, notes: e.notes })),
+    });
+  } catch (err) {
+    console.error('[team-eod] notification email failed:', err);
+  }
 
   revalidatePath('/staff');
   revalidatePath('/admin/staff');
+  revalidatePath('/admin/reports');
   return { status: 'success', message: `Team EOD posted for ${reportDate} covering ${entries.length} staff.` };
 }
