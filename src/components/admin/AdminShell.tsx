@@ -12,6 +12,7 @@ import {
   LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox,
   CircleDollarSign, ExternalLink, LogOut, Menu, X,
   Activity, ShieldCheck, FileText, Settings, ClipboardList,
+  Briefcase,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -23,6 +24,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: '/admin/courses',     label: 'Courses',     icon: <GraduationCap className="h-4 w-4" /> },
   { href: '/admin/enrollments', label: 'Enrolments',  icon: <Users className="h-4 w-4" /> },
   { href: '/admin/staff',       label: 'Staff',       icon: <IdCard className="h-4 w-4" /> },
+  { href: '/admin/projects',    label: 'Projects',    icon: <Briefcase className="h-4 w-4" /> },
   { href: '/admin/reports',     label: 'EOD reports', icon: <ClipboardList className="h-4 w-4" /> },
   { href: '/admin/performance', label: 'Performance', icon: <Activity className="h-4 w-4" /> },
   { href: '/admin/contact',     label: 'Contact',     icon: <Inbox className="h-4 w-4" /> },
