@@ -5,16 +5,38 @@ import 'server-only';
 import { serviceClient } from '@/lib/supabase/service';
 
 // ── KPIs for the dashboard ────────────────────────────────────────────────
+// Honest company-wide numbers. Income = academy + client-project
+// payments. Expenses = recorded company spending. Net is the unclamped
+// (income − expenses) — losses show as negative on purpose.
 export interface AdminKpis {
-  totalRevenueNgn: number;
-  totalCommittedNgn: number;
-  activeEnrollments: number;
-  pendingEnrollments: number;
-  totalCourses: number;
-  totalStaff: number;
-  unreadContact: number;
-  publishedProjects: number;
-  monthlyPayroll: number;
+  // Money — all-time
+  academyRevenueNgn:   number;
+  projectIncomeNgn:    number;
+  totalIncomeNgn:      number;
+  totalExpensesNgn:    number;
+  netNgn:              number;
+  totalCommittedNgn:   number;
+  // Money — this month
+  monthIncomeNgn:      number;
+  monthExpensesNgn:    number;
+  monthNetNgn:         number;
+  // Academy
+  activeEnrollments:   number;
+  pendingEnrollments:  number;
+  totalCourses:        number;
+  // Studio
+  activeProjects:      number;
+  internalProjects:    number;
+  completedProjects:   number;
+  publishedProjects:   number;
+  // Operations
+  totalStaff:          number;
+  unreadContact:       number;
+  monthlyPayroll:      number;
+}
+
+function monthOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export async function getKpis(): Promise<AdminKpis> {
@@ -28,33 +50,75 @@ export async function getKpis(): Promise<AdminKpis> {
     contactC,
     portfolioC,
     staffSalaries,
+    projectIncome,
+    companyExpenses,
+    projects,
   ] = await Promise.all([
-    admin.from('payments').select('amount_ngn, status'),
+    admin.from('payments').select('amount_ngn, status, created_at'),
     admin.from('enrollments').select('total_ngn, status'),
     admin.from('courses').select('id', { count: 'exact', head: true }),
     admin.from('staff').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     admin.from('contact_messages').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     admin.from('portfolio_projects').select('id', { count: 'exact', head: true }).eq('published', true),
     admin.from('staff').select('salary_ngn').eq('status', 'active'),
+    admin.from('client_project_payments').select('amount_ngn, received_at'),
+    admin.from('company_expenses').select('amount_ngn, spent_at'),
+    admin.from('client_projects').select('status, project_type'),
   ]);
 
-  const totalRevenueNgn = (payments.data ?? [])
+  const academyRevenueNgn = (payments.data ?? [])
     .filter((p) => p.status === 'succeeded')
-    .reduce((s, p) => s + (p.amount_ngn ?? 0), 0);
-  const totalCommittedNgn = (enrollments.data ?? []).reduce((s, e) => s + (e.total_ngn ?? 0), 0);
+    .reduce((s, p) => s + Number(p.amount_ngn ?? 0), 0);
+
+  const projectIncomeNgn = (projectIncome.data ?? [])
+    .reduce((s, p) => s + Number(p.amount_ngn ?? 0), 0);
+
+  const totalIncomeNgn   = academyRevenueNgn + projectIncomeNgn;
+  const totalExpensesNgn = (companyExpenses.data ?? [])
+    .reduce((s, e) => s + Number(e.amount_ngn ?? 0), 0);
+
+  const totalCommittedNgn = (enrollments.data ?? []).reduce((s, e) => s + Number(e.total_ngn ?? 0), 0);
   const activeEnrollments  = (enrollments.data ?? []).filter((e) => e.status === 'active').length;
   const pendingEnrollments = (enrollments.data ?? []).filter((e) => e.status === 'pending').length;
-  const monthlyPayroll = (staffSalaries.data ?? []).reduce((s, r) => s + (r.salary_ngn ?? 0), 0);
+  const monthlyPayroll = (staffSalaries.data ?? []).reduce((s, r) => s + Number(r.salary_ngn ?? 0), 0);
+
+  // Month slices
+  const thisMonth = monthOf(new Date());
+  const monthAcademyIncome = (payments.data ?? [])
+    .filter((p) => p.status === 'succeeded' && typeof p.created_at === 'string' && p.created_at.startsWith(thisMonth))
+    .reduce((s, p) => s + Number(p.amount_ngn ?? 0), 0);
+  const monthProjectIncome = (projectIncome.data ?? [])
+    .filter((p) => typeof p.received_at === 'string' && p.received_at.startsWith(thisMonth))
+    .reduce((s, p) => s + Number(p.amount_ngn ?? 0), 0);
+  const monthExpensesNgn = (companyExpenses.data ?? [])
+    .filter((e) => typeof e.spent_at === 'string' && e.spent_at.startsWith(thisMonth))
+    .reduce((s, e) => s + Number(e.amount_ngn ?? 0), 0);
+  const monthIncomeNgn = monthAcademyIncome + monthProjectIncome;
+
+  // Project counts by status / type
+  const activeProjects    = (projects.data ?? []).filter((p) => p.status === 'in_progress').length;
+  const completedProjects = (projects.data ?? []).filter((p) => p.status === 'completed').length;
+  const internalProjects  = (projects.data ?? []).filter((p) => p.project_type === 'internal').length;
 
   return {
-    totalRevenueNgn,
+    academyRevenueNgn,
+    projectIncomeNgn,
+    totalIncomeNgn,
+    totalExpensesNgn,
+    netNgn:           totalIncomeNgn - totalExpensesNgn,
     totalCommittedNgn,
+    monthIncomeNgn,
+    monthExpensesNgn,
+    monthNetNgn:      monthIncomeNgn - monthExpensesNgn,
     activeEnrollments,
     pendingEnrollments,
-    totalCourses:        coursesC.count   ?? 0,
-    totalStaff:          staffC.count     ?? 0,
-    unreadContact:       contactC.count   ?? 0,
-    publishedProjects:   portfolioC.count ?? 0,
+    totalCourses:     coursesC.count   ?? 0,
+    activeProjects,
+    internalProjects,
+    completedProjects,
+    publishedProjects: portfolioC.count ?? 0,
+    totalStaff:        staffC.count     ?? 0,
+    unreadContact:     contactC.count   ?? 0,
     monthlyPayroll,
   };
 }
