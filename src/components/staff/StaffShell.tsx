@@ -23,12 +23,14 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const NAV: NavItem[] = [
+const NAV_BASE: NavItem[] = [
   { tab: 'profile',   label: 'Overview',  icon: <Home className="h-4 w-4" /> },
   { tab: 'documents', label: 'Documents', icon: <FolderOpen className="h-4 w-4" /> },
-  { tab: 'reports',   label: 'Reports',   icon: <MessageSquare className="h-4 w-4" /> },
   { tab: 'settings',  label: 'Settings',  icon: <Settings className="h-4 w-4" /> },
 ];
+const REPORTS_NAV: NavItem = {
+  tab: 'reports', label: 'Team EOD', icon: <MessageSquare className="h-4 w-4" />,
+};
 
 interface Props {
   user: { fullName: string | null; email: string; initials: string };
@@ -36,11 +38,18 @@ interface Props {
     fullName: string;
     roleTitle: string;
     employeeId: string;
+    /** Only the operations manager (slug=olivia) gets the Reports nav entry. */
+    canPostTeamEod?: boolean;
   };
   children: React.ReactNode;
 }
 
 export function StaffShell({ user, staff, children }: Props) {
+  // Insert the Reports entry between Documents and Settings — only for
+  // the operations manager. Everyone else sees three tabs.
+  const NAV: NavItem[] = staff.canPostTeamEod
+    ? [NAV_BASE[0], NAV_BASE[1], REPORTS_NAV, NAV_BASE[2]]
+    : NAV_BASE;
   const pathname = usePathname();
   const sp = useSearchParams();
   const [open, setOpen] = useState(false);

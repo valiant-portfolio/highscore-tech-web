@@ -43,11 +43,17 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const onboarding = getOnboardingState(staff);
   if (!onboarding.complete) redirect('/staff/onboarding');
 
-  const { tab } = await searchParams;
-  const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
-    tab === 'documents' || tab === 'settings' || tab === 'reports' ? tab : 'profile';
+  // Only Olivia (operations manager) can post the team EOD; for everyone
+  // else, the Reports route doesn't exist — bounce to overview if they
+  // try ?tab=reports directly.
+  const isOlivia = staff.slug === 'olivia';
 
-  const reports = await listReportsForStaff(staff.id, 30);
+  const { tab } = await searchParams;
+  if (tab === 'reports' && !isOlivia) redirect('/staff');
+  const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
+    tab === 'documents' || tab === 'settings' || (tab === 'reports' && isOlivia)
+      ? tab
+      : 'profile';
 
   const { serviceClient } = await import('@/lib/supabase/service');
   const admin = serviceClient();
@@ -56,7 +62,6 @@ export default async function StaffPage({ searchParams }: PageProps) {
 
   // Olivia-only data: active staff for the team EOD form, plus past team
   // EOD rows for the table.
-  const isOlivia = staff.slug === 'olivia';
   let activeStaffForEod: { id: string; full_name: string; role_title: string }[] = [];
   let teamEodRows: { id: string; report_date: string; content: string; created_at: string }[] = [];
   if (isOlivia) {
@@ -81,6 +86,11 @@ export default async function StaffPage({ searchParams }: PageProps) {
     }));
   }
 
+  // ownReports query removed — personal reports are no longer collected
+  // here. Olivia gathers updates from Google Workspace and posts a single
+  // Team EOD covering everyone.
+  void listReportsForStaff;
+
   const employeeId = EMPLOYEE_IDS[staff.slug] ?? `HST-${staff.slug.toUpperCase().slice(0, 3)}`;
 
   const photoPublicUrl = staff.photo_url
@@ -99,6 +109,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
           fullName: staff.full_name,
           roleTitle: staff.role_title,
           employeeId,
+          canPostTeamEod: isOlivia,
         }}
       >
         <StaffDashboard
@@ -113,14 +124,6 @@ export default async function StaffPage({ searchParams }: PageProps) {
           isOlivia={isOlivia}
           activeStaffForEod={activeStaffForEod}
           teamEodRows={teamEodRows}
-          ownReports={reports.map((r) => ({
-            id: r.id,
-            kind: r.kind,
-            report_date: r.report_date,
-            content: r.content,
-            is_admin_override: r.is_admin_override,
-            created_at: r.created_at,
-          }))}
         />
       </StaffShell>
     </Suspense>

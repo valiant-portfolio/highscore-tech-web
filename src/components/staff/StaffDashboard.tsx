@@ -6,12 +6,11 @@
 import Link from 'next/link';
 import {
   Download, FileText, IdCard, ScrollText, FileSignature,
-  CheckCircle2, ShieldAlert, Flame, Calendar, CircleDollarSign, Users as UsersIcon,
+  CheckCircle2, Flame, Calendar, CircleDollarSign, Users as UsersIcon,
   BookOpenCheck,
 } from 'lucide-react';
 import { StaffPasswordForm } from './StaffPasswordForm';
 import { StaffProfileForm } from './StaffProfileForm';
-import { StaffReportForm } from './StaffReportForm';
 import { StaffNinUpload } from './StaffNinUpload';
 import { StaffPhotoUpload } from './StaffPhotoUpload';
 import { StaffBankAccount } from './StaffBankAccount';
@@ -21,15 +20,6 @@ import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
 type Tab = 'profile' | 'documents' | 'reports' | 'settings';
-
-interface OwnReport {
-  id: string;
-  kind: 'sod' | 'eod' | 'general' | 'team_eod';
-  report_date: string;
-  content: string;
-  is_admin_override: boolean;
-  created_at: string;
-}
 
 interface TeamEodRow {
   id: string;
@@ -56,10 +46,7 @@ interface Props {
   isOlivia: boolean;
   activeStaffForEod: EodStaffMember[];
   teamEodRows: TeamEodRow[];
-  ownReports: OwnReport[];
 }
-
-const KIND_LABEL = { sod: 'SOD', eod: 'EOD', general: 'General', team_eod: 'Team EOD' } as const;
 
 function StatCard({
   label, value, hint, icon, tone,
@@ -92,7 +79,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 export function StaffDashboard({
   staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone,
-  ninUploaded, photoPublicUrl, isOlivia, activeStaffForEod, teamEodRows, ownReports,
+  ninUploaded, photoPublicUrl, isOlivia, activeStaffForEod, teamEodRows,
 }: Props) {
   const payday = computePayday(staff);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
@@ -119,8 +106,8 @@ export function StaffDashboard({
       subtitle = 'Brand-styled PDFs, generated on demand. All four reflect your signed signature.';
       break;
     case 'reports':
-      title = 'Reports';
-      subtitle = `File start-of-day, end-of-day, or anything that should leave a paper trail. ${ownReports.length} on file.`;
+      title = 'Team end-of-day';
+      subtitle = 'Compile the team report from the updates gathered on Google Workspace and post it here.';
       break;
     case 'settings':
       title = 'Settings';
@@ -179,9 +166,13 @@ export function StaffDashboard({
               tone="success"
             />
             <StatCard
-              label="Reports filed"
-              value={ownReports.length}
-              hint={ownReports.length > 0 ? `Last on ${new Date(ownReports[0].report_date).toLocaleDateString('en-GB')}` : 'None yet'}
+              label="Days employed"
+              value={(() => {
+                if (!staff.start_date) return '—';
+                const days = Math.max(0, Math.floor((Date.now() - new Date(staff.start_date).getTime()) / 86_400_000));
+                return days;
+              })()}
+              hint={staff.start_date ? `Since ${new Date(staff.start_date).toLocaleDateString('en-GB')}` : 'Start date not set'}
               icon={<Flame className="h-4 w-4" />}
             />
           </div>
@@ -226,11 +217,13 @@ export function StaffDashboard({
             <Card className="p-6">
               <h2 className="font-display text-lg font-bold text-fg">Quick actions</h2>
               <ul className="mt-5 space-y-2 text-sm">
-                <li>
-                  <Link href="/staff?tab=reports" className="flex items-center justify-between gap-2 px-3 h-10 rounded-md hover:bg-surface-hover text-fg-muted hover:text-fg">
-                    File a report <span className="text-fg-subtle">→</span>
-                  </Link>
-                </li>
+                {isOlivia && (
+                  <li>
+                    <Link href="/staff?tab=reports" className="flex items-center justify-between gap-2 px-3 h-10 rounded-md hover:bg-surface-hover text-fg-muted hover:text-fg">
+                      Post team EOD <span className="text-fg-subtle">→</span>
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <Link href="/staff?tab=documents" className="flex items-center justify-between gap-2 px-3 h-10 rounded-md hover:bg-surface-hover text-fg-muted hover:text-fg">
                     Download contract <span className="text-fg-subtle">→</span>
@@ -273,77 +266,31 @@ export function StaffDashboard({
         </div>
       )}
 
-      {/* ── REPORTS ─────────────────────────────────────────────────── */}
-      {activeTab === 'reports' && (
+      {/* ── REPORTS (Olivia-only — non-Olivia hits a server-side redirect) */}
+      {activeTab === 'reports' && isOlivia && (
         <div className="space-y-6">
-          {/* Olivia: team EOD form + table */}
-          {isOlivia && (
-            <>
-              <Card className="p-5 md:p-7">
-                <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <div>
-                    <h2 className="font-display text-lg md:text-xl font-bold text-fg">Team end-of-day</h2>
-                    <p className="mt-1 text-sm text-fg-muted">
-                      Compile the day's progress for every active staff in one post.
-                      Only you can submit this.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <TeamEodForm activeStaff={activeStaffForEod} />
-                </div>
-              </Card>
-
-              <Card className="p-5 md:p-7">
-                <div className="flex items-baseline justify-between gap-3 mb-4">
-                  <h2 className="font-display text-lg md:text-xl font-bold text-fg">Past team EODs</h2>
-                  <p className="text-xs text-fg-subtle">{teamEodRows.length} on file</p>
-                </div>
-                <TeamEodTable rows={teamEodRows} />
-              </Card>
-            </>
-          )}
-
-          {/* All staff: own SOD / general form + own recent list */}
-          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-            <Card className="p-5 md:p-7">
-              <h2 className="font-display text-lg md:text-xl font-bold text-fg">File a personal report</h2>
-              <p className="mt-1 text-sm text-fg-muted">
-                Start-of-day plan, or anything that should leave a paper trail.
-                {isOlivia ? ' (EOD goes in the team EOD card above.)' : ' EODs are compiled by the operations manager.'}
-              </p>
-              <div className="mt-6">
-                <StaffReportForm />
+          <Card className="p-5 md:p-7">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-display text-lg md:text-xl font-bold text-fg">Compile the team EOD</h2>
+                <p className="mt-1 text-sm text-fg-muted">
+                  Gather everyone&apos;s end-of-day update from the Google Workspace group, then post the
+                  consolidated report here. The CEO is emailed automatically when you submit.
+                </p>
               </div>
-            </Card>
+            </div>
+            <div className="mt-6">
+              <TeamEodForm activeStaff={activeStaffForEod} />
+            </div>
+          </Card>
 
-            <Card className="p-5 md:p-7">
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-base font-semibold text-fg">Your recent reports</h3>
-                <p className="text-xs text-fg-subtle">{ownReports.filter((r) => r.kind !== 'team_eod').length} on file</p>
-              </div>
-              {ownReports.filter((r) => r.kind !== 'team_eod').length === 0 ? (
-                <p className="mt-4 text-sm text-fg-muted">No reports yet — file your first one on the left.</p>
-              ) : (
-                <ul className="mt-4 space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                  {ownReports.filter((r) => r.kind !== 'team_eod').map((r) => (
-                    <li key={r.id} className="p-3 rounded-md border border-border bg-surface/40 text-sm">
-                      <p className="text-xs font-mono tabular text-fg-subtle">
-                        {new Date(r.report_date).toLocaleDateString('en-GB')} ·{' '}
-                        <span className="font-semibold text-brand">{KIND_LABEL[r.kind]}</span>
-                        {r.is_admin_override && (
-                          <span className="ml-2 inline-flex items-center gap-1 text-warning">
-                            <ShieldAlert className="h-3 w-3" /> Admin filed
-                          </span>
-                        )}
-                      </p>
-                      <p className="mt-1.5 text-fg whitespace-pre-wrap leading-relaxed">{r.content}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          </div>
+          <Card className="p-5 md:p-7">
+            <div className="flex items-baseline justify-between gap-3 mb-4">
+              <h2 className="font-display text-lg md:text-xl font-bold text-fg">Past team EODs</h2>
+              <p className="text-xs text-fg-subtle">{teamEodRows.length} on file</p>
+            </div>
+            <TeamEodTable rows={teamEodRows} />
+          </Card>
         </div>
       )}
 
