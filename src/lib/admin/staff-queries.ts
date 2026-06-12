@@ -20,6 +20,12 @@ export interface AdminStaffFull {
   nda_signed_at: string | null;
   reports_to_id: string | null;
   reports_to_name: string | null;
+  // Payroll — set by the staff in their Settings tab, locked to 90-day
+  // edit cycle. Admin sees the full account number (needed for transfer).
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  bank_updated_at: string | null;
 }
 
 interface Row {
@@ -38,10 +44,14 @@ interface Row {
   nda_signed_at: string | null;
   reports_to: string | null;
   reports_to_rel: { full_name: string } | { full_name: string }[] | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  bank_updated_at: string | null;
 }
 
 const COLS =
-  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, photo_url, signature_url, nda_signed_at, reports_to, reports_to_rel:reports_to(full_name)';
+  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, photo_url, signature_url, nda_signed_at, reports_to, reports_to_rel:reports_to(full_name), bank_name, bank_account_number, bank_account_name, bank_updated_at';
 
 function publicUrlFor(path: string | null): string | null {
   if (!path) return null;
@@ -74,6 +84,10 @@ function shape(row: Row): AdminStaffFull {
     nda_signed_at: row.nda_signed_at,
     reports_to_id: row.reports_to,
     reports_to_name: reportsRel?.full_name ?? null,
+    bank_name: row.bank_name,
+    bank_account_number: row.bank_account_number,
+    bank_account_name: row.bank_account_name,
+    bank_updated_at: row.bank_updated_at,
   };
 }
 

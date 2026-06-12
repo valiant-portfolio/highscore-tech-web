@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   CheckCircle2, Clock, FileText, IdCard, ScrollText, FileSignature,
-  PenTool, ShieldAlert, MessageSquare,
+  PenTool, ShieldAlert, MessageSquare, Landmark, AlertCircle, Lock,
 } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { StaffPhotoUpload } from '@/components/admin/StaffPhotoUpload';
@@ -13,6 +13,7 @@ import { StaffPerfCard } from '@/components/admin/StaffPerfCard';
 import { getStaffAdminFull, listReportsForStaff } from '@/lib/admin/staff-queries';
 import { getStaffPerformanceById } from '@/lib/admin/performance';
 import { formatNgn } from '@/lib/academy/queries';
+import { formatAccountNumber, canUpdateBank } from '@/lib/staff/bank';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -79,6 +80,69 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
               <div className="mt-5">
                 <StaffAmendForm staff={staff} />
               </div>
+            </div>
+          </AdminCard>
+
+          {/* Bank account / payroll */}
+          <AdminCard>
+            <div className="p-5 md:p-6">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="font-display text-lg md:text-xl font-bold text-fg inline-flex items-center gap-2">
+                    <Landmark className="h-5 w-5 text-brand" /> Payroll · bank account
+                  </h2>
+                  <p className="mt-1 text-sm text-fg-muted">
+                    Set by {staff.full_name.split(' ')[0]} in their Settings tab. Edits locked to once every 90 days.
+                  </p>
+                </div>
+              </div>
+
+              {staff.bank_account_number ? (
+                <div className="mt-5 grid sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Bank</p>
+                    <p className="mt-1 text-fg font-semibold">{staff.bank_name ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Account number</p>
+                    <p className="mt-1 font-mono tabular text-xl font-extrabold text-fg leading-none">
+                      {formatAccountNumber(staff.bank_account_number)}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Account name</p>
+                    <p className="mt-1 text-fg uppercase">{staff.bank_account_name ?? '—'}</p>
+                  </div>
+                  {staff.bank_updated_at && (() => {
+                    const lock = canUpdateBank(staff.bank_updated_at);
+                    return (
+                      <div className="sm:col-span-2 pt-4 border-t border-border flex items-center justify-between gap-3 flex-wrap text-xs">
+                        <p className="text-fg-subtle">
+                          Last updated{' '}
+                          <span className="text-fg-muted font-semibold">
+                            {new Date(staff.bank_updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </span>
+                        </p>
+                        {!lock.allowed && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full bg-surface-hover text-fg-muted font-bold">
+                            <Lock className="h-3 w-3" /> Locked · next change in {lock.daysLeft} day{lock.daysLeft === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="mt-5 flex items-start gap-2.5 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm">
+                  <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-fg">No bank account on file.</p>
+                    <p className="mt-0.5 text-xs text-fg-muted">
+                      Ask {staff.full_name.split(' ')[0]} to add it from their Settings tab so payroll can land.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </AdminCard>
 

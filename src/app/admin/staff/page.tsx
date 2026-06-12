@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { CheckCircle2, FileSignature, Download, UserPlus } from 'lucide-react';
+import { CheckCircle2, FileSignature, Download, UserPlus, Landmark, AlertCircle } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { listStaffAdminFull } from '@/lib/admin/staff-queries';
 import { formatNgn } from '@/lib/academy/queries';
+import { formatAccountNumber } from '@/lib/staff/bank';
 
 export default async function AdminStaffPage() {
   const staff = await listStaffAdminFull();
@@ -37,6 +38,7 @@ export default async function AdminStaffPage() {
               <th className="text-left px-4 py-3 font-bold">Member</th>
               <th className="text-left px-4 py-3 font-bold">Role</th>
               <th className="text-right px-4 py-3 font-bold">Salary</th>
+              <th className="text-left px-4 py-3 font-bold">Bank account</th>
               <th className="text-left px-4 py-3 font-bold">Started</th>
               <th className="text-left px-4 py-3 font-bold">Agreement</th>
               <th className="text-left px-4 py-3 font-bold">Status</th>
@@ -76,6 +78,20 @@ export default async function AdminStaffPage() {
                 </td>
                 <td className="px-4 py-3 text-right font-mono tabular font-semibold text-fg">
                   {formatNgn(s.salary_ngn)}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {s.bank_account_number ? (
+                    <div>
+                      <p className="font-mono tabular text-fg font-semibold">{formatAccountNumber(s.bank_account_number)}</p>
+                      <p className="text-fg-subtle inline-flex items-center gap-1">
+                        <Landmark className="h-3 w-3" /> {s.bank_name ?? '—'}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-warning">
+                      <AlertCircle className="h-3 w-3" /> Not set
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-fg-muted">
                   {s.start_date ? new Date(s.start_date).toLocaleDateString('en-GB') : '—'}
