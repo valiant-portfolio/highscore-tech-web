@@ -41,8 +41,9 @@ export function StaffReportForm() {
         label="Kind of report"
         defaultValue="sod"
         options={[
+          // 'eod' intentionally removed: the team EOD is now compiled
+          // by Olivia from her own form (see TeamEodForm.tsx).
           { value: 'sod', label: 'SOD — Start of day (what you plan to do today)' },
-          { value: 'eod', label: 'EOD — End of day (what you actually did)' },
           { value: 'general', label: 'General (anything that needs a paper trail)' },
         ]}
       />

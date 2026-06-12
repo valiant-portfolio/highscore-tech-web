@@ -54,6 +54,33 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const { data: meRow } = await admin.from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
   const ninUploaded = !!meRow?.nin_doc_url;
 
+  // Olivia-only data: active staff for the team EOD form, plus past team
+  // EOD rows for the table.
+  const isOlivia = staff.slug === 'olivia';
+  let activeStaffForEod: { id: string; full_name: string; role_title: string }[] = [];
+  let teamEodRows: { id: string; report_date: string; content: string; created_at: string }[] = [];
+  if (isOlivia) {
+    const [{ data: activeList }, { data: pastEods }] = await Promise.all([
+      admin.from('staff').select('id, full_name, role_title').eq('status', 'active').order('full_name', { ascending: true }),
+      admin.from('staff_reports')
+        .select('id, report_date, content, created_at')
+        .eq('kind', 'team_eod')
+        .order('report_date', { ascending: false })
+        .limit(60),
+    ]);
+    activeStaffForEod = (activeList ?? []).map((r) => ({
+      id: r.id as string,
+      full_name: r.full_name as string,
+      role_title: r.role_title as string,
+    }));
+    teamEodRows = (pastEods ?? []).map((r) => ({
+      id: r.id as string,
+      report_date: r.report_date as string,
+      content: r.content as string,
+      created_at: r.created_at as string,
+    }));
+  }
+
   const employeeId = EMPLOYEE_IDS[staff.slug] ?? `HST-${staff.slug.toUpperCase().slice(0, 3)}`;
 
   const photoPublicUrl = staff.photo_url
@@ -83,6 +110,9 @@ export default async function StaffPage({ searchParams }: PageProps) {
           signedInPhone={user.phone ?? ''}
           ninUploaded={ninUploaded}
           photoPublicUrl={photoPublicUrl}
+          isOlivia={isOlivia}
+          activeStaffForEod={activeStaffForEod}
+          teamEodRows={teamEodRows}
           ownReports={reports.map((r) => ({
             id: r.id,
             kind: r.kind,

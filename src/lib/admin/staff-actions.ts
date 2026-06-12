@@ -266,3 +266,201 @@ export async function adminCreateReportAction(_prev: AdminStaffState, formData: 
   revalidatePath(`/admin/staff/${staffId}`);
   return { status: 'success', message: 'Override report saved on behalf of staff.' };
 }
+
+// ── Create staff (admin provisions a new employee) ───────────────────────
+// Admin enters all employment details + sets a default password. We create
+// the Supabase Auth user, insert the staff record, log the audit, and
+// return the credentials so admin can hand them to the new hire.
+
+export type CreateStaffState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string; fieldErrors?: Record<string, string> }
+  | { status: 'success'; message: string;
+      credentials: { email: string; password: string; slug: string; staffId: string } };
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export async function createStaffAction(
+  _prev: CreateStaffState, formData: FormData,
+): Promise<CreateStaffState> {
+  void _prev;
+  await requireAdmin();
+
+  const full_name      = String(formData.get('full_name')   ?? '').trim();
+  let   slug           = String(formData.get('slug')        ?? '').trim().toLowerCase();
+  const role_title     = String(formData.get('role_title')  ?? '').trim();
+  const department     = (String(formData.get('department') ?? '').trim() || null);
+  const work_email     = String(formData.get('work_email')  ?? '').trim().toLowerCase();
+  const salary_ngn     = Number(formData.get('salary_ngn')  ?? 0);
+  const start_date     = String(formData.get('start_date')  ?? '');
+  const reports_to     = (String(formData.get('reports_to') ?? '').trim() || null);
+  const password       = String(formData.get('password')    ?? '');
+
+  // If no slug entered, derive one from the name.
+  if (!slug && full_name) slug = slugify(full_name);
+
+  const fieldErrors: Record<string, string> = {};
+  if (!full_name)                                fieldErrors.full_name   = 'Required.';
+  if (!slug)                                     fieldErrors.slug        = 'Required.';
+  else if (!/^[a-z0-9-]+$/.test(slug))           fieldErrors.slug        = 'Lowercase letters, numbers, and hyphens only.';
+  if (!role_title)                               fieldErrors.role_title  = 'Required.';
+  if (!work_email)                               fieldErrors.work_email  = 'Required.';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(work_email))
+                                                 fieldErrors.work_email  = 'Use a valid email address.';
+  if (!salary_ngn || salary_ngn <= 0)            fieldErrors.salary_ngn  = 'Enter a salary in naira.';
+  if (!start_date)                               fieldErrors.start_date  = 'Required.';
+  if (!password || password.length < 6)          fieldErrors.password    = 'At least 6 characters.';
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { status: 'error', message: 'Fix the highlighted fields.', fieldErrors };
+  }
+
+  const admin = serviceClient();
+
+  // Uniqueness pre-checks (also enforced by DB constraints, but a friendly
+  // error here is nicer than a 500).
+  const { data: slugExists } = await admin.from('staff').select('id').eq('slug', slug).maybeSingle();
+  if (slugExists) return { status: 'error', message: 'That slug is already in use.', fieldErrors: { slug: 'Already taken.' } };
+
+  const { data: emailExists } = await admin.from('staff').select('id').eq('work_email', work_email).maybeSingle();
+  if (emailExists) return { status: 'error', message: 'That work email is already in use.', fieldErrors: { work_email: 'Already taken.' } };
+
+  // 1. Create the Supabase Auth user. email_confirm=true skips the
+  //    verification email — admin is provisioning, not the user.
+  const { data: authData, error: authErr } = await admin.auth.admin.createUser({
+    email: work_email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name },
+  });
+  if (authErr || !authData?.user) {
+    return { status: 'error', message: `Auth user creation failed: ${authErr?.message ?? 'unknown'}` };
+  }
+  const newUserId = authData.user.id;
+
+  // 2. Insert the staff record.
+  const { data: created, error: staffErr } = await admin.from('staff').insert({
+    user_id:      newUserId,
+    slug,
+    full_name,
+    role_title,
+    department,
+    salary_ngn,
+    start_date,
+    work_email,
+    reports_to,
+    status: 'active',
+  }).select('id').single();
+
+  if (staffErr || !created) {
+    // Roll back the auth user so we don't end up with an orphan.
+    await admin.auth.admin.deleteUser(newUserId).catch(() => undefined);
+    return { status: 'error', message: `Could not create staff record: ${staffErr?.message ?? 'unknown'}` };
+  }
+
+  // 3. Audit log. We DO record the email (it's not secret); we do NOT
+  //    record the password.
+  await logAudit({
+    action: 'staff.create',
+    targetType: 'staff',
+    targetId: created.id,
+    targetLabel: `${full_name} (${slug})`,
+    notes: `Email: ${work_email} · Role: ${role_title} · Salary: ${salary_ngn.toLocaleString('en-NG')} NGN`,
+  });
+
+  revalidatePath('/admin/staff');
+  return {
+    status: 'success',
+    message: 'Staff created. Hand them the credentials below.',
+    credentials: {
+      email: work_email,
+      password,
+      slug,
+      staffId: created.id,
+    },
+  };
+}
+
+// ── Team EOD (Olivia only) ───────────────────────────────────────────────
+// Olivia compiles the day's report covering every active staff and posts
+// it as a single row. content is stored as JSON: { entries: [...] }.
+
+interface TeamEodEntry {
+  staff_id: string;
+  full_name: string;
+  did_work: boolean;
+  notes: string;
+}
+
+export async function submitTeamEodAction(
+  _prev: AdminStaffState, formData: FormData,
+): Promise<AdminStaffState> {
+  void _prev;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'Sign in first.' };
+
+  const admin = serviceClient();
+  const { data: me } = await admin
+    .from('staff')
+    .select('id, slug, status')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!me)                       return { status: 'error', message: 'You are not staff.' };
+  if (me.status !== 'active')    return { status: 'error', message: 'Your account is not active.' };
+  if (me.slug !== 'olivia')      return { status: 'error', message: 'Only the operations manager can post the team EOD.' };
+
+  // Pull all per-staff entries from the form. Convention: each field is
+  // named `entry.<staff_id>.<key>`.
+  const allActive = await admin
+    .from('staff')
+    .select('id, full_name')
+    .eq('status', 'active');
+  const staffMap = new Map<string, string>();
+  for (const s of allActive.data ?? []) staffMap.set(s.id as string, s.full_name as string);
+
+  const entries: TeamEodEntry[] = [];
+  for (const [staffId, full_name] of staffMap.entries()) {
+    const did_work = formData.get(`entry.${staffId}.did_work`) === 'on';
+    const notes = String(formData.get(`entry.${staffId}.notes`) ?? '').trim();
+    if (!did_work && !notes) continue;            // No entry — skip
+    entries.push({ staff_id: staffId, full_name, did_work, notes });
+  }
+
+  if (entries.length === 0) {
+    return { status: 'error', message: 'Tick at least one staff member or add a note.' };
+  }
+
+  const reportDate = String(formData.get('report_date') ?? new Date().toISOString().slice(0, 10));
+  const summary    = String(formData.get('summary') ?? '').trim();
+
+  const payload = JSON.stringify({ summary, entries });
+
+  const { error: insErr } = await admin.from('staff_reports').insert({
+    staff_id: me.id,                    // belongs to Olivia
+    kind: 'team_eod',
+    content: payload,
+    report_date: reportDate,
+    submitted_by: user.id,
+    is_admin_override: false,
+  });
+  if (insErr) return { status: 'error', message: `Could not save: ${insErr.message}` };
+
+  await logAudit({
+    action: 'staff.team_eod_submit',
+    targetType: 'staff',
+    targetId: me.id,
+    targetLabel: 'Team EOD',
+    notes: `${entries.length} staff covered · ${entries.filter((e) => e.did_work).length} worked`,
+  });
+
+  revalidatePath('/staff');
+  revalidatePath('/admin/staff');
+  return { status: 'success', message: `Team EOD posted for ${reportDate} covering ${entries.length} staff.` };
+}

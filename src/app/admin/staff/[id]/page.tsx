@@ -18,7 +18,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-const KIND_LABEL = { sod: 'SOD', eod: 'EOD', general: 'General' } as const;
+const KIND_LABEL = { sod: 'SOD', eod: 'EOD', general: 'General', team_eod: 'Team EOD' } as const;
 
 export default async function AdminStaffDetailPage({ params }: PageProps) {
   const { id } = await params;

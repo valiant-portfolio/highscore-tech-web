@@ -94,7 +94,7 @@ export async function getStaffAdminFull(id: string): Promise<AdminStaffFull | nu
 export interface StaffReport {
   id: string;
   staff_id: string;
-  kind: 'sod' | 'eod' | 'general';
+  kind: 'sod' | 'eod' | 'general' | 'team_eod';
   report_date: string;
   content: string;
   is_admin_override: boolean;

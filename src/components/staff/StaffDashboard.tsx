@@ -15,6 +15,8 @@ import { StaffReportForm } from './StaffReportForm';
 import { StaffNinUpload } from './StaffNinUpload';
 import { StaffPhotoUpload } from './StaffPhotoUpload';
 import { StaffBankAccount } from './StaffBankAccount';
+import { TeamEodForm } from './TeamEodForm';
+import { TeamEodTable } from './TeamEodTable';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
@@ -22,11 +24,24 @@ type Tab = 'profile' | 'documents' | 'reports' | 'settings';
 
 interface OwnReport {
   id: string;
-  kind: 'sod' | 'eod' | 'general';
+  kind: 'sod' | 'eod' | 'general' | 'team_eod';
   report_date: string;
   content: string;
   is_admin_override: boolean;
   created_at: string;
+}
+
+interface TeamEodRow {
+  id: string;
+  report_date: string;
+  content: string;
+  created_at: string;
+}
+
+interface EodStaffMember {
+  id: string;
+  full_name: string;
+  role_title: string;
 }
 
 interface Props {
@@ -38,10 +53,13 @@ interface Props {
   signedInPhone: string;
   ninUploaded: boolean;
   photoPublicUrl: string | null;
+  isOlivia: boolean;
+  activeStaffForEod: EodStaffMember[];
+  teamEodRows: TeamEodRow[];
   ownReports: OwnReport[];
 }
 
-const KIND_LABEL = { sod: 'SOD', eod: 'EOD', general: 'General' } as const;
+const KIND_LABEL = { sod: 'SOD', eod: 'EOD', general: 'General', team_eod: 'Team EOD' } as const;
 
 function StatCard({
   label, value, hint, icon, tone,
@@ -73,7 +91,8 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 export function StaffDashboard({
-  staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone, ninUploaded, photoPublicUrl, ownReports,
+  staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone,
+  ninUploaded, photoPublicUrl, isOlivia, activeStaffForEod, teamEodRows, ownReports,
 }: Props) {
   const payday = computePayday(staff);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
@@ -256,41 +275,75 @@ export function StaffDashboard({
 
       {/* ── REPORTS ─────────────────────────────────────────────────── */}
       {activeTab === 'reports' && (
-        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-          <Card className="p-5 md:p-7">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">File a report</h2>
-            <p className="mt-1 text-sm text-fg-muted">Start-of-day, end-of-day, or anything that should leave a paper trail.</p>
-            <div className="mt-6">
-              <StaffReportForm />
-            </div>
-          </Card>
-
-          <Card className="p-5 md:p-7">
-            <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-base font-semibold text-fg">Recent reports</h3>
-              <p className="text-xs text-fg-subtle">{ownReports.length} on file</p>
-            </div>
-            {ownReports.length === 0 ? (
-              <p className="mt-4 text-sm text-fg-muted">No reports yet — file your first one on the left.</p>
-            ) : (
-              <ul className="mt-4 space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                {ownReports.map((r) => (
-                  <li key={r.id} className="p-3 rounded-md border border-border bg-surface/40 text-sm">
-                    <p className="text-xs font-mono tabular text-fg-subtle">
-                      {new Date(r.report_date).toLocaleDateString('en-GB')} ·{' '}
-                      <span className="font-semibold text-brand">{KIND_LABEL[r.kind]}</span>
-                      {r.is_admin_override && (
-                        <span className="ml-2 inline-flex items-center gap-1 text-warning">
-                          <ShieldAlert className="h-3 w-3" /> Admin filed
-                        </span>
-                      )}
+        <div className="space-y-6">
+          {/* Olivia: team EOD form + table */}
+          {isOlivia && (
+            <>
+              <Card className="p-5 md:p-7">
+                <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                  <div>
+                    <h2 className="font-display text-lg md:text-xl font-bold text-fg">Team end-of-day</h2>
+                    <p className="mt-1 text-sm text-fg-muted">
+                      Compile the day's progress for every active staff in one post.
+                      Only you can submit this.
                     </p>
-                    <p className="mt-1.5 text-fg whitespace-pre-wrap leading-relaxed">{r.content}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <TeamEodForm activeStaff={activeStaffForEod} />
+                </div>
+              </Card>
+
+              <Card className="p-5 md:p-7">
+                <div className="flex items-baseline justify-between gap-3 mb-4">
+                  <h2 className="font-display text-lg md:text-xl font-bold text-fg">Past team EODs</h2>
+                  <p className="text-xs text-fg-subtle">{teamEodRows.length} on file</p>
+                </div>
+                <TeamEodTable rows={teamEodRows} />
+              </Card>
+            </>
+          )}
+
+          {/* All staff: own SOD / general form + own recent list */}
+          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+            <Card className="p-5 md:p-7">
+              <h2 className="font-display text-lg md:text-xl font-bold text-fg">File a personal report</h2>
+              <p className="mt-1 text-sm text-fg-muted">
+                Start-of-day plan, or anything that should leave a paper trail.
+                {isOlivia ? ' (EOD goes in the team EOD card above.)' : ' EODs are compiled by the operations manager.'}
+              </p>
+              <div className="mt-6">
+                <StaffReportForm />
+              </div>
+            </Card>
+
+            <Card className="p-5 md:p-7">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-base font-semibold text-fg">Your recent reports</h3>
+                <p className="text-xs text-fg-subtle">{ownReports.filter((r) => r.kind !== 'team_eod').length} on file</p>
+              </div>
+              {ownReports.filter((r) => r.kind !== 'team_eod').length === 0 ? (
+                <p className="mt-4 text-sm text-fg-muted">No reports yet — file your first one on the left.</p>
+              ) : (
+                <ul className="mt-4 space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                  {ownReports.filter((r) => r.kind !== 'team_eod').map((r) => (
+                    <li key={r.id} className="p-3 rounded-md border border-border bg-surface/40 text-sm">
+                      <p className="text-xs font-mono tabular text-fg-subtle">
+                        {new Date(r.report_date).toLocaleDateString('en-GB')} ·{' '}
+                        <span className="font-semibold text-brand">{KIND_LABEL[r.kind]}</span>
+                        {r.is_admin_override && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-warning">
+                            <ShieldAlert className="h-3 w-3" /> Admin filed
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-1.5 text-fg whitespace-pre-wrap leading-relaxed">{r.content}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
         </div>
       )}
 

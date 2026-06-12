@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCircle2, FileSignature, Download } from 'lucide-react';
+import { CheckCircle2, FileSignature, Download, UserPlus } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { listStaffAdminFull } from '@/lib/admin/staff-queries';
 import { formatNgn } from '@/lib/academy/queries';
@@ -13,12 +13,20 @@ export default async function AdminStaffPage() {
         title="Staff"
         description="Click into any staff member to view, amend, manage photos, status, and reports."
         actions={
-          <a
-            href="/api/admin/export/staff"
-            className="inline-flex h-10 items-center gap-2 px-4 rounded-md border border-border bg-surface/60 hover:bg-surface-hover text-sm font-semibold text-fg-muted"
-          >
-            <Download className="h-4 w-4" /> Export CSV
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/admin/export/staff"
+              className="inline-flex h-10 items-center gap-2 px-4 rounded-md border border-border bg-surface/60 hover:bg-surface-hover text-sm font-semibold text-fg-muted"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </a>
+            <Link
+              href="/admin/staff/new"
+              className="inline-flex h-10 items-center gap-2 px-4 rounded-md bg-brand text-brand-fg text-sm font-semibold hover:bg-brand-hover"
+            >
+              <UserPlus className="h-4 w-4" /> Add staff
+            </Link>
+          </div>
         }
       />
 
