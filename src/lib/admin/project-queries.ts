@@ -6,15 +6,18 @@ import 'server-only';
 import { serviceClient } from '@/lib/supabase/service';
 
 export type ProjectStatus = 'in_progress' | 'completed' | 'cancelled';
+export type ProjectType   = 'client' | 'internal';
 
 export interface ProjectBase {
   id: string;
   name: string;
+  project_type: ProjectType;
+  project_url: string | null;
   client_name: string;
   client_email: string | null;
   client_phone: string | null;
   description: string | null;
-  cost_ngn: number;
+  cost_ngn: number | null;
   status: ProjectStatus;
   started_at: string | null;
   due_at: string | null;
@@ -24,39 +27,9 @@ export interface ProjectBase {
 }
 
 export interface ProjectListRow extends ProjectBase {
-  received_ngn: number;
-  spent_ngn: number;
-  balance_owed_ngn: number;          // cost − received
-  net_ngn: number;                   // received − spent
   milestones_total: number;
   milestones_completed: number;
   staff_count: number;
-}
-
-export interface PaymentRow {
-  id: string;
-  project_id: string;
-  amount_ngn: number;
-  received_at: string;
-  method: string | null;
-  reference: string | null;
-  notes: string | null;
-  recorded_by: string | null;
-  recorded_by_email: string | null;
-  created_at: string;
-}
-
-export interface ExpenseRow {
-  id: string;
-  project_id: string;
-  amount_ngn: number;
-  spent_at: string;
-  category: string | null;
-  reason: string;
-  notes: string | null;
-  recorded_by: string | null;
-  recorded_by_email: string | null;
-  created_at: string;
 }
 
 export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -95,21 +68,11 @@ export interface ProjectReportRow {
 
 export interface ProjectDetail {
   project: ProjectBase;
-  metrics: {
-    received_ngn: number;
-    spent_ngn: number;
-    balance_owed_ngn: number;
-    net_ngn: number;
-  };
-  payments: PaymentRow[];
-  expenses: ExpenseRow[];
   milestones: MilestoneRow[];
   assignments: AssignmentRow[];
   reports: ProjectReportRow[];
 }
 
-interface RawPayment { project_id: string; amount_ngn: number }
-interface RawExpense { project_id: string; amount_ngn: number }
 interface RawMs      { project_id: string; status: MilestoneStatus }
 interface RawAssign  { project_id: string }
 
@@ -121,42 +84,28 @@ function sumBy<T>(rows: T[], key: keyof T): number {
 
 export async function listProjects(): Promise<ProjectListRow[]> {
   const admin = serviceClient();
-  const [projects, payments, expenses, milestones, assigns] = await Promise.all([
+  const [projects, milestones, assigns] = await Promise.all([
     admin.from('client_projects').select('*').order('created_at', { ascending: false }),
-    admin.from('client_project_payments').select('project_id, amount_ngn'),
-    admin.from('client_project_expenses').select('project_id, amount_ngn'),
     admin.from('client_project_milestones').select('project_id, status'),
     admin.from('client_project_assignments').select('project_id'),
   ]);
 
-  const paymentsBy:   Record<string, number> = {};
-  const expensesBy:   Record<string, number> = {};
   const msTotal:      Record<string, number> = {};
   const msCompleted:  Record<string, number> = {};
   const staffCount:   Record<string, number> = {};
 
-  for (const p of (payments.data ?? []) as RawPayment[])  paymentsBy[p.project_id] = (paymentsBy[p.project_id] ?? 0) + Number(p.amount_ngn);
-  for (const e of (expenses.data ?? []) as RawExpense[])  expensesBy[e.project_id] = (expensesBy[e.project_id] ?? 0) + Number(e.amount_ngn);
   for (const m of (milestones.data ?? []) as RawMs[]) {
     msTotal[m.project_id] = (msTotal[m.project_id] ?? 0) + 1;
     if (m.status === 'completed') msCompleted[m.project_id] = (msCompleted[m.project_id] ?? 0) + 1;
   }
   for (const a of (assigns.data ?? []) as RawAssign[]) staffCount[a.project_id] = (staffCount[a.project_id] ?? 0) + 1;
 
-  return ((projects.data ?? []) as ProjectBase[]).map((p) => {
-    const received = paymentsBy[p.id] ?? 0;
-    const spent    = expensesBy[p.id] ?? 0;
-    return {
-      ...p,
-      received_ngn: received,
-      spent_ngn:    spent,
-      balance_owed_ngn: Math.max(0, Number(p.cost_ngn) - received),
-      net_ngn:          received - spent,
-      milestones_total:     msTotal[p.id]     ?? 0,
-      milestones_completed: msCompleted[p.id] ?? 0,
-      staff_count:          staffCount[p.id]  ?? 0,
-    };
-  });
+  return ((projects.data ?? []) as ProjectBase[]).map((p) => ({
+    ...p,
+    milestones_total:     msTotal[p.id]     ?? 0,
+    milestones_completed: msCompleted[p.id] ?? 0,
+    staff_count:          staffCount[p.id]  ?? 0,
+  }));
 }
 
 interface UserMini { id: string; email: string | null }
@@ -180,39 +129,17 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
     .maybeSingle();
   if (!project) return null;
 
-  const [pays, exps, mss, assigns, reps] = await Promise.all([
-    admin.from('client_project_payments').select('*').eq('project_id', id).order('received_at', { ascending: false }),
-    admin.from('client_project_expenses').select('*').eq('project_id', id).order('spent_at',    { ascending: false }),
+  const [mss, assigns, reps] = await Promise.all([
     admin.from('client_project_milestones').select('*').eq('project_id', id).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
     admin.from('client_project_assignments').select('id, project_id, staff_id, role, assigned_at, staff:staff_id(full_name, role_title)').eq('project_id', id),
     admin.from('client_project_reports').select('*').eq('project_id', id).order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(60),
   ]);
 
   const userIds: string[] = [];
-  for (const p of (pays.data ?? [])) if (p.recorded_by) userIds.push(p.recorded_by as string);
-  for (const e of (exps.data ?? [])) if (e.recorded_by) userIds.push(e.recorded_by as string);
   for (const r of (reps.data ?? [])) if (r.submitted_by) userIds.push(r.submitted_by as string);
 
   const emailsBy = await lookupUserEmails(admin, userIds);
 
-  const payments: PaymentRow[] = (pays.data ?? []).map((r) => ({
-    id: r.id, project_id: r.project_id,
-    amount_ngn: Number(r.amount_ngn),
-    received_at: r.received_at,
-    method: r.method, reference: r.reference, notes: r.notes,
-    recorded_by: r.recorded_by ?? null,
-    recorded_by_email: r.recorded_by ? (emailsBy[r.recorded_by] ?? null) : null,
-    created_at: r.created_at,
-  }));
-  const expenses: ExpenseRow[] = (exps.data ?? []).map((r) => ({
-    id: r.id, project_id: r.project_id,
-    amount_ngn: Number(r.amount_ngn),
-    spent_at: r.spent_at,
-    category: r.category, reason: r.reason, notes: r.notes,
-    recorded_by: r.recorded_by ?? null,
-    recorded_by_email: r.recorded_by ? (emailsBy[r.recorded_by] ?? null) : null,
-    created_at: r.created_at,
-  }));
   const milestones: MilestoneRow[] = (mss.data ?? []).map((r) => ({
     id: r.id, project_id: r.project_id,
     title: r.title, description: r.description,
@@ -242,19 +169,8 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
     created_at: r.created_at,
   }));
 
-  const received = sumBy(payments, 'amount_ngn');
-  const spent    = sumBy(expenses, 'amount_ngn');
-
   return {
     project: project as ProjectBase,
-    metrics: {
-      received_ngn: received,
-      spent_ngn:    spent,
-      balance_owed_ngn: Math.max(0, Number(project.cost_ngn) - received),
-      net_ngn: received - spent,
-    },
-    payments,
-    expenses,
     milestones,
     assignments,
     reports,

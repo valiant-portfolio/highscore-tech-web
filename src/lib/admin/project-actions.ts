@@ -33,18 +33,24 @@ export async function createProjectAction(
   if (!gate.ok) return { status: 'error', message: gate.message };
 
   const name        = String(formData.get('name')         ?? '').trim();
-  const client_name = String(formData.get('client_name')  ?? '').trim();
-  const client_email = String(formData.get('client_email') ?? '').trim() || null;
-  const client_phone = String(formData.get('client_phone') ?? '').trim() || null;
+  const project_type = (String(formData.get('project_type') ?? 'client').trim() === 'internal'
+                        ? 'internal' : 'client') as 'client' | 'internal';
+  const client_name = project_type === 'internal'
+    ? 'Highscore Tech'
+    : String(formData.get('client_name')  ?? '').trim();
+  const client_email = project_type === 'internal' ? null : (String(formData.get('client_email') ?? '').trim() || null);
+  const client_phone = project_type === 'internal' ? null : (String(formData.get('client_phone') ?? '').trim() || null);
   const description  = String(formData.get('description')  ?? '').trim() || null;
-  const cost_ngn = Number(formData.get('cost_ngn') ?? 0);
+  const project_url  = String(formData.get('project_url')  ?? '').trim() || null;
+  const costRaw = Number(formData.get('cost_ngn') ?? 0);
+  const cost_ngn = (project_type === 'internal' || !costRaw) ? null : costRaw;
   const started_at = String(formData.get('started_at') ?? '') || null;
   const due_at     = String(formData.get('due_at')     ?? '') || null;
 
   const fieldErrors: Record<string, string> = {};
-  if (!name)                       fieldErrors.name        = 'Required.';
-  if (!client_name)                fieldErrors.client_name = 'Required.';
-  if (!cost_ngn || cost_ngn < 0)   fieldErrors.cost_ngn    = 'Enter the agreed cost.';
+  if (!name)                                  fieldErrors.name        = 'Required.';
+  if (project_type === 'client' && !client_name)
+                                              fieldErrors.client_name = 'Required for client projects.';
 
   if (Object.keys(fieldErrors).length > 0) {
     return { status: 'error', message: 'Fix the highlighted fields.', fieldErrors };
@@ -52,8 +58,8 @@ export async function createProjectAction(
 
   const admin = serviceClient();
   const { data: created, error } = await admin.from('client_projects').insert({
-    name, client_name, client_email, client_phone,
-    description, cost_ngn,
+    name, project_type, client_name, client_email, client_phone,
+    description, project_url, cost_ngn,
     started_at, due_at,
     status: 'in_progress',
   }).select('id').single();
@@ -64,8 +70,8 @@ export async function createProjectAction(
     action: 'project.create',
     targetType: 'project',
     targetId: created.id,
-    targetLabel: `${name} · ${client_name}`,
-    notes: `Cost: ${cost_ngn.toLocaleString('en-NG')} NGN`,
+    targetLabel: `${name}${project_type === 'client' ? ` · ${client_name}` : ' · Internal'}`,
+    notes: cost_ngn ? `Cost: ${cost_ngn.toLocaleString('en-NG')} NGN` : 'Internal product',
   });
   revalidatePath('/admin/projects');
   redirect(`/admin/projects/${created.id}`);
@@ -165,44 +171,8 @@ export async function addProjectPaymentAction(
   return { status: 'success', message: 'Payment recorded.' };
 }
 
-// ── Add expense ──────────────────────────────────────────────────────────
-export async function addProjectExpenseAction(
-  projectId: string, _prev: ProjectFormState, formData: FormData,
-): Promise<ProjectFormState> {
-  void _prev;
-  const gate = await requireAdmin();
-  if (!gate.ok) return { status: 'error', message: gate.message };
-
-  const amount_ngn = Number(formData.get('amount_ngn') ?? 0);
-  const spent_at   = String(formData.get('spent_at')   ?? new Date().toISOString().slice(0, 10));
-  const category   = (String(formData.get('category') ?? '').trim() || null);
-  const reason     = String(formData.get('reason')   ?? '').trim();
-  const notes      = (String(formData.get('notes')    ?? '').trim() || null);
-
-  const fieldErrors: Record<string, string> = {};
-  if (!amount_ngn || amount_ngn <= 0) fieldErrors.amount_ngn = 'Enter an amount.';
-  if (!reason) fieldErrors.reason = 'Reason is required.';
-  if (Object.keys(fieldErrors).length > 0) {
-    return { status: 'error', message: 'Fix the highlighted fields.', fieldErrors };
-  }
-
-  const admin = serviceClient();
-  const { error } = await admin.from('client_project_expenses').insert({
-    project_id: projectId, amount_ngn, spent_at, category, reason, notes,
-    recorded_by: gate.userId,
-  });
-  if (error) return { status: 'error', message: `Could not save: ${error.message}` };
-
-  await logAudit({
-    action: 'project.expense_added',
-    targetType: 'project',
-    targetId: projectId,
-    notes: `${amount_ngn.toLocaleString('en-NG')} NGN · ${reason.slice(0, 80)}`,
-  });
-  revalidatePath(`/admin/projects/${projectId}`);
-  revalidatePath('/admin/projects');
-  return { status: 'success', message: 'Expense recorded.' };
-}
+// (addProjectExpenseAction removed — expenses now live in
+//  company_expenses and are recorded from /admin/finance.)
 
 // ── Add milestone ────────────────────────────────────────────────────────
 export async function addMilestoneAction(
@@ -346,12 +316,5 @@ export async function deleteProjectPaymentAction(paymentId: string, projectId: s
   await admin.from('client_project_payments').delete().eq('id', paymentId);
   await logAudit({ action: 'project.payment_delete', targetType: 'project', targetId: projectId });
   revalidatePath(`/admin/projects/${projectId}`);
-}
-export async function deleteProjectExpenseAction(expenseId: string, projectId: string): Promise<void> {
-  const gate = await requireAdmin();
-  if (!gate.ok) return;
-  const admin = serviceClient();
-  await admin.from('client_project_expenses').delete().eq('id', expenseId);
-  await logAudit({ action: 'project.expense_delete', targetType: 'project', targetId: projectId });
-  revalidatePath(`/admin/projects/${projectId}`);
+  revalidatePath('/admin/finance');
 }

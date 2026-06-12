@@ -1,23 +1,18 @@
-// /admin/projects/[id] — full project detail with payments, expenses,
-// milestones, team, and project reports. Server-rendered with all data,
-// interactive controls (forms / status toggles / delete buttons) live in
-// ProjectDetailSections.tsx.
+// /admin/projects/[id] — project detail. Money (income / expenses) is
+// handled on the Finance page; this page is about scope, team, progress.
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  AlertCircle, ArrowLeft, CalendarClock, CircleDollarSign,
-  Flag, Mail, MessageSquare, Phone, Receipt, TrendingDown, TrendingUp,
-  Users, Wallet,
+  AlertCircle, ArrowLeft, CalendarClock, ExternalLink, Flag,
+  Globe, Mail, MessageSquare, Phone, Users, Briefcase,
 } from 'lucide-react';
-import { PageHead, AdminCard, Kpi } from '@/components/admin/AdminPage';
+import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { getProjectDetail, listAssignableStaff } from '@/lib/admin/project-queries';
 import {
-  AddExpenseForm, AddMilestoneForm, AddPaymentForm, AddProjectReportForm,
-  AssignStaffForm, DeleteExpenseButton, DeletePaymentButton,
+  AddMilestoneForm, AddProjectReportForm, AssignStaffForm,
   MilestoneStatusPill, ProjectStatusControls, UnassignButton,
 } from '@/components/admin/ProjectDetailSections';
-import { formatNgn } from '@/lib/academy/queries';
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -34,10 +29,8 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
   if (!detail) notFound();
   const staffOptions = await listAssignableStaff();
 
-  const { project, metrics, payments, expenses, milestones, assignments, reports } = detail;
-  const paidPct = Number(project.cost_ngn) > 0
-    ? Math.min(100, Math.round((metrics.received_ngn / Number(project.cost_ngn)) * 100))
-    : 0;
+  const { project, milestones, assignments, reports } = detail;
+  const isInternal = project.project_type === 'internal';
 
   return (
     <>
@@ -45,44 +38,42 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
         title={project.name}
         description={
           <span className="inline-flex items-center gap-2 flex-wrap">
-            <span className="font-semibold">{project.client_name}</span>
-            <span className="text-fg-subtle">·</span>
+            <span className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md text-[11px] font-bold bg-surface-hover text-fg-muted uppercase">
+              <Briefcase className="h-3 w-3" /> {isInternal ? 'Internal product' : 'Client project'}
+            </span>
+            {!isInternal && (
+              <>
+                <span className="font-semibold">{project.client_name}</span>
+                <span className="text-fg-subtle">·</span>
+              </>
+            )}
             <ProjectStatusControls projectId={project.id} currentStatus={project.status} />
           </span>
         }
         back={{ href: '/admin/projects', label: 'Back to projects' }}
       />
 
-      {/* KPI strip */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Kpi label="Cost" value={formatNgn(Number(project.cost_ngn))} />
-        <Kpi
-          label="Received"
-          value={formatNgn(metrics.received_ngn)}
-          hint={`${paidPct}% paid · balance ${formatNgn(metrics.balance_owed_ngn)}`}
-          tone={metrics.balance_owed_ngn === 0 ? 'success' : 'default'}
-        />
-        <Kpi
-          label="Spent"
-          value={formatNgn(metrics.spent_ngn)}
-          tone="default"
-        />
-        <Kpi
-          label="Net (received − spent)"
-          value={`${metrics.net_ngn < 0 ? '−' : ''}${formatNgn(Math.abs(metrics.net_ngn))}`}
-          tone={metrics.net_ngn >= 0 ? 'success' : 'brand'}
-        />
-      </div>
-
       {/* Top facts */}
       <AdminCard className="mb-6">
         <div className="p-5 md:p-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
           <Fact label="Started"  value={formatDate(project.started_at)} icon={<CalendarClock className="h-3.5 w-3.5" />} />
           <Fact label="Due"      value={formatDate(project.due_at)}     icon={<Flag className="h-3.5 w-3.5" />} />
-          <Fact label="Ended"    value={formatDate(project.ended_at)}   icon={<CalendarClock className="h-3.5 w-3.5" />} />
-          <Fact label="Client"   value={project.client_name}            icon={<Users className="h-3.5 w-3.5" />} />
-          {project.client_email && <Fact label="Email" value={project.client_email} icon={<Mail className="h-3.5 w-3.5" />} />}
-          {project.client_phone && <Fact label="Phone" value={project.client_phone} icon={<Phone className="h-3.5 w-3.5" />} />}
+          {project.ended_at && <Fact label="Ended" value={formatDate(project.ended_at)} icon={<CalendarClock className="h-3.5 w-3.5" />} />}
+          {!isInternal && <Fact label="Client" value={project.client_name} icon={<Users className="h-3.5 w-3.5" />} />}
+          {!isInternal && project.client_email && (
+            <Fact label="Email" value={project.client_email} icon={<Mail className="h-3.5 w-3.5" />} />
+          )}
+          {!isInternal && project.client_phone && (
+            <Fact label="Phone" value={project.client_phone} icon={<Phone className="h-3.5 w-3.5" />} />
+          )}
+          {project.project_url && (
+            <Fact
+              label={isInternal ? 'Product URL' : 'Project URL'}
+              value={project.project_url}
+              icon={<Globe className="h-3.5 w-3.5" />}
+              link
+            />
+          )}
         </div>
         {project.description && (
           <div className="px-5 md:px-6 pb-6 -mt-2">
@@ -90,72 +81,17 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
             <p className="mt-1.5 text-sm text-fg-muted leading-relaxed whitespace-pre-wrap">{project.description}</p>
           </div>
         )}
+        <div className="px-5 md:px-6 pb-5 -mt-2">
+          <p className="text-xs text-fg-subtle inline-flex items-center gap-1.5">
+            <ExternalLink className="h-3 w-3" />
+            Money in / out for this project lives on the{' '}
+            <Link href="/admin/finance" className="text-brand font-semibold hover:underline">Finance page</Link>.
+          </p>
+        </div>
       </AdminCard>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Payments */}
-        <AdminCard>
-          <div className="p-5 md:p-6">
-            <SectionHeader icon={<Wallet className="h-5 w-5" />} title="Payments received" count={payments.length} />
-            <div className="mt-5"><AddPaymentForm projectId={project.id} /></div>
-            <div className="mt-5">
-              {payments.length === 0 ? (
-                <Empty text="No payments recorded yet." />
-              ) : (
-                <ul className="space-y-2">
-                  {payments.map((p) => (
-                    <li key={p.id} className="rounded-md border border-border bg-surface/30 p-3 flex items-start justify-between gap-3 text-sm">
-                      <div className="space-y-0.5">
-                        <p className="font-mono tabular font-bold text-success">{formatNgn(p.amount_ngn)}</p>
-                        <p className="text-xs text-fg-subtle">
-                          {formatDate(p.received_at)}
-                          {p.method && <> · {p.method}</>}
-                          {p.reference && <> · {p.reference}</>}
-                        </p>
-                        {p.notes && <p className="mt-1 text-xs text-fg-muted">{p.notes}</p>}
-                      </div>
-                      <DeletePaymentButton paymentId={p.id} projectId={project.id} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </AdminCard>
-
-        {/* Expenses */}
-        <AdminCard>
-          <div className="p-5 md:p-6">
-            <SectionHeader icon={<Receipt className="h-5 w-5" />} title="Expenses" count={expenses.length} />
-            <div className="mt-5"><AddExpenseForm projectId={project.id} /></div>
-            <div className="mt-5">
-              {expenses.length === 0 ? (
-                <Empty text="No expenses recorded yet." />
-              ) : (
-                <ul className="space-y-2">
-                  {expenses.map((e) => (
-                    <li key={e.id} className="rounded-md border border-border bg-surface/30 p-3 flex items-start justify-between gap-3 text-sm">
-                      <div className="space-y-0.5">
-                        <p className="font-mono tabular font-bold text-fg">−{formatNgn(e.amount_ngn)}</p>
-                        <p className="text-xs text-fg-subtle">
-                          {formatDate(e.spent_at)}
-                          {e.category && <> · {e.category}</>}
-                        </p>
-                        <p className="mt-1 text-sm text-fg whitespace-pre-wrap">{e.reason}</p>
-                        {e.notes && <p className="mt-1 text-xs text-fg-muted">{e.notes}</p>}
-                      </div>
-                      <DeleteExpenseButton expenseId={e.id} projectId={project.id} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </AdminCard>
-      </div>
-
       {/* Milestones */}
-      <AdminCard className="mt-6">
+      <AdminCard className="mb-6">
         <div className="p-5 md:p-6">
           <SectionHeader icon={<Flag className="h-5 w-5" />} title="Milestones" count={milestones.length} />
           <div className="mt-5"><AddMilestoneForm projectId={project.id} /></div>
@@ -186,7 +122,7 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
       </AdminCard>
 
       {/* Team */}
-      <AdminCard className="mt-6">
+      <AdminCard className="mb-6">
         <div className="p-5 md:p-6">
           <SectionHeader icon={<Users className="h-5 w-5" />} title="Team assigned" count={assignments.length} />
           <div className="mt-5"><AssignStaffForm projectId={project.id} staffOptions={staffOptions} /></div>
@@ -211,7 +147,7 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
       </AdminCard>
 
       {/* Reports */}
-      <AdminCard className="mt-6">
+      <AdminCard>
         <div className="p-5 md:p-6">
           <SectionHeader icon={<MessageSquare className="h-5 w-5" />} title="Progress reports" count={reports.length} />
           <p className="mt-1 text-xs text-fg-subtle">
@@ -238,31 +174,10 @@ export default async function AdminProjectDetailPage({ params }: PageProps) {
         </div>
       </AdminCard>
 
-      <div className="mt-8 text-xs text-fg-subtle flex items-center gap-1.5">
+      <div className="mt-6 text-xs text-fg-subtle">
         <Link href="/admin/projects" className="inline-flex items-center gap-1 hover:text-fg">
           <ArrowLeft className="h-3 w-3" /> Back to projects
         </Link>
-        <span>·</span>
-        <span className="inline-flex items-center gap-1">
-          <CircleDollarSign className="h-3 w-3" />
-          Every change recorded in the audit log.
-        </span>
-        {metrics.net_ngn < 0 && (
-          <>
-            <span>·</span>
-            <span className="inline-flex items-center gap-1 text-danger font-semibold">
-              <TrendingDown className="h-3 w-3" /> Project is currently losing money.
-            </span>
-          </>
-        )}
-        {metrics.net_ngn > 0 && (
-          <>
-            <span>·</span>
-            <span className="inline-flex items-center gap-1 text-success font-semibold">
-              <TrendingUp className="h-3 w-3" /> Project is in the green.
-            </span>
-          </>
-        )}
       </div>
     </>
   );
@@ -279,13 +194,19 @@ function SectionHeader({ icon, title, count }: { icon: React.ReactNode; title: s
   );
 }
 
-function Fact({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function Fact({ label, value, icon, link }: { label: string; value: string; icon?: React.ReactNode; link?: boolean }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle inline-flex items-center gap-1.5">
         {icon} {label}
       </p>
-      <p className="mt-1 text-fg font-semibold break-all">{value}</p>
+      {link ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="mt-1 text-brand font-semibold break-all hover:underline inline-flex items-center gap-1">
+          {value} <ExternalLink className="h-3 w-3 shrink-0" />
+        </a>
+      ) : (
+        <p className="mt-1 text-fg font-semibold break-all">{value}</p>
+      )}
     </div>
   );
 }

@@ -1,12 +1,12 @@
-// /admin/projects — list of all client projects with key metrics.
+// /admin/projects — every project we're running, client AND internal.
+// No money on this page; that lives at /admin/finance.
 
 import Link from 'next/link';
 import {
-  Briefcase, CircleDollarSign, Plus, TrendingDown, TrendingUp, Users,
+  Briefcase, ExternalLink, Plus, Users,
 } from 'lucide-react';
 import { PageHead, AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { listProjects } from '@/lib/admin/project-queries';
-import { formatNgn } from '@/lib/academy/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,19 +16,23 @@ const STATUS_LABEL = {
   cancelled:   { label: 'Cancelled',   tone: 'bg-danger/15 text-danger' },
 } as const;
 
+const TYPE_LABEL = {
+  client:   { label: 'Client',   tone: 'bg-surface-hover text-fg' },
+  internal: { label: 'Internal', tone: 'bg-brand-tint text-brand' },
+} as const;
+
 export default async function AdminProjectsPage() {
   const projects = await listProjects();
-
-  const totalCost     = projects.reduce((s, p) => s + Number(p.cost_ngn), 0);
-  const totalReceived = projects.reduce((s, p) => s + p.received_ngn, 0);
-  const totalSpent    = projects.reduce((s, p) => s + p.spent_ngn, 0);
-  const totalNet      = totalReceived - totalSpent;
+  const active     = projects.filter((p) => p.status === 'in_progress');
+  const completed  = projects.filter((p) => p.status === 'completed');
+  const cancelled  = projects.filter((p) => p.status === 'cancelled');
+  const internalCt = projects.filter((p) => p.project_type === 'internal').length;
 
   return (
     <>
       <PageHead
-        title="Client projects"
-        description="Every client engagement, its cost, what's been paid, what we've spent, and who's working on it."
+        title="Projects"
+        description="Every engagement we're running — for clients and for ourselves. Milestones, team, and progress reports live here. Money flows are on the Finance page."
         actions={
           <Link
             href="/admin/projects/new"
@@ -39,11 +43,11 @@ export default async function AdminProjectsPage() {
         }
       />
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Kpi label="Active projects" value={projects.filter((p) => p.status === 'in_progress').length} />
-        <Kpi label="Total committed"  value={formatNgn(totalCost)} />
-        <Kpi label="Total received"   value={formatNgn(totalReceived)} tone="success" />
-        <Kpi label="Net (received − spent)" value={formatNgn(totalNet)} tone={totalNet >= 0 ? 'success' : 'default'} />
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Kpi label="Active"    value={active.length} />
+        <Kpi label="Completed" value={completed.length} tone="success" />
+        <Kpi label="Cancelled" value={cancelled.length} tone="default" />
+        <Kpi label="Internal products" value={internalCt} tone="brand" />
       </div>
 
       {projects.length === 0 ? (
@@ -64,51 +68,42 @@ export default async function AdminProjectsPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
-                <th className="text-left  px-4 py-3 font-bold">Project</th>
-                <th className="text-right px-4 py-3 font-bold">Cost</th>
-                <th className="text-right px-4 py-3 font-bold">Received</th>
-                <th className="text-right px-4 py-3 font-bold">Spent</th>
-                <th className="text-right px-4 py-3 font-bold">Net</th>
-                <th className="text-left  px-4 py-3 font-bold">Milestones</th>
-                <th className="text-left  px-4 py-3 font-bold">Team</th>
-                <th className="text-left  px-4 py-3 font-bold">Status</th>
+                <th className="text-left px-4 py-3 font-bold">Project</th>
+                <th className="text-left px-4 py-3 font-bold">Type</th>
+                <th className="text-left px-4 py-3 font-bold">Client / Owner</th>
+                <th className="text-left px-4 py-3 font-bold">Milestones</th>
+                <th className="text-left px-4 py-3 font-bold">Team</th>
+                <th className="text-left px-4 py-3 font-bold">Status</th>
                 <th className="text-right px-4 py-3 font-bold"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {projects.map((p) => {
-                const tone = STATUS_LABEL[p.status].tone;
-                const label = STATUS_LABEL[p.status].label;
-                const progressPct = Number(p.cost_ngn) > 0
-                  ? Math.min(100, Math.round((p.received_ngn / Number(p.cost_ngn)) * 100))
-                  : 0;
+                const status = STATUS_LABEL[p.status];
+                const type = TYPE_LABEL[p.project_type];
                 return (
                   <tr key={p.id} className="hover:bg-surface-hover/40 align-top">
                     <td className="px-4 py-3">
                       <Link href={`/admin/projects/${p.id}`} className="font-semibold text-fg hover:text-brand">
                         {p.name}
                       </Link>
-                      <p className="mt-0.5 text-xs text-fg-subtle">{p.client_name}</p>
+                      {p.project_url && (
+                        <a
+                          href={p.project_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block mt-0.5 text-xs text-brand hover:underline inline-flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3" /> visit
+                        </a>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono tabular text-fg">
-                      {formatNgn(Number(p.cost_ngn))}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <p className="font-mono tabular text-success font-semibold">{formatNgn(p.received_ngn)}</p>
-                      <div className="mt-1 h-1.5 rounded-full bg-surface-hover overflow-hidden w-24 ml-auto">
-                        <div className="h-full bg-success" style={{ width: `${progressPct}%` }} />
-                      </div>
-                      <p className="mt-0.5 text-[10px] text-fg-subtle">{progressPct}% paid</p>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular text-fg-muted">
-                      {formatNgn(p.spent_ngn)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`inline-flex items-center gap-1 font-mono tabular font-bold ${p.net_ngn >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {p.net_ngn >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {formatNgn(Math.abs(p.net_ngn))}
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex h-6 items-center px-2 rounded-md text-[11px] font-bold uppercase ${type.tone}`}>
+                        {type.label}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-fg-muted">{p.client_name}</td>
                     <td className="px-4 py-3 text-xs text-fg-muted">
                       {p.milestones_completed} / {p.milestones_total}
                     </td>
@@ -118,8 +113,8 @@ export default async function AdminProjectsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex h-6 items-center px-2 rounded-md text-[11px] font-semibold ${tone}`}>
-                        {label}
+                      <span className={`inline-flex h-6 items-center px-2 rounded-md text-[11px] font-semibold ${status.tone}`}>
+                        {status.label}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -135,8 +130,9 @@ export default async function AdminProjectsPage() {
         </AdminCard>
       )}
 
-      <p className="mt-6 text-xs text-fg-subtle inline-flex items-center gap-1.5">
-        <CircleDollarSign className="h-3 w-3" /> Net = total received from client − total spent on project.
+      <p className="mt-6 text-xs text-fg-subtle inline-flex items-center gap-2 flex-wrap">
+        Money tracking (client payments + company expenses) is on the{' '}
+        <Link href="/admin/finance" className="text-brand font-semibold hover:underline">Finance page</Link>.
       </p>
     </>
   );

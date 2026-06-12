@@ -8,14 +8,12 @@
 import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
-  AlertCircle, CheckCircle2, Plus, Trash2, Send, X, Loader2,
+  AlertCircle, CheckCircle2, Plus, Send, X, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import {
-  addProjectPaymentAction, addProjectExpenseAction, addMilestoneAction,
-  assignStaffAction, addProjectReportAction,
-  setProjectStatusAction, setMilestoneStatusAction,
-  deleteProjectPaymentAction, deleteProjectExpenseAction, unassignStaffAction,
+  addMilestoneAction, assignStaffAction, addProjectReportAction,
+  setProjectStatusAction, setMilestoneStatusAction, unassignStaffAction,
   type ProjectFormState,
 } from '@/lib/admin/project-actions';
 
@@ -62,77 +60,6 @@ export function ProjectStatusControls({
       })}
       {pending && <Loader2 className="h-3.5 w-3.5 text-fg-subtle animate-spin ml-1 self-center" />}
     </div>
-  );
-}
-
-// ── Add payment form ─────────────────────────────────────────────────────
-export function AddPaymentForm({ projectId }: { projectId: string }) {
-  const action = addProjectPaymentAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, INITIAL);
-
-  return (
-    <FormCard state={state}>
-      <form action={formAction} className="grid sm:grid-cols-[1fr_140px_140px] gap-3">
-        <div className="sm:col-span-3 grid sm:grid-cols-3 gap-3">
-          <LabelledInput
-            label="Amount (NGN)"
-            name="amount_ngn"
-            type="number"
-            required
-            min={1}
-            step={1000}
-            placeholder="50000"
-            mono
-          />
-          <LabelledInput label="Received on" name="received_at" type="date" defaultValue={today()} mono />
-          <LabelledInput label="Method" name="method" placeholder="Transfer / Cash / Card" />
-        </div>
-        <LabelledInput label="Reference" name="reference" placeholder="e.g. invoice #INV-001" />
-        <LabelledInput label="Notes" name="notes" placeholder="(optional)" />
-        <div className="self-end">
-          <SubmitButton label="Record payment" />
-        </div>
-      </form>
-    </FormCard>
-  );
-}
-
-// ── Add expense form ─────────────────────────────────────────────────────
-export function AddExpenseForm({ projectId }: { projectId: string }) {
-  const action = addProjectExpenseAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, INITIAL);
-  const errs = state.status === 'error' ? state.fieldErrors : undefined;
-
-  return (
-    <FormCard state={state}>
-      <form action={formAction} className="space-y-3">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <LabelledInput
-            label="Amount (NGN)"
-            name="amount_ngn"
-            type="number"
-            required
-            min={1}
-            step={500}
-            placeholder="5000"
-            error={errs?.amount_ngn}
-            mono
-          />
-          <LabelledInput label="Spent on" name="spent_at" type="date" defaultValue={today()} mono />
-          <LabelledInput label="Category" name="category" placeholder="Hosting / Tooling / Subcontractor" />
-        </div>
-        <LabelledTextarea
-          label="Reason"
-          name="reason"
-          required
-          rows={2}
-          placeholder="Why this expense was needed."
-          error={errs?.reason}
-        />
-        <LabelledInput label="Notes" name="notes" placeholder="(optional)" />
-        <SubmitButton label="Record expense" />
-      </form>
-    </FormCard>
   );
 }
 
@@ -246,40 +173,6 @@ export function AddProjectReportForm({ projectId }: { projectId: string }) {
 }
 
 // ── Delete buttons (rows) ────────────────────────────────────────────────
-export function DeletePaymentButton({ paymentId, projectId }: { paymentId: string; projectId: string }) {
-  const [pending, start] = useTransition();
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() => {
-        if (!confirm('Delete this payment record?')) return;
-        start(async () => { await deleteProjectPaymentAction(paymentId, projectId); });
-      }}
-      className="text-fg-subtle hover:text-danger inline-flex items-center gap-1 text-xs font-semibold"
-      aria-label="Delete"
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-export function DeleteExpenseButton({ expenseId, projectId }: { expenseId: string; projectId: string }) {
-  const [pending, start] = useTransition();
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() => {
-        if (!confirm('Delete this expense record?')) return;
-        start(async () => { await deleteProjectExpenseAction(expenseId, projectId); });
-      }}
-      className="text-fg-subtle hover:text-danger inline-flex items-center gap-1 text-xs font-semibold"
-      aria-label="Delete"
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </button>
-  );
-}
 export function UnassignButton({ assignmentId, projectId }: { assignmentId: string; projectId: string }) {
   const [pending, start] = useTransition();
   return (
