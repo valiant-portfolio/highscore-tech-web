@@ -266,7 +266,12 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
                 Currently: {staff.status.toUpperCase()}
               </p>
               <div className="mt-4">
-                <StaffStatusControls staffId={staff.id} status={staff.status} />
+                <StaffStatusControls
+                  staffId={staff.id}
+                  status={staff.status}
+                  fullName={staff.full_name}
+                  workEmail={staff.work_email ?? null}
+                />
               </div>
             </div>
           </AdminCard>

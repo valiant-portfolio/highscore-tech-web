@@ -14,6 +14,7 @@ import { ContactAckEmail }    from './templates/ContactAckEmail';
 import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
+import { StaffOffboardingEmail } from './templates/StaffOffboardingEmail';
 import { InstallmentReminderEmail } from './templates/InstallmentReminderEmail';
 import { WeeklyCeoSummaryEmail } from './templates/WeeklyCeoSummaryEmail';
 import { EmploymentConfirmationEmail } from './templates/EmploymentConfirmationEmail';
@@ -147,6 +148,54 @@ export async function sendStaffAmendmentEmail(args: {
     to: args.to,
     subject: `Your Highscore Tech record was updated`,
     html,
+  });
+}
+
+// ── Staff offboarding (suspend / fire) — letter email + signed PDF ──────
+// Renders the admin-typed letter to a branded email AND a signed PDF copy
+// (with the CEO's real signature image), then sends to the staff member's
+// personal email.
+export async function sendStaffOffboardingEmail(args: {
+  to: string;
+  subject: string;
+  heading: string;
+  bodyText: string;
+  recipientName: string;
+  dateStr: string;
+}): Promise<void> {
+  // Render the signed letter PDF for the attachment.
+  let attachment: { filename: string; content: Buffer } | undefined;
+  try {
+    const { getCeoSignatureBuffer, bufferToDataUri } = await import('@/lib/staff/signature-loader');
+    const { OffboardingLetterPdf } = await import('@/lib/staff/OffboardingLetterPdf');
+    const sigBuf = await getCeoSignatureBuffer();
+    const pdf = await renderToBuffer(
+      // @ts-expect-error react-pdf's internal element type
+      createElement(OffboardingLetterPdf, {
+        data: {
+          title: args.heading,
+          recipientName: args.recipientName,
+          recipientEmail: args.to,
+          dateStr: args.dateStr,
+          bodyText: args.bodyText,
+          ceoSignatureDataUri: sigBuf ? bufferToDataUri(sigBuf, 'image/png') : null,
+        },
+      }),
+    );
+    const slug = args.recipientName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    attachment = { filename: `highscore-tech-letter-${slug || 'staff'}.pdf`, content: pdf };
+  } catch (err) {
+    console.error('[email] offboarding PDF render failed:', err);
+  }
+
+  const html = await render(
+    createElement(StaffOffboardingEmail, { heading: args.heading, bodyText: args.bodyText }),
+  );
+  await sendEmail({
+    to: args.to,
+    subject: args.subject,
+    html,
+    ...(attachment && { attachments: [attachment] }),
   });
 }
 

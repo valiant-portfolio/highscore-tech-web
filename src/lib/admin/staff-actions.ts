@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
-import { sendStaffAmendmentEmail } from '@/lib/email/send-helpers';
+import { sendStaffAmendmentEmail, sendStaffOffboardingEmail } from '@/lib/email/send-helpers';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
@@ -203,6 +203,75 @@ export async function setStaffStatusAction(staffId: string, status: 'active' | '
   });
   revalidatePath('/admin/staff');
   revalidatePath(`/admin/staff/${staffId}`);
+}
+
+// ── Offboard (suspend / fire) ────────────────────────────────────────────
+// Sets status='former' AND emails the staff member a letter (typed by the
+// admin) at their personal email, with a signed PDF copy attached. Suspend
+// and fire share the flow; they differ in the default letter, the audit
+// action, and the letter heading. (Suspension is reversible via Reinstate —
+// both land on 'former', which is what removes portal access.)
+export async function offboardStaffAction(_prev: AdminStaffState, formData: FormData): Promise<AdminStaffState> {
+  await requireAdmin();
+  const staffId       = String(formData.get('staff_id') ?? '');
+  const mode          = String(formData.get('mode') ?? '') as 'suspend' | 'fire';
+  const personalEmail = String(formData.get('personal_email') ?? '').trim().toLowerCase();
+  const subject       = String(formData.get('subject') ?? '').trim();
+  const body          = String(formData.get('body') ?? '').trim();
+
+  if (!staffId) return { status: 'error', message: 'Missing staff id.' };
+  if (mode !== 'suspend' && mode !== 'fire') return { status: 'error', message: 'Invalid action.' };
+
+  const fieldErrors: Record<string, string> = {};
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) fieldErrors.personal_email = 'Enter a valid email.';
+  if (!subject) fieldErrors.subject = 'Required.';
+  if (!body)    fieldErrors.body = 'Required.';
+  if (Object.keys(fieldErrors).length) {
+    return { status: 'error', message: 'Fix the highlighted fields.', fieldErrors };
+  }
+
+  const admin = serviceClient();
+  const { data: before } = await admin.from('staff').select('status, full_name, slug').eq('id', staffId).maybeSingle();
+  if (!before) return { status: 'error', message: 'Staff not found.' };
+
+  const { error: upErr } = await admin.from('staff').update({ status: 'former' }).eq('id', staffId);
+  if (upErr) return { status: 'error', message: `Could not update status: ${upErr.message}` };
+
+  const heading = mode === 'fire' ? 'Conclusion of Engagement' : 'Notice of Suspension';
+  const dateStr = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
+  await logAudit({
+    action: mode === 'fire' ? 'staff.fire' : 'staff.suspend',
+    targetType: 'staff',
+    targetId: staffId,
+    targetLabel: `${before.full_name} (${before.slug})`,
+    notes: `${mode === 'fire' ? 'Fired' : 'Suspended'} (status ${before.status ?? '—'} → former) · letter emailed to ${personalEmail} · subject: ${subject}`,
+  });
+
+  let emailOk = true;
+  try {
+    await sendStaffOffboardingEmail({
+      to: personalEmail,
+      subject,
+      heading,
+      bodyText: body,
+      recipientName: before.full_name,
+      dateStr,
+    });
+  } catch (err) {
+    emailOk = false;
+    console.error('[offboard] sendStaffOffboardingEmail threw:', err);
+  }
+
+  revalidatePath('/admin/staff');
+  revalidatePath(`/admin/staff/${staffId}`);
+  revalidatePath('/staff');
+  return {
+    status: 'success',
+    message: emailOk
+      ? `${before.full_name} set to former. Letter sent to ${personalEmail}.`
+      : `${before.full_name} set to former, but the email did not send — check logs and resend manually.`,
+  };
 }
 
 // ── Reports ──────────────────────────────────────────────────────────────
