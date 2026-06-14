@@ -162,7 +162,7 @@ export async function sendStaffOffboardingEmail(args: {
   bodyText: string;
   recipientName: string;
   dateStr: string;
-}): Promise<void> {
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
   // Render the signed letter PDF for the attachment.
   let attachment: { filename: string; content: Buffer } | undefined;
   try {
@@ -191,7 +191,9 @@ export async function sendStaffOffboardingEmail(args: {
   const html = await render(
     createElement(StaffOffboardingEmail, { heading: args.heading, bodyText: args.bodyText }),
   );
-  await sendEmail({
+  // Return the transport result so the caller can report success/failure
+  // honestly instead of assuming it sent.
+  return sendEmail({
     to: args.to,
     subject: args.subject,
     html,

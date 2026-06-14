@@ -248,30 +248,34 @@ export async function offboardStaffAction(_prev: AdminStaffState, formData: Form
     notes: `${mode === 'fire' ? 'Fired' : 'Suspended'} (status ${before.status ?? '—'} → former) · letter emailed to ${personalEmail} · subject: ${subject}`,
   });
 
-  let emailOk = true;
+  const name = before.full_name;
+  let message: string;
   try {
-    await sendStaffOffboardingEmail({
+    const res = await sendStaffOffboardingEmail({
       to: personalEmail,
       subject,
       heading,
       bodyText: body,
-      recipientName: before.full_name,
+      recipientName: name,
       dateStr,
     });
+    if (!res.ok) {
+      message = `${name} set to former, but the email FAILED to send (${res.error ?? 'unknown error'}). Check the logs and resend manually.`;
+    } else if (res.id === 'noop') {
+      // Transport not configured → sendEmail is a logging no-op.
+      message = `${name} set to former, but NO email was sent: the mail server isn't configured (GMAIL_USER / GMAIL_APP_PASSWORD missing in this environment).`;
+    } else {
+      message = `${name} set to former. Letter sent to ${personalEmail}.`;
+    }
   } catch (err) {
-    emailOk = false;
     console.error('[offboard] sendStaffOffboardingEmail threw:', err);
+    message = `${name} set to former, but sending errored (${err instanceof Error ? err.message : 'unknown'}). Resend manually.`;
   }
 
   revalidatePath('/admin/staff');
   revalidatePath(`/admin/staff/${staffId}`);
   revalidatePath('/staff');
-  return {
-    status: 'success',
-    message: emailOk
-      ? `${before.full_name} set to former. Letter sent to ${personalEmail}.`
-      : `${before.full_name} set to former, but the email did not send — check logs and resend manually.`,
-  };
+  return { status: 'success', message };
 }
 
 // ── Reports ──────────────────────────────────────────────────────────────
