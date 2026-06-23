@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox,
   CircleDollarSign, ExternalLink, LogOut, Menu, X,
   Activity, ShieldCheck, FileText, Settings, ClipboardList,
-  Briefcase, Coins,
+  Briefcase, Coins, LineChart,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -28,6 +28,7 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: '/admin/finance',     label: 'Finance',     icon: <Coins className="h-4 w-4" /> },
   { href: '/admin/reports',     label: 'EOD reports', icon: <ClipboardList className="h-4 w-4" /> },
   { href: '/admin/performance', label: 'Performance', icon: <Activity className="h-4 w-4" /> },
+  { href: '/admin/trading-bot', label: 'Trading Bot', icon: <LineChart className="h-4 w-4" /> },
   { href: '/admin/contact',     label: 'Contact',     icon: <Inbox className="h-4 w-4" /> },
   { href: '/admin/ledger',      label: 'Ledger',      icon: <CircleDollarSign className="h-4 w-4" /> },
   { href: '/admin/nin-docs',    label: 'NIN docs',    icon: <FileText className="h-4 w-4" /> },
