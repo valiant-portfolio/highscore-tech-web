@@ -4,6 +4,7 @@
 // only if no signature image is on file.
 
 import { Document, Page, View, Text, Image } from '@react-pdf/renderer';
+import type { ReactNode } from 'react';
 import {
   shared, MUTED,
   CEO_NAME, CEO_TITLE, COMPANY_NAME, COMPANY_TAGLINE, COMPANY_DOMAIN,
@@ -19,13 +20,42 @@ export interface OffboardingLetterData {
   ceoSignatureDataUri: string | null;
 }
 
-// Split free-typed text into paragraphs on blank lines; collapse single
-// newlines inside a paragraph to spaces so wrapping stays natural.
+// Split free-typed text into paragraphs on blank lines. Line endings are
+// normalised first (CRLF/CR → LF) so Windows/pasted text splits correctly;
+// single newlines inside a paragraph are preserved as hard line breaks so the
+// signature block, address, and settlement breakdown keep their layout.
 function toParagraphs(text: string): string[] {
   return text
+    .replace(/\r\n?/g, '\n')
     .split(/\n{2,}/)
-    .map((block) => block.replace(/\s*\n\s*/g, ' ').trim())
+    .map((block) => block.replace(/[ \t]+\n/g, '\n').trim())
     .filter(Boolean);
+}
+
+// Inline pass: split a single line on **bold** spans (nested <Text> for weight).
+function renderInline(line: string, keyBase: string): ReactNode[] {
+  return line
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter((chunk) => chunk.length > 0)
+    .map((chunk, i) => {
+      const bold = /^\*\*([^*]+)\*\*$/.exec(chunk);
+      return bold ? (
+        <Text key={`${keyBase}-${i}`} style={{ fontWeight: 700, color: '#050E14' }}>{bold[1]}</Text>
+      ) : (
+        <Text key={`${keyBase}-${i}`}>{chunk}</Text>
+      );
+    });
+}
+
+// A paragraph may contain single newlines → keep them as hard breaks ('\n').
+function renderBlock(block: string, keyBase: string): ReactNode[] {
+  const lines = block.split('\n');
+  const out: ReactNode[] = [];
+  lines.forEach((line, i) => {
+    out.push(...renderInline(line, `${keyBase}-l${i}`));
+    if (i < lines.length - 1) out.push('\n');
+  });
+  return out;
 }
 
 export function OffboardingLetterPdf({ data }: { data: OffboardingLetterData }) {
@@ -56,7 +86,7 @@ export function OffboardingLetterPdf({ data }: { data: OffboardingLetterData }) 
           <Text style={{ ...shared.para, marginBottom: 18 }}>Date: {data.dateStr}</Text>
 
           {toParagraphs(data.bodyText).map((para, i) => (
-            <Text key={i} style={shared.para}>{para}</Text>
+            <Text key={i} style={shared.para}>{renderBlock(para, `p${i}`)}</Text>
           ))}
 
           {/* Signature — real CEO image, fallback to script */}
