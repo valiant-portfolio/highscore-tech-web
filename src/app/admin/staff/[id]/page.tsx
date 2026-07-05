@@ -8,6 +8,7 @@ import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { StaffPhotoUpload } from '@/components/admin/StaffPhotoUpload';
 import { StaffAmendForm } from '@/components/admin/StaffAmendForm';
 import { StaffStatusControls } from '@/components/admin/StaffStatusControls';
+import { StaffMessageForm } from '@/components/admin/StaffMessageForm';
 import { AdminReportForm } from '@/components/admin/AdminReportForm';
 import { StaffPerfCard } from '@/components/admin/StaffPerfCard';
 import { getStaffAdminFull, listReportsForStaff } from '@/lib/admin/staff-queries';
@@ -269,6 +270,13 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
                 <StaffStatusControls
                   staffId={staff.id}
                   status={staff.status}
+                  fullName={staff.full_name}
+                  workEmail={staff.work_email ?? null}
+                />
+              </div>
+              <div className="mt-5 border-t border-border pt-4">
+                <StaffMessageForm
+                  staffId={staff.id}
                   fullName={staff.full_name}
                   workEmail={staff.work_email ?? null}
                 />

@@ -15,6 +15,7 @@ import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
 import { StaffOffboardingEmail } from './templates/StaffOffboardingEmail';
+import { StaffMessageEmail } from './templates/StaffMessageEmail';
 import { InstallmentReminderEmail } from './templates/InstallmentReminderEmail';
 import { WeeklyCeoSummaryEmail } from './templates/WeeklyCeoSummaryEmail';
 import { EmploymentConfirmationEmail } from './templates/EmploymentConfirmationEmail';
@@ -199,6 +200,19 @@ export async function sendStaffOffboardingEmail(args: {
     html,
     ...(attachment && { attachments: [attachment] }),
   });
+}
+
+// ── General staff message (no attachment) ─────────────────────────────────
+export async function sendStaffMessageEmail(args: {
+  to: string;
+  subject: string;
+  heading: string;
+  bodyText: string;
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const html = await render(
+    createElement(StaffMessageEmail, { heading: args.heading, bodyText: args.bodyText }),
+  );
+  return sendEmail({ to: args.to, subject: args.subject, html });
 }
 
 // ── Overdue instalment reminder ────────────────────────────────────────

@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
-import { sendStaffAmendmentEmail, sendStaffOffboardingEmail } from '@/lib/email/send-helpers';
+import { sendStaffAmendmentEmail, sendStaffOffboardingEmail, sendStaffMessageEmail } from '@/lib/email/send-helpers';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
@@ -275,6 +275,63 @@ export async function offboardStaffAction(_prev: AdminStaffState, formData: Form
   revalidatePath('/admin/staff');
   revalidatePath(`/admin/staff/${staffId}`);
   revalidatePath('/staff');
+  return { status: 'success', message };
+}
+
+// ── General message ───────────────────────────────────────────────────────
+// Emails a staff member an arbitrary message (heading + body) at their personal
+// email. Does NOT change status or attach a PDF — for warnings, reinstatements,
+// announcements, praise, etc. Body supports **bold**, paragraphs and line breaks.
+export async function sendStaffMessageAction(_prev: AdminStaffState, formData: FormData): Promise<AdminStaffState> {
+  await requireAdmin();
+  const staffId       = String(formData.get('staff_id') ?? '');
+  const personalEmail = String(formData.get('personal_email') ?? '').trim().toLowerCase();
+  const subject       = String(formData.get('subject') ?? '').trim();
+  const heading       = String(formData.get('heading') ?? '').trim();
+  const body          = String(formData.get('body') ?? '').trim();
+
+  if (!staffId) return { status: 'error', message: 'Missing staff id.' };
+
+  const fieldErrors: Record<string, string> = {};
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) fieldErrors.personal_email = 'Enter a valid email.';
+  if (!subject) fieldErrors.subject = 'Required.';
+  if (!body)    fieldErrors.body = 'Required.';
+  if (Object.keys(fieldErrors).length) {
+    return { status: 'error', message: 'Fix the highlighted fields.', fieldErrors };
+  }
+
+  const admin = serviceClient();
+  const { data: before } = await admin.from('staff').select('full_name, slug').eq('id', staffId).maybeSingle();
+  if (!before) return { status: 'error', message: 'Staff not found.' };
+
+  await logAudit({
+    action: 'staff.message',
+    targetType: 'staff',
+    targetId: staffId,
+    targetLabel: `${before.full_name} (${before.slug})`,
+    notes: `Message emailed to ${personalEmail} · subject: ${subject}`,
+  });
+
+  let message: string;
+  try {
+    const res = await sendStaffMessageEmail({
+      to: personalEmail,
+      subject,
+      heading: heading || subject,
+      bodyText: body,
+    });
+    if (!res.ok) {
+      message = `Message NOT sent (${res.error ?? 'unknown error'}). Try again.`;
+    } else if (res.id === 'noop') {
+      message = `No email sent: the mail server isn't configured (GMAIL_USER / GMAIL_APP_PASSWORD missing in this environment).`;
+    } else {
+      message = `Message sent to ${personalEmail}.`;
+    }
+  } catch (err) {
+    console.error('[staff message] sendStaffMessageEmail threw:', err);
+    message = `Sending errored (${err instanceof Error ? err.message : 'unknown'}). Try again.`;
+  }
+
   return { status: 'success', message };
 }
 
