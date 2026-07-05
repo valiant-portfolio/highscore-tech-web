@@ -27,6 +27,22 @@ export type AdminStaffState =
   | { status: 'error'; message: string; fieldErrors?: Record<string, string> }
   | { status: 'success'; message: string };
 
+// Ban / un-ban a staff member's Supabase auth user. A 'former' staff is banned
+// so they cannot sign in at all — not merely bounced off the dashboard;
+// reinstating un-bans them. No-op when the staff has no linked auth user.
+async function setAuthBan(userId: string | null | undefined, banned: boolean) {
+  if (!userId) return;
+  const admin = serviceClient();
+  try {
+    await admin.auth.admin.updateUserById(userId, {
+      // ~100 years ≈ permanent; 'none' clears the ban on reinstate.
+      ban_duration: banned ? '876000h' : 'none',
+    });
+  } catch (err) {
+    console.error(`[staff auth] failed to ${banned ? 'ban' : 'un-ban'} ${userId}:`, err);
+  }
+}
+
 // ── Upload photo ──────────────────────────────────────────────────────────
 export async function uploadStaffPhotoAction(_prev: AdminStaffState, formData: FormData): Promise<AdminStaffState> {
   await requireAdmin();
@@ -192,8 +208,9 @@ export async function amendStaffAction(_prev: AdminStaffState, formData: FormDat
 export async function setStaffStatusAction(staffId: string, status: 'active' | 'former'): Promise<void> {
   await requireAdmin();
   const admin = serviceClient();
-  const { data: before } = await admin.from('staff').select('status, full_name, slug').eq('id', staffId).maybeSingle();
+  const { data: before } = await admin.from('staff').select('status, full_name, slug, user_id').eq('id', staffId).maybeSingle();
   await admin.from('staff').update({ status }).eq('id', staffId);
+  await setAuthBan(before?.user_id, status === 'former');
   await logAudit({
     action: status === 'former' ? 'staff.fire_suspend' : 'staff.reinstate',
     targetType: 'staff',
@@ -231,11 +248,14 @@ export async function offboardStaffAction(_prev: AdminStaffState, formData: Form
   }
 
   const admin = serviceClient();
-  const { data: before } = await admin.from('staff').select('status, full_name, slug').eq('id', staffId).maybeSingle();
+  const { data: before } = await admin.from('staff').select('status, full_name, slug, user_id').eq('id', staffId).maybeSingle();
   if (!before) return { status: 'error', message: 'Staff not found.' };
 
   const { error: upErr } = await admin.from('staff').update({ status: 'former' }).eq('id', staffId);
   if (upErr) return { status: 'error', message: `Could not update status: ${upErr.message}` };
+
+  // Block sign-in at the auth layer (reversible — reinstating un-bans).
+  await setAuthBan(before.user_id, true);
 
   const heading = mode === 'fire' ? 'Conclusion of Engagement' : 'Notice of Suspension';
   const dateStr = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());

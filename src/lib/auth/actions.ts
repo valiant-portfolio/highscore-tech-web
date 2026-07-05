@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { serviceClient } from '@/lib/supabase/service';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 
@@ -94,6 +95,25 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   const { error, data } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     return { status: 'error', message: 'Wrong email or password.' };
+  }
+
+  // Former staff must not be able to sign in — even if their auth user was
+  // never banned (e.g. they were offboarded before bans existed). Check with
+  // the service client so RLS can't hide the row, then sign the session out.
+  if (data.user) {
+    const admin = serviceClient();
+    const { data: staffRow } = await admin
+      .from('staff')
+      .select('status')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    if (staffRow?.status === 'former') {
+      await supabase.auth.signOut();
+      return {
+        status: 'error',
+        message: 'This account has been deactivated. Please contact Highscore Tech if you believe this is a mistake.',
+      };
+    }
   }
 
   // Role-aware default landing: admins to /admin, staff to /staff,
