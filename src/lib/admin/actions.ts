@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { serviceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { markPaymentSucceededAction } from '@/lib/enrollment/actions';
+import { sendContactReply } from '@/lib/email/send-helpers';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
@@ -304,4 +305,47 @@ export async function updateContactStatusAction(
     diff: { status: { before: before?.status ?? null, after: status } },
   });
   revalidatePath('/admin/contact');
+}
+
+// Reply to a contact enquiry: email the sender, then mark the thread replied.
+// The reply body is kept in the audit log so there's a record of what was sent.
+export async function replyToContactAction(
+  id: string,
+  subject: string,
+  body: string,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  const reply = body.trim();
+  if (!reply) return { ok: false, error: 'Write a reply first.' };
+
+  const admin = serviceClient();
+  const { data: msg } = await admin
+    .from('contact_messages')
+    .select('name, email, subject, message')
+    .eq('id', id)
+    .maybeSingle();
+  if (!msg) return { ok: false, error: 'Message not found.' };
+
+  const subj = subject.trim() || `Re: ${msg.subject || 'Your enquiry'}`;
+  const firstName = (msg.name ?? '').trim().split(/\s+/)[0] || 'there';
+
+  const res = await sendContactReply({
+    to: msg.email,
+    subject: subj,
+    heading: `Hi ${firstName},`,
+    bodyText: reply,
+    originalMessage: msg.message,
+  });
+  if (!res.ok) return { ok: false, error: res.error ?? 'Could not send the reply.' };
+
+  await admin.from('contact_messages').update({ status: 'replied' }).eq('id', id);
+  await logAudit({
+    action: 'contact_message.replied',
+    targetType: 'contact_message',
+    targetId: id,
+    targetLabel: `${msg.name} <${msg.email}>`,
+    notes: `Subject: ${subj}\n\n${reply}`,
+  });
+  revalidatePath('/admin/contact');
+  return { ok: true };
 }

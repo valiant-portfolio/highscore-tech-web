@@ -11,6 +11,7 @@ import { createElement } from 'react';
 import { sendEmail, emailConfig } from './client';
 import { ContactNotifyEmail } from './templates/ContactNotifyEmail';
 import { ContactAckEmail }    from './templates/ContactAckEmail';
+import { ContactReplyEmail }  from './templates/ContactReplyEmail';
 import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
@@ -211,6 +212,24 @@ export async function sendStaffMessageEmail(args: {
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const html = await render(
     createElement(StaffMessageEmail, { heading: args.heading, bodyText: args.bodyText }),
+  );
+  return sendEmail({ to: args.to, subject: args.subject, html });
+}
+
+// ── Reply to a contact enquiry (from the admin inbox) ─────────────────────
+export async function sendContactReply(args: {
+  to: string;
+  subject: string;
+  heading: string;
+  bodyText: string;
+  originalMessage?: string | null;
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const html = await render(
+    createElement(ContactReplyEmail, {
+      heading: args.heading,
+      bodyText: args.bodyText,
+      originalMessage: args.originalMessage ?? null,
+    }),
   );
   return sendEmail({ to: args.to, subject: args.subject, html });
 }

@@ -1,6 +1,6 @@
 import { Inbox, Download } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
-import { ContactStatusButtons } from '@/components/admin/ContactMessage';
+import { ContactStatusButtons, ContactReplyForm } from '@/components/admin/ContactMessage';
 import { listContactMessagesAdmin } from '@/lib/admin/queries';
 
 function pill(status: string) {
@@ -65,6 +65,7 @@ export default async function AdminContactPage() {
                 <div className="mt-4">
                   <ContactStatusButtons id={m.id} current={m.status} />
                 </div>
+                <ContactReplyForm id={m.id} name={m.name} subject={m.subject} />
               </li>
             ))}
           </ul>
