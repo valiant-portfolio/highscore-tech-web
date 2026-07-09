@@ -13,6 +13,9 @@ import type { AdminPortfolioFull } from '@/lib/admin/queries';
 
 interface Props {
   project?: AdminPortfolioFull | null;
+  // Portfolio managers can add and edit; only admins may delete. The server
+  // action re-checks — this just hides a button that would always throw.
+  canDelete?: boolean;
 }
 
 const INITIAL: AdminFormState = { status: 'idle' };
@@ -26,7 +29,7 @@ function SaveButton() {
   );
 }
 
-export function PortfolioForm({ project }: Props) {
+export function PortfolioForm({ project, canDelete = false }: Props) {
   const [state, formAction] = useActionState(upsertPortfolioAction, INITIAL);
   const fieldErrors = state.status === 'error' ? state.fieldErrors : undefined;
 
@@ -91,7 +94,7 @@ export function PortfolioForm({ project }: Props) {
             <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">ID</p>
             <p className="mt-1 font-mono tabular text-xs text-fg-muted break-all">{project.id}</p>
           </div>
-          <DeleteForm id={project.id} />
+          {canDelete && <DeleteForm id={project.id} />}
         </aside>
       )}
     </div>

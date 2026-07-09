@@ -72,7 +72,7 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('users')
-      .select('role, onboarded_at')
+      .select('role, onboarded_at, can_manage_portfolio')
       .eq('id', user.id)
       .maybeSingle();
     const isStudent = !profile || profile.role === 'student';
@@ -84,6 +84,25 @@ export async function updateSession(request: NextRequest) {
       if (!allowed) {
         const url = request.nextUrl.clone();
         url.pathname = '/onboarding';
+        url.search = '';
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // 4. /admin is admin-only. The one exception: a user granted
+    //    `can_manage_portfolio` may reach /admin/portfolio and nothing else.
+    //    Gate it here rather than in the layout — admin pages read through the
+    //    service client, so every other /admin route must stay unreachable.
+    if (path === '/admin' || path.startsWith('/admin/')) {
+      const isAdmin = profile?.role === 'admin';
+      const portfolioOnly =
+        !!profile?.can_manage_portfolio &&
+        (path === '/admin/portfolio' || path.startsWith('/admin/portfolio/'));
+      if (!isAdmin && !portfolioOnly) {
+        const url = request.nextUrl.clone();
+        url.pathname = profile?.can_manage_portfolio ? '/admin/portfolio'
+                     : profile?.role === 'staff' ? '/staff'
+                     : '/profile';
         url.search = '';
         return NextResponse.redirect(url);
       }

@@ -38,19 +38,24 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
 
 interface Props {
   user: { fullName: string | null; email: string; initials: string };
+  // Non-admins only reach this shell via `can_manage_portfolio`, so they see
+  // Portfolio alone. Middleware enforces it; this just keeps the nav honest.
+  isAdmin: boolean;
   children: React.ReactNode;
 }
 
-export function AdminShell({ user, children }: Props) {
+export function AdminShell({ user, isAdmin, children }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const nav = isAdmin ? NAV : NAV.filter((n) => n.href === '/admin/portfolio');
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/admin' && pathname?.startsWith(href));
 
   const navList = (
     <ul className="space-y-1">
-      {NAV.map((n) => (
+      {nav.map((n) => (
         <li key={n.href}>
           <Link
             href={n.href}

@@ -21,6 +21,22 @@ async function requireAdmin(): Promise<void> {
   if (data?.role !== 'admin') throw new Error('Not authorised.');
 }
 
+// Portfolio may also be managed by a user explicitly granted the permission
+// (e.g. Olivia keeping the site's project list current). Admins always pass.
+// Deleting a project stays admin-only.
+async function requirePortfolioAccess(): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in.');
+  const { data } = await supabase
+    .from('users')
+    .select('role, can_manage_portfolio')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (data?.role === 'admin' || data?.can_manage_portfolio) return;
+  throw new Error('Not authorised.');
+}
+
 export type AdminFormState =
   | { status: 'idle' }
   | { status: 'error'; message: string; fieldErrors?: Record<string, string> }
@@ -39,7 +55,7 @@ function csvToArray(value: string): string[] {
 // ════════════════════════════════════════════════════════════════════════
 
 export async function upsertPortfolioAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
-  await requireAdmin();
+  await requirePortfolioAccess();
   const id = String(formData.get('id') ?? '').trim() || null;
   const slug = String(formData.get('slug') ?? '').trim();
   const title = String(formData.get('title') ?? '').trim();

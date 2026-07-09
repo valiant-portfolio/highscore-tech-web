@@ -121,6 +121,9 @@ CREATE TABLE users (
   phone         TEXT,
   avatar_url    TEXT,
   role          user_role NOT NULL DEFAULT 'student',
+  -- Narrow grant: lets a non-admin (Operations) reach /admin/portfolio to add
+  -- and edit projects. Deleting a project stays admin-only.
+  can_manage_portfolio BOOLEAN NOT NULL DEFAULT FALSE,
   -- Onboarding (M10) — collected on first login for students; pre-filled
   -- via admin import for staff. NULL onboarded_at = onboarding not done.
   date_of_birth     DATE,

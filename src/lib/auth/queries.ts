@@ -11,6 +11,8 @@ export interface AuthUser {
   phone: string | null;
   avatar_url: string | null;
   role: 'student' | 'staff' | 'admin';
+  // Grants /admin/portfolio (add + edit) to a non-admin. Nothing else.
+  can_manage_portfolio: boolean;
 }
 
 // Returns the current user's joined row from `public.users`, or null if no
@@ -25,7 +27,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, full_name, phone, avatar_url, role')
+    .select('id, email, full_name, phone, avatar_url, role, can_manage_portfolio')
     .eq('id', user.id)
     .maybeSingle();
   if (error || !data) {
@@ -38,9 +40,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       phone: null,
       avatar_url: null,
       role: 'student',
+      can_manage_portfolio: false,
     };
   }
-  return data as AuthUser;
+  return { ...data, can_manage_portfolio: !!data.can_manage_portfolio } as AuthUser;
 }
 
 // Convenience: short label for header avatar bubble.

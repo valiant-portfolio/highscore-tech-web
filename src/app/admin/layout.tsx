@@ -1,5 +1,8 @@
 // Admin chrome with role guard. Anonymous users are bounced to /login by
 // middleware; non-admin students get redirected to /profile here.
+//
+// Users with `can_manage_portfolio` render this shell too, but middleware only
+// lets them onto /admin/portfolio — and `isAdmin: false` trims the nav to it.
 
 import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -14,10 +17,12 @@ export default async function AdminLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login?next=/admin');
-  if (user.role !== 'admin') redirect('/profile');
+  const isAdmin = user.role === 'admin';
+  if (!isAdmin && !user.can_manage_portfolio) redirect('/profile');
 
   return (
     <AdminShell
+      isAdmin={isAdmin}
       user={{
         fullName: user.full_name,
         email: user.email,
