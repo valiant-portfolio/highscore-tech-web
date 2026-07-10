@@ -117,11 +117,6 @@ export function StaffProfilePanel({
             )}
           </Card>
 
-          {!canEdit && (
-            <p className="lg:col-span-2 text-xs text-fg-subtle">
-              Editing is turned off. Ask an admin to grant you profile access to update your photo, NIN, password, phone or personal email.
-            </p>
-          )}
         </div>
       )}
 
