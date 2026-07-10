@@ -11,8 +11,10 @@ import { StaffStatusControls } from '@/components/admin/StaffStatusControls';
 import { StaffMessageForm } from '@/components/admin/StaffMessageForm';
 import { AdminReportForm } from '@/components/admin/AdminReportForm';
 import { StaffPerfCard } from '@/components/admin/StaffPerfCard';
-import { getStaffAdminFull, listReportsForStaff } from '@/lib/admin/staff-queries';
+import { StaffAccessCard } from '@/components/admin/StaffAccessCard';
+import { getStaffAdminFull, listReportsForStaff, getUserAccess } from '@/lib/admin/staff-queries';
 import { getStaffPerformanceById } from '@/lib/admin/performance';
+import { getCurrentUser } from '@/lib/auth/queries';
 import { formatNgn } from '@/lib/academy/queries';
 import { formatAccountNumber, canUpdateBank } from '@/lib/staff/bank';
 
@@ -26,10 +28,15 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
   const { id } = await params;
   const staff = await getStaffAdminFull(id);
   if (!staff) notFound();
-  const [reports, perf] = await Promise.all([
+  const [reports, perf, viewer, targetAccess] = await Promise.all([
     listReportsForStaff(staff.id, 30),
     getStaffPerformanceById(staff.id),
+    getCurrentUser(),
+    getUserAccess(staff.user_id),
   ]);
+  // Only a full admin may grant access — a staff member with the 'staff'
+  // section can view this page but must not see the access editor.
+  const viewerIsAdmin = viewer?.role === 'admin';
 
   return (
     <>
@@ -83,6 +90,18 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
               </div>
             </div>
           </AdminCard>
+
+          {/* Admin access — admins only */}
+          {viewerIsAdmin && !targetAccess.isAdmin && (
+            <AdminCard>
+              <StaffAccessCard
+                staffUserId={staff.user_id}
+                firstName={staff.full_name.split(' ')[0]}
+                initialSections={targetAccess.sections}
+                hasAccount={!!staff.user_id}
+              />
+            </AdminCard>
+          )}
 
           {/* Bank account / payroll */}
           <AdminCard>

@@ -8,6 +8,7 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { sectionForPath, allowedHrefs } from '@/lib/admin/sections';
 
 const PROTECTED_PREFIXES   = ['/profile', '/admin', '/staff', '/onboarding'];
 const GUEST_ONLY_PREFIXES  = ['/login', '/signup', '/forgot-password'];
@@ -72,7 +73,7 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('users')
-      .select('role, onboarded_at, can_manage_portfolio')
+      .select('role, onboarded_at, admin_sections')
       .eq('id', user.id)
       .maybeSingle();
     const isStudent = !profile || profile.role === 'student';
@@ -89,20 +90,19 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    // 4. /admin is admin-only. The one exception: a user granted
-    //    `can_manage_portfolio` may reach /admin/portfolio and nothing else.
-    //    Gate it here rather than in the layout — admin pages read through the
-    //    service client, so every other /admin route must stay unreachable.
-    if (path === '/admin' || path.startsWith('/admin/')) {
+    // 4. /admin section guard. Admins reach everything; a staff member reaches
+    //    only the sections listed in their `admin_sections`. This is the single
+    //    choke point — admin pages read through the service client and trust the
+    //    route to be unreachable, so a section they lack must never render.
+    const section = sectionForPath(path);
+    if (section) {
       const isAdmin = profile?.role === 'admin';
-      const portfolioOnly =
-        !!profile?.can_manage_portfolio &&
-        (path === '/admin/portfolio' || path.startsWith('/admin/portfolio/'));
-      if (!isAdmin && !portfolioOnly) {
+      const granted = (profile?.admin_sections as string[] | null) ?? [];
+      if (!isAdmin && !granted.includes(section.key)) {
         const url = request.nextUrl.clone();
-        url.pathname = profile?.can_manage_portfolio ? '/admin/portfolio'
-                     : profile?.role === 'staff' ? '/staff'
-                     : '/profile';
+        // Bounce to their first granted section, else off /admin entirely.
+        const firstHref = allowedHrefs(granted)[0];
+        url.pathname = firstHref ?? (profile?.role === 'staff' ? '/staff' : '/profile');
         url.search = '';
         return NextResponse.redirect(url);
       }

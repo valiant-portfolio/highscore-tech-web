@@ -6,22 +6,19 @@
 // can resolve it the same way. Admin-only.
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
 import { removeSignatureBackground } from '@/lib/signature/processor';
 import { clearCeoSignatureCache } from '@/lib/staff/signature-loader';
+import { checkSection } from './access';
 import { logAudit } from './audit';
 import type { SigActionState } from '@/lib/staff/signature-actions';
 
 const CEO_PATH = 'ceo/signature.png';
 
-async function requireAdmin(): Promise<{ ok: true } | { ok: false; message: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: 'Sign in first.' };
-  const { data: me } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-  if (me?.role !== 'admin') return { ok: false, message: 'Admin only.' };
-  return { ok: true };
+// The CEO signature lives on the Settings page — admins pass; staff pass if
+// granted the 'settings' section.
+async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
+  return checkSection('settings');
 }
 
 export async function uploadCeoSignatureAction(

@@ -104,6 +104,24 @@ export async function getStaffAdminFull(id: string): Promise<AdminStaffFull | nu
   return shape(data as unknown as Row);
 }
 
+// The admin sections currently granted to a staff member's linked account, plus
+// whether that account is itself a full admin (in which case sections are moot).
+export async function getUserAccess(
+  userId: string | null,
+): Promise<{ sections: string[]; isAdmin: boolean }> {
+  if (!userId) return { sections: [], isAdmin: false };
+  const admin = serviceClient();
+  const { data } = await admin
+    .from('users')
+    .select('role, admin_sections')
+    .eq('id', userId)
+    .maybeSingle();
+  return {
+    sections: (data?.admin_sections as string[] | null) ?? [],
+    isAdmin: data?.role === 'admin',
+  };
+}
+
 // ── Reports ──────────────────────────────────────────────────────────────
 export interface StaffReport {
   id: string;

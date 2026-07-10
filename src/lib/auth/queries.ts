@@ -11,8 +11,9 @@ export interface AuthUser {
   phone: string | null;
   avatar_url: string | null;
   role: 'student' | 'staff' | 'admin';
-  // Grants /admin/portfolio (add + edit) to a non-admin. Nothing else.
-  can_manage_portfolio: boolean;
+  // Admin sections this user may access (keys from lib/admin/sections.ts).
+  // Empty for everyone except staff an admin has granted. Admins ignore it.
+  admin_sections: string[];
 }
 
 // Returns the current user's joined row from `public.users`, or null if no
@@ -27,7 +28,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, full_name, phone, avatar_url, role, can_manage_portfolio')
+    .select('id, email, full_name, phone, avatar_url, role, admin_sections')
     .eq('id', user.id)
     .maybeSingle();
   if (error || !data) {
@@ -40,10 +41,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       phone: null,
       avatar_url: null,
       role: 'student',
-      can_manage_portfolio: false,
+      admin_sections: [],
     };
   }
-  return { ...data, can_manage_portfolio: !!data.can_manage_portfolio } as AuthUser;
+  return { ...data, admin_sections: (data.admin_sections as string[] | null) ?? [] } as AuthUser;
 }
 
 // Convenience: short label for header avatar bubble.

@@ -7,35 +7,11 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { serviceClient } from '@/lib/supabase/service';
-import { createClient } from '@/lib/supabase/server';
 import { markPaymentSucceededAction } from '@/lib/enrollment/actions';
 import { sendContactReply } from '@/lib/email/send-helpers';
+import { requireSection } from './access';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
-
-async function requireAdmin(): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not signed in.');
-  const { data } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-  if (data?.role !== 'admin') throw new Error('Not authorised.');
-}
-
-// Portfolio may also be managed by a user explicitly granted the permission
-// (e.g. Olivia keeping the site's project list current). Admins always pass.
-// Deleting a project stays admin-only.
-async function requirePortfolioAccess(): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not signed in.');
-  const { data } = await supabase
-    .from('users')
-    .select('role, can_manage_portfolio')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (data?.role === 'admin' || data?.can_manage_portfolio) return;
-  throw new Error('Not authorised.');
-}
 
 export type AdminFormState =
   | { status: 'idle' }
@@ -55,7 +31,7 @@ function csvToArray(value: string): string[] {
 // ════════════════════════════════════════════════════════════════════════
 
 export async function upsertPortfolioAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
-  await requirePortfolioAccess();
+  await requireSection('portfolio');
   const id = String(formData.get('id') ?? '').trim() || null;
   const slug = String(formData.get('slug') ?? '').trim();
   const title = String(formData.get('title') ?? '').trim();
@@ -125,7 +101,7 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
 }
 
 export async function deletePortfolioAction(id: string): Promise<void> {
-  await requireAdmin();
+  await requireSection('portfolio');
   const admin = serviceClient();
   const { data: before } = await admin.from('portfolio_projects').select('title, slug').eq('id', id).maybeSingle();
   await admin.from('portfolio_projects').delete().eq('id', id);
@@ -146,7 +122,7 @@ export async function deletePortfolioAction(id: string): Promise<void> {
 // ════════════════════════════════════════════════════════════════════════
 
 export async function updateCourseAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
-  await requireAdmin();
+  await requireSection('courses');
   const id = String(formData.get('id') ?? '').trim();
   if (!id) return { status: 'error', message: 'Course ID missing.' };
 
@@ -209,7 +185,7 @@ export async function markInstallmentPaidAction(
   installmentId: string,
   enrollmentId: string,
 ): Promise<void> {
-  await requireAdmin();
+  await requireSection('enrollments');
   const admin = serviceClient();
 
   const { data: inst } = await admin
@@ -249,7 +225,7 @@ export async function markEnrollmentStatusAction(
   enrollmentId: string,
   status: 'pending' | 'active' | 'completed' | 'cancelled',
 ): Promise<void> {
-  await requireAdmin();
+  await requireSection('enrollments');
   const admin = serviceClient();
   const { data: before } = await admin.from('enrollments').select('status').eq('id', enrollmentId).maybeSingle();
   await admin.from('enrollments').update({ status }).eq('id', enrollmentId);
@@ -268,7 +244,7 @@ export async function markEnrollmentStatusAction(
 // ════════════════════════════════════════════════════════════════════════
 
 export async function resetStaffEmailAction(staffId: string): Promise<void> {
-  await requireAdmin();
+  await requireSection('staff');
   const admin = serviceClient();
   const { data: who } = await admin.from('staff').select('full_name, slug').eq('id', staffId).maybeSingle();
   await admin.from('staff').update({ personal_email_hash: null }).eq('id', staffId);
@@ -285,7 +261,7 @@ export async function updateStaffSalaryAction(
   staffId: string,
   newSalary: number,
 ): Promise<void> {
-  await requireAdmin();
+  await requireSection('staff');
   if (newSalary < 0) return;
   const admin = serviceClient();
   const { data: before } = await admin.from('staff').select('salary_ngn, full_name, slug').eq('id', staffId).maybeSingle();
@@ -309,7 +285,7 @@ export async function updateContactStatusAction(
   id: string,
   status: 'new' | 'read' | 'replied' | 'archived',
 ): Promise<void> {
-  await requireAdmin();
+  await requireSection('contact');
   const admin = serviceClient();
   const { data: before } = await admin.from('contact_messages').select('status, name, email').eq('id', id).maybeSingle();
   await admin.from('contact_messages').update({ status }).eq('id', id);
@@ -330,7 +306,7 @@ export async function replyToContactAction(
   subject: string,
   body: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireAdmin();
+  await requireSection('contact');
   const reply = body.trim();
   if (!reply) return { ok: false, error: 'Write a reply first.' };
 

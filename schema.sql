@@ -121,9 +121,11 @@ CREATE TABLE users (
   phone         TEXT,
   avatar_url    TEXT,
   role          user_role NOT NULL DEFAULT 'student',
-  -- Narrow grant: lets a non-admin (Operations) reach /admin/portfolio to add
-  -- and edit projects. Deleting a project stays admin-only.
-  can_manage_portfolio BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Per-section admin access granted to a staff member by an admin. Holds a
+  -- subset of the section keys in src/lib/admin/sections.ts (e.g. {portfolio,
+  -- courses}). Empty = no admin access at all. The `admin` role ignores this
+  -- and can reach everything. Only an admin may edit it.
+  admin_sections TEXT[] NOT NULL DEFAULT '{}',
   -- Onboarding (M10) — collected on first login for students; pre-filled
   -- via admin import for staff. NULL onboarded_at = onboarding not done.
   date_of_birth     DATE,

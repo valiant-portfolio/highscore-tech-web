@@ -4,17 +4,13 @@
 // disable it. The bot reads these values each loop and obeys them.
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
+import { checkSection } from './access';
 import { logAudit } from './audit';
 
+// Admins pass; staff pass if granted the 'trading-bot' section.
 async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: 'Sign in first.' };
-  const { data: me } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-  if (me?.role !== 'admin') return { ok: false, message: 'Admin only.' };
-  return { ok: true, userId: user.id };
+  return checkSection('trading-bot');
 }
 
 export type BotControlResult = { ok: boolean; message?: string };

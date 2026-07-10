@@ -10,16 +10,17 @@ import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
 import { sendStaffAmendmentEmail, sendStaffOffboardingEmail, sendStaffMessageEmail } from '@/lib/email/send-helpers';
+import { requireSection, requireStrictAdmin } from './access';
+import { ADMIN_SECTION_KEYS } from './sections';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
+// Admins pass; staff pass if granted the 'staff' section. Note: granting admin
+// sections to other staff is NOT here — that stays strictly admin-only below,
+// so a 'staff'-section holder can't escalate their own or a colleague's access.
 async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not signed in.');
-  const { data } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle();
-  if (data?.role !== 'admin') throw new Error('Not authorised.');
-  return { adminUserId: user.id };
+  const { userId } = await requireSection('staff');
+  return { adminUserId: userId };
 }
 
 export type AdminStaffState =
@@ -639,4 +640,48 @@ export async function submitTeamEodAction(
   revalidatePath('/admin/staff');
   revalidatePath('/admin/reports');
   return { status: 'success', message: `Team EOD posted for ${reportDate} covering ${entries.length} staff.` };
+}
+
+// ── Admin access (grant/revoke admin sections to a staff member) ──────────
+// Strictly admin-only: this is the one action a 'staff'-section holder must
+// never reach, or they could grant themselves the whole panel. Writes the full
+// desired set onto the staff member's linked `users.admin_sections`.
+export async function setStaffSectionsAction(
+  staffUserId: string,
+  sections: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  await requireStrictAdmin();
+
+  if (!staffUserId) {
+    return { ok: false, error: 'This staff member has no account yet. They must sign in with their work email first.' };
+  }
+
+  // Keep only known section keys — ignore anything unexpected from the client.
+  const clean = Array.from(new Set(sections)).filter((s) => ADMIN_SECTION_KEYS.includes(s));
+
+  const admin = serviceClient();
+  const { data: target } = await admin
+    .from('users')
+    .select('id, role, full_name, email, admin_sections')
+    .eq('id', staffUserId)
+    .maybeSingle();
+  if (!target) return { ok: false, error: 'User not found.' };
+  if (target.role === 'admin') {
+    return { ok: false, error: 'This user is already a full admin — sections do not apply.' };
+  }
+
+  const before = (target.admin_sections as string[] | null) ?? [];
+  const { error } = await admin.from('users').update({ admin_sections: clean }).eq('id', staffUserId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    action: 'staff.admin_sections_update',
+    targetType: 'user',
+    targetId: staffUserId,
+    targetLabel: `${target.full_name ?? '—'} <${target.email}>`,
+    diff: { admin_sections: { before: before.join(', ') || '—', after: clean.join(', ') || '—' } },
+  });
+
+  revalidatePath('/admin/staff');
+  return { ok: true };
 }
