@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
 import { sendStaffAmendmentEmail, sendStaffOffboardingEmail, sendStaffMessageEmail } from '@/lib/email/send-helpers';
 import { requireSection, requireStrictAdmin } from './access';
-import { ADMIN_SECTION_KEYS } from './sections';
+import { ALL_GRANT_KEYS } from './sections';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
@@ -305,16 +305,16 @@ export async function offboardStaffAction(_prev: AdminStaffState, formData: Form
 // announcements, praise, etc. Body supports **bold**, paragraphs and line breaks.
 export async function sendStaffMessageAction(_prev: AdminStaffState, formData: FormData): Promise<AdminStaffState> {
   await requireAdmin();
-  const staffId       = String(formData.get('staff_id') ?? '');
-  const personalEmail = String(formData.get('personal_email') ?? '').trim().toLowerCase();
-  const subject       = String(formData.get('subject') ?? '').trim();
-  const heading       = String(formData.get('heading') ?? '').trim();
-  const body          = String(formData.get('body') ?? '').trim();
+  const staffId = String(formData.get('staff_id') ?? '');
+  const toEmail = String(formData.get('to_email') ?? '').trim().toLowerCase();
+  const subject = String(formData.get('subject') ?? '').trim();
+  const heading = String(formData.get('heading') ?? '').trim();
+  const body    = String(formData.get('body') ?? '').trim();
 
   if (!staffId) return { status: 'error', message: 'Missing staff id.' };
 
   const fieldErrors: Record<string, string> = {};
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) fieldErrors.personal_email = 'Enter a valid email.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) fieldErrors.to_email = 'Pick a valid recipient email.';
   if (!subject) fieldErrors.subject = 'Required.';
   if (!body)    fieldErrors.body = 'Required.';
   if (Object.keys(fieldErrors).length) {
@@ -330,13 +330,13 @@ export async function sendStaffMessageAction(_prev: AdminStaffState, formData: F
     targetType: 'staff',
     targetId: staffId,
     targetLabel: `${before.full_name} (${before.slug})`,
-    notes: `Message emailed to ${personalEmail} · subject: ${subject}`,
+    notes: `Message emailed to ${toEmail} · subject: ${subject}`,
   });
 
   let message: string;
   try {
     const res = await sendStaffMessageEmail({
-      to: personalEmail,
+      to: toEmail,
       subject,
       heading: heading || subject,
       bodyText: body,
@@ -346,7 +346,7 @@ export async function sendStaffMessageAction(_prev: AdminStaffState, formData: F
     } else if (res.id === 'noop') {
       message = `No email sent: the mail server isn't configured (GMAIL_USER / GMAIL_APP_PASSWORD missing in this environment).`;
     } else {
-      message = `Message sent to ${personalEmail}.`;
+      message = `Message sent to ${toEmail}.`;
     }
   } catch (err) {
     console.error('[staff message] sendStaffMessageEmail threw:', err);
@@ -558,14 +558,14 @@ export async function submitTeamEodAction(
   if (!user) return { status: 'error', message: 'Sign in first.' };
 
   const admin = serviceClient();
-  const { data: me } = await admin
-    .from('staff')
-    .select('id, slug, status')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [{ data: me }, { data: meUser }] = await Promise.all([
+    admin.from('staff').select('id, slug, status').eq('user_id', user.id).maybeSingle(),
+    admin.from('users').select('admin_sections').eq('id', user.id).maybeSingle(),
+  ]);
   if (!me)                       return { status: 'error', message: 'You are not staff.' };
   if (me.status !== 'active')    return { status: 'error', message: 'Your account is not active.' };
-  if (me.slug !== 'olivia')      return { status: 'error', message: 'Only the operations manager can post the team EOD.' };
+  const caps = (meUser?.admin_sections as string[] | null) ?? [];
+  if (!caps.includes('team-eod')) return { status: 'error', message: 'You do not have access to post the team EOD.' };
 
   // Pull all per-staff entries from the form. Convention: each field is
   // named `entry.<staff_id>.<key>`.
@@ -656,8 +656,9 @@ export async function setStaffSectionsAction(
     return { ok: false, error: 'This staff member has no account yet. They must sign in with their work email first.' };
   }
 
-  // Keep only known section keys — ignore anything unexpected from the client.
-  const clean = Array.from(new Set(sections)).filter((s) => ADMIN_SECTION_KEYS.includes(s));
+  // Keep only known keys (admin sections + staff capabilities) — ignore
+  // anything unexpected from the client.
+  const clean = Array.from(new Set(sections)).filter((s) => ALL_GRANT_KEYS.includes(s));
 
   const admin = serviceClient();
   const { data: target } = await admin

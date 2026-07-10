@@ -43,15 +43,16 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const onboarding = getOnboardingState(staff);
   if (!onboarding.complete) redirect('/staff/onboarding');
 
-  // Only Olivia (operations manager) can post the team EOD; for everyone
-  // else, the Reports route doesn't exist — bounce to overview if they
-  // try ?tab=reports directly.
-  const isOlivia = staff.slug === 'olivia';
+  // Staff-portal capabilities are granted per-staff by an admin (stored in
+  // users.admin_sections). No one has them by default.
+  const caps = user.admin_sections;
+  const canPostTeamEod = caps.includes('team-eod');
+  const canEditProfile = caps.includes('profile-edit');
 
   const { tab } = await searchParams;
-  if (tab === 'reports' && !isOlivia) redirect('/staff');
+  if (tab === 'reports' && !canPostTeamEod) redirect('/staff');
   const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
-    tab === 'documents' || tab === 'settings' || (tab === 'reports' && isOlivia)
+    tab === 'documents' || tab === 'settings' || (tab === 'reports' && canPostTeamEod)
       ? tab
       : 'profile';
 
@@ -64,7 +65,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
   // EOD rows for the table.
   let activeStaffForEod: { id: string; full_name: string; role_title: string }[] = [];
   let teamEodRows: { id: string; report_date: string; content: string; created_at: string }[] = [];
-  if (isOlivia) {
+  if (canPostTeamEod) {
     const [{ data: activeList }, { data: pastEods }] = await Promise.all([
       admin.from('staff').select('id, full_name, role_title').eq('status', 'active').order('full_name', { ascending: true }),
       admin.from('staff_reports')
@@ -109,7 +110,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
           fullName: staff.full_name,
           roleTitle: staff.role_title,
           employeeId,
-          canPostTeamEod: isOlivia,
+          canPostTeamEod,
         }}
       >
         <StaffDashboard
@@ -121,7 +122,8 @@ export default async function StaffPage({ searchParams }: PageProps) {
           signedInPhone={user.phone ?? ''}
           ninUploaded={ninUploaded}
           photoPublicUrl={photoPublicUrl}
-          isOlivia={isOlivia}
+          canPostTeamEod={canPostTeamEod}
+          canEditProfile={canEditProfile}
           activeStaffForEod={activeStaffForEod}
           teamEodRows={teamEodRows}
         />

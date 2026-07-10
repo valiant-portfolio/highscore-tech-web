@@ -9,6 +9,10 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
 import { ADMIN_SECTION_KEYS, allowedHrefs } from '@/lib/admin/sections';
 
+// Only real admin-panel section keys count toward /admin entry — staff-portal
+// capabilities (team-eod, profile-edit) live in the same array but don't grant
+// the panel.
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({
@@ -19,7 +23,9 @@ export default async function AdminLayout({
   const user = await getCurrentUser();
   if (!user) redirect('/login?next=/admin');
   const isAdmin = user.role === 'admin';
-  const sections = isAdmin ? ADMIN_SECTION_KEYS : user.admin_sections;
+  const sections = isAdmin
+    ? ADMIN_SECTION_KEYS
+    : user.admin_sections.filter((k) => ADMIN_SECTION_KEYS.includes(k));
   if (sections.length === 0) redirect('/profile');
 
   return (

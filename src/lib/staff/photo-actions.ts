@@ -25,13 +25,16 @@ async function loadCurrentStaff() {
   if (!user) return { ok: false as const, error: 'Sign in first.' };
 
   const admin = serviceClient();
-  const { data: staff } = await admin
-    .from('staff')
-    .select('id, slug, full_name, status')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [{ data: staff }, { data: me }] = await Promise.all([
+    admin.from('staff').select('id, slug, full_name, status').eq('user_id', user.id).maybeSingle(),
+    admin.from('users').select('admin_sections').eq('id', user.id).maybeSingle(),
+  ]);
   if (!staff) return { ok: false as const, error: 'You are not registered as staff.' };
   if (staff.status !== 'active') return { ok: false as const, error: 'Your staff record is not active.' };
+  const caps = (me?.admin_sections as string[] | null) ?? [];
+  if (!caps.includes('profile-edit')) {
+    return { ok: false as const, error: 'You do not have access to edit your profile. Ask an admin to grant it.' };
+  }
   return { ok: true as const, admin, staff };
 }
 

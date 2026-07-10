@@ -16,6 +16,7 @@ export interface StaffRecord {
   start_date: string | null;
   status: 'active' | 'former';
   work_email: string | null;
+  personal_email: string | null;
   signature_url: string | null;
   offer_signed_at: string | null;
   nda_signed_at: string | null;
@@ -42,6 +43,7 @@ interface StaffRow {
   start_date: string | null;
   status: 'active' | 'former';
   work_email: string | null;
+  personal_email: string | null;
   signature_url: string | null;
   offer_signed_at: string | null;
   nda_signed_at: string | null;
@@ -55,7 +57,7 @@ interface StaffRow {
 }
 
 const STAFF_COLS =
-  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, signature_url, offer_signed_at, nda_signed_at, policy_signed_at, photo_url, bank_name, bank_account_number, bank_account_name, bank_updated_at, reports_to:reports_to(full_name)';
+  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, personal_email, signature_url, offer_signed_at, nda_signed_at, policy_signed_at, photo_url, bank_name, bank_account_number, bank_account_name, bank_updated_at, reports_to:reports_to(full_name)';
 
 function reportsToName(rel: StaffRow['reports_to']): string | null {
   if (!rel) return null;
@@ -75,6 +77,7 @@ function shape(row: StaffRow): StaffRecord {
     start_date: row.start_date,
     status: row.status,
     work_email: row.work_email,
+    personal_email: row.personal_email,
     signature_url: row.signature_url,
     offer_signed_at: row.offer_signed_at,
     nda_signed_at: row.nda_signed_at,

@@ -25,14 +25,21 @@ export function StaffMessageForm({
   staffId,
   fullName,
   workEmail,
+  personalEmail,
 }: {
   staffId: string;
   fullName: string;
   workEmail: string | null;
+  personalEmail: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState(sendStaffMessageAction, INITIAL);
   const first = fullName.split(' ')[0] || 'there';
+
+  const emailOptions = [
+    personalEmail ? { value: personalEmail, label: `Personal — ${personalEmail}` } : null,
+    workEmail ? { value: workEmail, label: `Work — ${workEmail}` } : null,
+  ].filter(Boolean) as { value: string; label: string }[];
 
   // Close the modal on a successful send.
   useEffect(() => {
@@ -51,7 +58,7 @@ export function StaffMessageForm({
         <Mail className="h-4 w-4" /> Send a message
       </button>
       <p className="text-xs text-fg-subtle">
-        Emails {first} a plain message at their personal email (no status change, no PDF). Supports{' '}
+        Emails {first} a plain message (no status change, no PDF) — pick their work or personal address. Supports{' '}
         <code className="font-mono text-fg-muted">**bold**</code>, blank lines for paragraphs, and single line breaks.
       </p>
 
@@ -83,16 +90,24 @@ export function StaffMessageForm({
               )}
 
               <label className="block">
-                <span className="text-xs font-semibold text-fg-muted">Staff personal email</span>
-                <input
-                  name="personal_email"
-                  type="email"
-                  required
-                  defaultValue=""
-                  placeholder={workEmail ? `e.g. their personal address (work: ${workEmail})` : 'name@personal-email.com'}
-                  className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
-                />
-                {fieldErrors?.personal_email && <span className="mt-1 block text-xs text-danger">{fieldErrors.personal_email}</span>}
+                <span className="text-xs font-semibold text-fg-muted">Send to</span>
+                {emailOptions.length > 0 ? (
+                  <select
+                    name="to_email"
+                    required
+                    defaultValue={emailOptions[0].value}
+                    className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
+                  >
+                    {emailOptions.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="mt-1 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-fg-muted">
+                    No email on file for {first}. Ask them to add a personal email, or set a work email in their HR record.
+                  </p>
+                )}
+                {fieldErrors?.to_email && <span className="mt-1 block text-xs text-danger">{fieldErrors.to_email}</span>}
               </label>
 
               <label className="block">

@@ -7,6 +7,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { serviceClient } from '@/lib/supabase/service';
+import { checkProfileEdit } from './access';
 
 export type StaffActionState =
   | { status: 'idle' }
@@ -37,6 +38,20 @@ export async function changePasswordAction(_prev: StaffActionState, formData: Fo
     return { status: 'error', message: 'Not signed in.' };
   }
 
+  // Staff members may only change their password once granted 'profile-edit'.
+  // Students (no staff row) are unaffected — this action serves both panels.
+  {
+    const admin = serviceClient();
+    const { data: staffRow } = await admin.from('staff').select('id').eq('user_id', user.id).maybeSingle();
+    if (staffRow) {
+      const { data: meRow } = await admin.from('users').select('admin_sections').eq('id', user.id).maybeSingle();
+      const caps = (meRow?.admin_sections as string[] | null) ?? [];
+      if (!caps.includes('profile-edit')) {
+        return { status: 'error', message: 'You do not have access to change your password. Ask an admin to grant profile access.' };
+      }
+    }
+  }
+
   // Re-authenticate using the current password to confirm ownership.
   const { error: signinErr } = await supabase.auth.signInWithPassword({
     email: user.email,
@@ -59,22 +74,23 @@ export async function changePasswordAction(_prev: StaffActionState, formData: Fo
 }
 
 // ── updateStaffProfileAction ──────────────────────────────────────────────
-// Lets a staff member update their own phone + display name. Other fields
-// (salary, role, contract) are admin-only and live in /admin/staff.
+// Lets a staff member update their own phone + personal email. Name and work
+// email are admin-controlled; salary, role and contract live in /admin/staff.
+// Requires the admin-granted 'profile-edit' capability.
 export async function updateStaffProfileAction(_prev: StaffActionState, formData: FormData): Promise<StaffActionState> {
-  const fullName = String(formData.get('full_name') ?? '').trim();
-  const phone    = String(formData.get('phone')     ?? '').trim();
+  const phone         = String(formData.get('phone') ?? '').trim();
+  const personalEmail = String(formData.get('personal_email') ?? '').trim().toLowerCase();
 
-  if (!fullName) {
-    return { status: 'error', message: 'Name required.', fieldErrors: { full_name: 'Required.' } };
+  if (personalEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) {
+    return { status: 'error', message: 'Enter a valid personal email.', fieldErrors: { personal_email: 'Invalid email.' } };
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'Not signed in.' };
+  const gate = await checkProfileEdit();
+  if (!gate.ok) return { status: 'error', message: gate.message };
 
   const admin = serviceClient();
-  await admin.from('users').update({ full_name: fullName, phone: phone || null }).eq('id', user.id);
+  await admin.from('users').update({ phone: phone || null }).eq('id', gate.userId);
+  await admin.from('staff').update({ personal_email: personalEmail || null }).eq('user_id', gate.userId);
   revalidatePath('/staff');
   return { status: 'success', message: 'Profile updated.' };
 }

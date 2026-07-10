@@ -7,9 +7,10 @@ import { Input, Button } from '@/components/ui';
 import { updateStaffProfileAction, type StaffActionState } from '@/lib/staff/actions';
 
 interface Props {
-  signedInEmail: string;
-  defaultName: string;
+  fullName: string;
+  workEmail: string;
   defaultPhone: string;
+  defaultPersonalEmail: string;
 }
 
 const INITIAL: StaffActionState = { status: 'idle' };
@@ -23,7 +24,7 @@ function SubmitButton() {
   );
 }
 
-export function StaffProfileForm({ signedInEmail, defaultName, defaultPhone }: Props) {
+export function StaffProfileForm({ fullName, workEmail, defaultPhone, defaultPersonalEmail }: Props) {
   const [state, formAction] = useActionState(updateStaffProfileAction, INITIAL);
   const fieldErrors = state.status === 'error' ? state.fieldErrors : undefined;
 
@@ -43,17 +44,16 @@ export function StaffProfileForm({ signedInEmail, defaultName, defaultPhone }: P
       )}
 
       <Input
-        label="Work email"
-        value={signedInEmail}
+        label="Full name"
+        value={fullName}
         disabled
-        helper="Email is the unique sign-in identifier — only admin can change it."
+        helper="Your legal name is set by admin — used on your ID card and contract."
       />
       <Input
-        name="full_name"
-        label="Full name"
-        required
-        defaultValue={defaultName}
-        error={fieldErrors?.full_name}
+        label="Work email"
+        value={workEmail}
+        disabled
+        helper="Your sign-in email — only admin can change it."
       />
       <Input
         name="phone"
@@ -61,6 +61,15 @@ export function StaffProfileForm({ signedInEmail, defaultName, defaultPhone }: P
         label="Phone (optional)"
         defaultValue={defaultPhone}
         placeholder="+234 …"
+      />
+      <Input
+        name="personal_email"
+        type="email"
+        label="Personal email (optional)"
+        defaultValue={defaultPersonalEmail}
+        placeholder="you@personal-email.com"
+        helper="Used by admin to reach you off your work address."
+        error={fieldErrors?.personal_email}
       />
       <SubmitButton />
     </form>

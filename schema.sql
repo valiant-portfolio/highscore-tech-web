@@ -234,6 +234,9 @@ CREATE TABLE staff (
   -- Legacy cookie-gate hash. Kept for migration safety but no longer used —
   -- staff sign in via regular auth in M9+.
   personal_email_hash TEXT,
+  -- Staff member's own personal email (they add it from their profile). Used
+  -- as a send target when the admin messages or offboards them.
+  personal_email TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

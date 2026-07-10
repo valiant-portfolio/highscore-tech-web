@@ -71,11 +71,13 @@ export function StaffStatusControls({
   status,
   fullName,
   workEmail,
+  personalEmail,
 }: {
   staffId: string;
   status: 'active' | 'former';
   fullName: string;
   workEmail: string | null;
+  personalEmail: string | null;
 }) {
   const [reinstating, startReinstate] = useTransition();
   const [mode, setMode] = useState<Mode | null>(null);
@@ -163,10 +165,16 @@ export function StaffStatusControls({
                   name="personal_email"
                   type="email"
                   required
-                  defaultValue=""
+                  readOnly={!!personalEmail}
+                  defaultValue={personalEmail ?? ''}
                   placeholder={workEmail ? `e.g. their personal address (work: ${workEmail})` : 'name@personal-email.com'}
-                  className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
+                  className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm text-fg outline-none focus:border-brand ${personalEmail ? 'bg-surface-hover cursor-not-allowed' : 'bg-bg'}`}
                 />
+                <span className="mt-1 block text-xs text-fg-subtle">
+                  {personalEmail
+                    ? 'The letter goes to the personal email on file.'
+                    : 'No personal email on file — enter the address to send the letter to.'}
+                </span>
                 {fieldErrors?.personal_email && <span className="mt-1 block text-xs text-danger">{fieldErrors.personal_email}</span>}
               </label>
 

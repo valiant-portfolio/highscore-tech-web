@@ -291,6 +291,7 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
                   status={staff.status}
                   fullName={staff.full_name}
                   workEmail={staff.work_email ?? null}
+                  personalEmail={staff.personal_email ?? null}
                 />
               </div>
               <div className="mt-5 border-t border-border pt-4">
@@ -298,6 +299,7 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
                   staffId={staff.id}
                   fullName={staff.full_name}
                   workEmail={staff.work_email ?? null}
+                  personalEmail={staff.personal_email ?? null}
                 />
               </div>
             </div>

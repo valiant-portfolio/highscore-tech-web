@@ -9,11 +9,7 @@ import {
   CheckCircle2, Flame, Calendar, CircleDollarSign, Users as UsersIcon,
   BookOpenCheck,
 } from 'lucide-react';
-import { StaffPasswordForm } from './StaffPasswordForm';
-import { StaffProfileForm } from './StaffProfileForm';
-import { StaffNinUpload } from './StaffNinUpload';
-import { StaffPhotoUpload } from './StaffPhotoUpload';
-import { StaffBankAccount } from './StaffBankAccount';
+import { StaffProfilePanel } from './StaffProfilePanel';
 import { TeamEodForm } from './TeamEodForm';
 import { TeamEodTable } from './TeamEodTable';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
@@ -43,7 +39,8 @@ interface Props {
   signedInPhone: string;
   ninUploaded: boolean;
   photoPublicUrl: string | null;
-  isOlivia: boolean;
+  canPostTeamEod: boolean;
+  canEditProfile: boolean;
   activeStaffForEod: EodStaffMember[];
   teamEodRows: TeamEodRow[];
 }
@@ -79,7 +76,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 export function StaffDashboard({
   staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone,
-  ninUploaded, photoPublicUrl, isOlivia, activeStaffForEod, teamEodRows,
+  ninUploaded, photoPublicUrl, canPostTeamEod, canEditProfile, activeStaffForEod, teamEodRows,
 }: Props) {
   const payday = computePayday(staff);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
@@ -110,8 +107,10 @@ export function StaffDashboard({
       subtitle = 'Compile the team report from the updates gathered on Google Workspace and post it here.';
       break;
     case 'settings':
-      title = 'Settings';
-      subtitle = 'Update your profile, change password, upload your NIN.';
+      title = 'Profile';
+      subtitle = canEditProfile
+        ? 'View your details. Use Edit to update your photo, NIN, password, phone and personal email.'
+        : 'View your details. Editing is turned off until an admin grants you access.';
       break;
     default:
       title = `Hi, ${firstName}.`;
@@ -217,7 +216,7 @@ export function StaffDashboard({
             <Card className="p-6">
               <h2 className="font-display text-lg font-bold text-fg">Quick actions</h2>
               <ul className="mt-5 space-y-2 text-sm">
-                {isOlivia && (
+                {canPostTeamEod && (
                   <li>
                     <Link href="/staff?tab=reports" className="flex items-center justify-between gap-2 px-3 h-10 rounded-md hover:bg-surface-hover text-fg-muted hover:text-fg">
                       Post team EOD <span className="text-fg-subtle">→</span>
@@ -266,8 +265,8 @@ export function StaffDashboard({
         </div>
       )}
 
-      {/* ── REPORTS (Olivia-only — non-Olivia hits a server-side redirect) */}
-      {activeTab === 'reports' && isOlivia && (
+      {/* ── REPORTS (only when granted 'team-eod' — others hit a redirect) */}
+      {activeTab === 'reports' && canPostTeamEod && (
         <div className="space-y-6">
           <Card className="p-5 md:p-7">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
@@ -294,68 +293,24 @@ export function StaffDashboard({
         </div>
       )}
 
-      {/* ── SETTINGS ────────────────────────────────────────────────── */}
+      {/* ── PROFILE (formerly Settings) — editing gated by 'profile-edit' */}
       {activeTab === 'settings' && (
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="p-5 md:p-7">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Profile</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              Keep your name + phone current — used on your ID card and contract.
-            </p>
-            <div className="mt-6">
-              <StaffProfileForm
-                signedInEmail={signedInEmail}
-                defaultName={signedInName}
-                defaultPhone={signedInPhone}
-              />
-            </div>
-          </Card>
-
-          <Card className="p-5 md:p-7">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Change password</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              First-time login uses <code className="font-mono text-brand">Highscore-{staff.slug}</code>. Change it here.
-            </p>
-            <div className="mt-6">
-              <StaffPasswordForm />
-            </div>
-          </Card>
-
-          <Card className="p-5 md:p-7 lg:col-span-2">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Bank account · for payroll</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              Add the Nigerian bank account your monthly salary should land in. Changes are limited to once every 90 days.
-            </p>
-            <div className="mt-6">
-              <StaffBankAccount
-                initialBankName={staff.bank_name}
-                initialAccountNumber={staff.bank_account_number}
-                initialAccountName={staff.bank_account_name}
-                initialUpdatedAt={staff.bank_updated_at}
-              />
-            </div>
-          </Card>
-
-          <Card className="p-5 md:p-7 lg:col-span-2">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Passport photograph</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              Add a clean head-and-shoulders shot. We crop to a square automatically and embed it on your staff ID card.
-            </p>
-            <div className="mt-6">
-              <StaffPhotoUpload initialPhotoUrl={photoPublicUrl} />
-            </div>
-          </Card>
-
-          <Card className="p-5 md:p-7 lg:col-span-2">
-            <h2 className="font-display text-lg md:text-xl font-bold text-fg">Identity (NIN)</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              Upload your National Identification Number slip for HR compliance. Required for staff; private; only admin can view.
-            </p>
-            <div className="mt-6 max-w-[520px]">
-              <StaffNinUpload alreadyUploaded={ninUploaded} />
-            </div>
-          </Card>
-        </div>
+        <StaffProfilePanel
+          canEdit={canEditProfile}
+          slug={staff.slug}
+          fullName={signedInName || staff.full_name}
+          workEmail={signedInEmail}
+          phone={signedInPhone}
+          personalEmail={staff.personal_email}
+          photoPublicUrl={photoPublicUrl}
+          ninUploaded={ninUploaded}
+          bank={{
+            name: staff.bank_name,
+            accountNumber: staff.bank_account_number,
+            accountName: staff.bank_account_name,
+            updatedAt: staff.bank_updated_at,
+          }}
+        />
       )}
     </div>
   );

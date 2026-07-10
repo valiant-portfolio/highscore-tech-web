@@ -6,8 +6,44 @@
 
 import { useState, useTransition } from 'react';
 import { Loader2, ShieldCheck, Check } from 'lucide-react';
-import { ADMIN_SECTIONS } from '@/lib/admin/sections';
+import { ADMIN_SECTIONS, STAFF_CAPABILITIES } from '@/lib/admin/sections';
 import { setStaffSectionsAction } from '@/lib/admin/staff-actions';
+
+function Toggle({
+  label, hint, on, disabled, onClick,
+}: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title={hint}
+      className={[
+        'flex items-start gap-2.5 px-3 py-2.5 min-h-11 rounded-md border text-sm font-semibold text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+        on ? 'border-brand/50 bg-brand-tint text-brand' : 'border-border bg-surface/60 text-fg-muted hover:bg-surface-hover',
+      ].join(' ')}
+    >
+      <span
+        className={[
+          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border',
+          on ? 'border-brand bg-brand text-brand-fg' : 'border-border',
+        ].join(' ')}
+      >
+        {on && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0">
+        {label}
+        {hint && <span className="block text-[11px] font-normal text-fg-subtle leading-snug mt-0.5">{hint}</span>}
+      </span>
+    </button>
+  );
+}
 
 export function StaffAccessCard({
   staffUserId,
@@ -55,8 +91,9 @@ export function StaffAccessCard({
         <ShieldCheck className="h-5 w-5 text-brand" /> Admin access
       </h2>
       <p className="mt-1 text-sm text-fg-muted">
-        By default staff have no admin access. Tick the areas {firstName} may open in the admin panel.
-        Each area includes its actions (e.g. Portfolio lets them add, edit and delete projects).
+        By default staff have no access. Tick the admin areas {firstName} may open, and the
+        staff-portal actions they may perform. Each admin area includes its actions (e.g. Portfolio
+        lets them add, edit and delete projects).
       </p>
 
       {!hasAccount && (
@@ -65,34 +102,18 @@ export function StaffAccessCard({
         </div>
       )}
 
-      <div className="mt-5 grid sm:grid-cols-2 gap-2">
-        {ADMIN_SECTIONS.map((s) => {
-          const on = granted.has(s.key);
-          return (
-            <button
-              key={s.key}
-              type="button"
-              disabled={!hasAccount || pending}
-              onClick={() => toggle(s.key)}
-              className={[
-                'flex items-center gap-2.5 px-3 h-11 rounded-md border text-sm font-semibold text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                on
-                  ? 'border-brand/50 bg-brand-tint text-brand'
-                  : 'border-border bg-surface/60 text-fg-muted hover:bg-surface-hover',
-              ].join(' ')}
-            >
-              <span
-                className={[
-                  'flex h-5 w-5 shrink-0 items-center justify-center rounded border',
-                  on ? 'border-brand bg-brand text-brand-fg' : 'border-border',
-                ].join(' ')}
-              >
-                {on && <Check className="h-3.5 w-3.5" />}
-              </span>
-              {s.label}
-            </button>
-          );
-        })}
+      <p className="mt-5 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Admin panel</p>
+      <div className="mt-2 grid sm:grid-cols-2 gap-2">
+        {ADMIN_SECTIONS.map((s) => (
+          <Toggle key={s.key} label={s.label} on={granted.has(s.key)} disabled={!hasAccount || pending} onClick={() => toggle(s.key)} />
+        ))}
+      </div>
+
+      <p className="mt-6 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Staff portal</p>
+      <div className="mt-2 grid sm:grid-cols-2 gap-2">
+        {STAFF_CAPABILITIES.map((c) => (
+          <Toggle key={c.key} label={c.label} hint={c.hint} on={granted.has(c.key)} disabled={!hasAccount || pending} onClick={() => toggle(c.key)} />
+        ))}
       </div>
 
       {note && (

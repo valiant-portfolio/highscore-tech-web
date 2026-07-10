@@ -34,6 +34,27 @@ export const ADMIN_SECTIONS: AdminSection[] = [
 
 export const ADMIN_SECTION_KEYS: string[] = ADMIN_SECTIONS.map((s) => s.key);
 
+// Staff-portal capabilities — not admin sidebar pages, but per-staff permissions
+// an admin grants from the same access card. Stored in the same
+// `users.admin_sections` array. They never match an /admin route, so the
+// middleware route guard ignores them; the staff dashboard reads them directly.
+export interface StaffCapability {
+  key: string;
+  label: string;
+  hint: string;
+}
+
+export const STAFF_CAPABILITIES: StaffCapability[] = [
+  { key: 'team-eod',     label: 'Post Team EOD',   hint: 'Compile and submit the team end-of-day report.' },
+  { key: 'profile-edit', label: 'Edit own profile', hint: 'Edit passport photo, NIN, password, phone and personal email.' },
+];
+
+export const STAFF_CAPABILITY_KEYS: string[] = STAFF_CAPABILITIES.map((c) => c.key);
+
+// Every grantable key (sections + capabilities) — the allow-list used when an
+// admin saves a staff member's access.
+export const ALL_GRANT_KEYS: string[] = [...ADMIN_SECTION_KEYS, ...STAFF_CAPABILITY_KEYS];
+
 // Which section owns a given /admin path. The most specific (longest) href
 // wins, so /admin/portfolio/new → 'portfolio'; bare /admin (or any unmapped
 // /admin/* child) falls back to 'dashboard'.

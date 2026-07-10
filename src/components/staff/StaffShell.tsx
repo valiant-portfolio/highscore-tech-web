@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home, FolderOpen, MessageSquare, Settings,
+  Home, FolderOpen, MessageSquare, UserCog,
   ExternalLink, Menu, X, IdCard,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
@@ -26,7 +26,7 @@ interface NavItem {
 const NAV_BASE: NavItem[] = [
   { tab: 'profile',   label: 'Overview',  icon: <Home className="h-4 w-4" /> },
   { tab: 'documents', label: 'Documents', icon: <FolderOpen className="h-4 w-4" /> },
-  { tab: 'settings',  label: 'Settings',  icon: <Settings className="h-4 w-4" /> },
+  { tab: 'settings',  label: 'Profile',   icon: <UserCog className="h-4 w-4" /> },
 ];
 const REPORTS_NAV: NavItem = {
   tab: 'reports', label: 'Team EOD', icon: <MessageSquare className="h-4 w-4" />,

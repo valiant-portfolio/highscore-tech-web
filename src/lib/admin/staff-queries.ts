@@ -14,6 +14,7 @@ export interface AdminStaffFull {
   start_date: string | null;
   status: 'active' | 'former';
   work_email: string | null;
+  personal_email: string | null;
   photo_url: string | null;
   photo_public_url: string | null;
   signature_url: string | null;
@@ -39,6 +40,7 @@ interface Row {
   start_date: string | null;
   status: 'active' | 'former';
   work_email: string | null;
+  personal_email: string | null;
   photo_url: string | null;
   signature_url: string | null;
   nda_signed_at: string | null;
@@ -51,7 +53,7 @@ interface Row {
 }
 
 const COLS =
-  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, photo_url, signature_url, nda_signed_at, reports_to, reports_to_rel:reports_to(full_name), bank_name, bank_account_number, bank_account_name, bank_updated_at';
+  'id, user_id, slug, full_name, role_title, department, salary_ngn, start_date, status, work_email, personal_email, photo_url, signature_url, nda_signed_at, reports_to, reports_to_rel:reports_to(full_name), bank_name, bank_account_number, bank_account_name, bank_updated_at';
 
 function publicUrlFor(path: string | null): string | null {
   if (!path) return null;
@@ -78,6 +80,7 @@ function shape(row: Row): AdminStaffFull {
     start_date: row.start_date,
     status: row.status,
     work_email: row.work_email,
+    personal_email: row.personal_email,
     photo_url: row.photo_url,
     photo_public_url: publicUrlFor(row.photo_url),
     signature_url: row.signature_url,
