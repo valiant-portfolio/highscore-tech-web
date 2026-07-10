@@ -11,7 +11,10 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, FolderOpen, MessageSquare, UserCog,
-  ExternalLink, Menu, X, IdCard, ShieldCheck,
+  ExternalLink, Menu, X, IdCard,
+  LayoutDashboard, Layers, GraduationCap, Users, Briefcase, Coins,
+  ClipboardList, Activity, LineChart, Inbox, CircleDollarSign, FileText,
+  ShieldCheck, Settings,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -22,6 +25,32 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
 }
+
+interface AdminSectionLink {
+  key: string;
+  href: string;
+  label: string;
+}
+
+// Icon per admin section key — mirrors AdminShell so the links look the same
+// wherever they appear.
+const SECTION_ICON: Record<string, React.ReactNode> = {
+  dashboard:   <LayoutDashboard className="h-4 w-4" />,
+  portfolio:   <Layers className="h-4 w-4" />,
+  courses:     <GraduationCap className="h-4 w-4" />,
+  enrollments: <Users className="h-4 w-4" />,
+  staff:       <IdCard className="h-4 w-4" />,
+  projects:    <Briefcase className="h-4 w-4" />,
+  finance:     <Coins className="h-4 w-4" />,
+  reports:     <ClipboardList className="h-4 w-4" />,
+  performance: <Activity className="h-4 w-4" />,
+  'trading-bot': <LineChart className="h-4 w-4" />,
+  contact:     <Inbox className="h-4 w-4" />,
+  ledger:      <CircleDollarSign className="h-4 w-4" />,
+  'nin-docs':  <FileText className="h-4 w-4" />,
+  audit:       <ShieldCheck className="h-4 w-4" />,
+  settings:    <Settings className="h-4 w-4" />,
+};
 
 const NAV_BASE: NavItem[] = [
   { tab: 'profile',   label: 'Overview',  icon: <Home className="h-4 w-4" /> },
@@ -40,8 +69,8 @@ interface Props {
     employeeId: string;
     /** Shows the Team EOD nav entry when the staff member is granted it. */
     canPostTeamEod?: boolean;
-    /** When set, the staff member has admin-panel access — link to this href. */
-    adminHref?: string | null;
+    /** Granted admin-panel sections — each renders as its own sidebar link. */
+    adminSections?: AdminSectionLink[];
   };
   children: React.ReactNode;
 }
@@ -52,6 +81,7 @@ export function StaffShell({ user, staff, children }: Props) {
   const NAV: NavItem[] = staff.canPostTeamEod
     ? [NAV_BASE[0], NAV_BASE[1], REPORTS_NAV, NAV_BASE[2]]
     : NAV_BASE;
+  const adminSections = staff.adminSections ?? [];
   const pathname = usePathname();
   const sp = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -79,16 +109,22 @@ export function StaffShell({ user, staff, children }: Props) {
           </Link>
         </li>
       ))}
-      {staff.adminHref && (
+      {adminSections.length > 0 && (
         <li className="pt-2 mt-2 border-t border-border">
-          <Link
-            href={staff.adminHref}
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-3 h-10 rounded-md text-sm font-semibold text-brand hover:bg-brand-tint transition-colors"
-          >
-            <span className="shrink-0"><ShieldCheck className="h-4 w-4" /></span>
-            Admin panel
-          </Link>
+          <ul className="space-y-1">
+            {adminSections.map((s) => (
+              <li key={s.key}>
+                <Link
+                  href={s.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-3 h-10 rounded-md text-sm font-medium text-fg-muted hover:text-fg hover:bg-surface-hover transition-colors"
+                >
+                  <span className="shrink-0">{SECTION_ICON[s.key] ?? <ShieldCheck className="h-4 w-4" />}</span>
+                  {s.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </li>
       )}
     </ul>

@@ -11,7 +11,7 @@ import { StaffDashboard } from '@/components/staff/StaffDashboard';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { listReportsForStaff } from '@/lib/admin/staff-queries';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
-import { ADMIN_SECTION_KEYS, allowedHrefs } from '@/lib/admin/sections';
+import { ADMIN_SECTIONS } from '@/lib/admin/sections';
 
 export const metadata: Metadata = {
   title: 'Staff portal — Highscore Tech',
@@ -50,9 +50,11 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const canPostTeamEod = caps.includes('team-eod');
   const canEditProfile = caps.includes('profile-edit');
 
-  // Admin-panel sections this staff member was granted — surfaces an entry
-  // point into /admin from the staff portal. First granted area is the target.
-  const adminHref = allowedHrefs(caps.filter((k) => ADMIN_SECTION_KEYS.includes(k)))[0] ?? null;
+  // Admin-panel sections this staff member was granted — each shows directly
+  // in the staff sidebar as its own link into /admin.
+  const grantedAdminSections = ADMIN_SECTIONS
+    .filter((s) => caps.includes(s.key))
+    .map((s) => ({ key: s.key, href: s.href, label: s.label }));
 
   const { tab } = await searchParams;
   if (tab === 'reports' && !canPostTeamEod) redirect('/staff');
@@ -106,7 +108,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
           roleTitle: staff.role_title,
           employeeId,
           canPostTeamEod,
-          adminHref,
+          adminSections: grantedAdminSections,
         }}
       >
         <StaffDashboard
