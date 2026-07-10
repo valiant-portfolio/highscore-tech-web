@@ -86,9 +86,13 @@ export function StaffShell({ user, staff, children }: Props) {
   const sp = useSearchParams();
   const [open, setOpen] = useState(false);
 
+  const activeSection = sp.get('section');
   const activeTab = sp.get('tab') ?? 'profile';
+  // A base tab is active only when no admin section is open.
   const isActive = (tab: string) =>
-    pathname === '/staff' && activeTab === tab;
+    pathname === '/staff' && !activeSection && activeTab === tab;
+  const isSectionActive = (key: string) =>
+    pathname === '/staff' && activeSection === key;
 
   const navList = (
     <ul className="space-y-1">
@@ -117,7 +121,12 @@ export function StaffShell({ user, staff, children }: Props) {
                 <Link
                   href={s.href}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 px-3 h-10 rounded-md text-sm font-medium text-fg-muted hover:text-fg hover:bg-surface-hover transition-colors"
+                  className={cn(
+                    'flex items-center gap-3 px-3 h-10 rounded-md text-sm font-medium transition-colors',
+                    isSectionActive(s.key)
+                      ? 'bg-brand-tint text-brand'
+                      : 'text-fg-muted hover:text-fg hover:bg-surface-hover',
+                  )}
                 >
                   <span className="shrink-0">{SECTION_ICON[s.key] ?? <ShieldCheck className="h-4 w-4" />}</span>
                   {s.label}

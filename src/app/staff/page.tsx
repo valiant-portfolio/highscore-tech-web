@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { StaffShell } from '@/components/staff/StaffShell';
 import { StaffDashboard } from '@/components/staff/StaffDashboard';
+import { AdminSectionView } from '@/components/staff/AdminSectionView';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { listReportsForStaff } from '@/lib/admin/staff-queries';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
@@ -29,7 +30,7 @@ const EMPLOYEE_IDS: Record<string, string> = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 export default async function StaffPage({ searchParams }: PageProps) {
@@ -51,12 +52,16 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const canEditProfile = caps.includes('profile-edit');
 
   // Admin-panel sections this staff member was granted — each shows directly
-  // in the staff sidebar as its own link into /admin.
+  // in the staff sidebar and opens inside the staff portal (?section=<key>),
+  // not the separate /admin chrome.
   const grantedAdminSections = ADMIN_SECTIONS
     .filter((s) => caps.includes(s.key))
-    .map((s) => ({ key: s.key, href: s.href, label: s.label }));
+    .map((s) => ({ key: s.key, href: `/staff?section=${s.key}`, label: s.label }));
 
-  const { tab } = await searchParams;
+  const sp = await searchParams;
+  const tab = sp.tab;
+  // A granted admin section opened as a staff tab. Ignore ungranted keys.
+  const activeSection = sp.section && caps.includes(sp.section) ? sp.section : null;
   if (tab === 'reports' && !canPostTeamEod) redirect('/staff');
   const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
     tab === 'documents' || tab === 'settings' || (tab === 'reports' && canPostTeamEod)
@@ -111,19 +116,23 @@ export default async function StaffPage({ searchParams }: PageProps) {
           adminSections: grantedAdminSections,
         }}
       >
-        <StaffDashboard
-          staff={staff}
-          employeeId={employeeId}
-          activeTab={activeTab}
-          signedInEmail={user.email}
-          signedInName={user.full_name ?? ''}
-          signedInPhone={user.phone ?? ''}
-          ninUploaded={ninUploaded}
-          photoPublicUrl={photoPublicUrl}
-          canPostTeamEod={canPostTeamEod}
-          canEditProfile={canEditProfile}
-          activeStaffForEod={activeStaffForEod}
-        />
+        {activeSection ? (
+          <AdminSectionView section={activeSection} searchParams={sp} />
+        ) : (
+          <StaffDashboard
+            staff={staff}
+            employeeId={employeeId}
+            activeTab={activeTab}
+            signedInEmail={user.email}
+            signedInName={user.full_name ?? ''}
+            signedInPhone={user.phone ?? ''}
+            ninUploaded={ninUploaded}
+            photoPublicUrl={photoPublicUrl}
+            canPostTeamEod={canPostTeamEod}
+            canEditProfile={canEditProfile}
+            activeStaffForEod={activeStaffForEod}
+          />
+        )}
       </StaffShell>
     </Suspense>
   );
