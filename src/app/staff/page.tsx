@@ -11,6 +11,7 @@ import { StaffDashboard } from '@/components/staff/StaffDashboard';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { listReportsForStaff } from '@/lib/admin/staff-queries';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
+import { ADMIN_SECTION_KEYS, allowedHrefs } from '@/lib/admin/sections';
 
 export const metadata: Metadata = {
   title: 'Staff portal — Highscore Tech',
@@ -49,6 +50,10 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const canPostTeamEod = caps.includes('team-eod');
   const canEditProfile = caps.includes('profile-edit');
 
+  // Admin-panel sections this staff member was granted — surfaces an entry
+  // point into /admin from the staff portal. First granted area is the target.
+  const adminHref = allowedHrefs(caps.filter((k) => ADMIN_SECTION_KEYS.includes(k)))[0] ?? null;
+
   const { tab } = await searchParams;
   if (tab === 'reports' && !canPostTeamEod) redirect('/staff');
   const activeTab: 'profile' | 'documents' | 'reports' | 'settings' =
@@ -61,29 +66,19 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const { data: meRow } = await admin.from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
   const ninUploaded = !!meRow?.nin_doc_url;
 
-  // Olivia-only data: active staff for the team EOD form, plus past team
-  // EOD rows for the table.
+  // For the Team EOD form: the list of active staff to compile. Past team EODs
+  // are admin-only (visible at /admin/reports), not shown here.
   let activeStaffForEod: { id: string; full_name: string; role_title: string }[] = [];
-  let teamEodRows: { id: string; report_date: string; content: string; created_at: string }[] = [];
   if (canPostTeamEod) {
-    const [{ data: activeList }, { data: pastEods }] = await Promise.all([
-      admin.from('staff').select('id, full_name, role_title').eq('status', 'active').order('full_name', { ascending: true }),
-      admin.from('staff_reports')
-        .select('id, report_date, content, created_at')
-        .eq('kind', 'team_eod')
-        .order('report_date', { ascending: false })
-        .limit(60),
-    ]);
+    const { data: activeList } = await admin
+      .from('staff')
+      .select('id, full_name, role_title')
+      .eq('status', 'active')
+      .order('full_name', { ascending: true });
     activeStaffForEod = (activeList ?? []).map((r) => ({
       id: r.id as string,
       full_name: r.full_name as string,
       role_title: r.role_title as string,
-    }));
-    teamEodRows = (pastEods ?? []).map((r) => ({
-      id: r.id as string,
-      report_date: r.report_date as string,
-      content: r.content as string,
-      created_at: r.created_at as string,
     }));
   }
 
@@ -111,6 +106,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
           roleTitle: staff.role_title,
           employeeId,
           canPostTeamEod,
+          adminHref,
         }}
       >
         <StaffDashboard
@@ -125,7 +121,6 @@ export default async function StaffPage({ searchParams }: PageProps) {
           canPostTeamEod={canPostTeamEod}
           canEditProfile={canEditProfile}
           activeStaffForEod={activeStaffForEod}
-          teamEodRows={teamEodRows}
         />
       </StaffShell>
     </Suspense>

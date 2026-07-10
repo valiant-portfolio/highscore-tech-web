@@ -11,18 +11,10 @@ import {
 } from 'lucide-react';
 import { StaffProfilePanel } from './StaffProfilePanel';
 import { TeamEodForm } from './TeamEodForm';
-import { TeamEodTable } from './TeamEodTable';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 import { computePayday, type StaffRecord } from '@/lib/staff/queries';
 
 type Tab = 'profile' | 'documents' | 'reports' | 'settings';
-
-interface TeamEodRow {
-  id: string;
-  report_date: string;
-  content: string;
-  created_at: string;
-}
 
 interface EodStaffMember {
   id: string;
@@ -42,7 +34,6 @@ interface Props {
   canPostTeamEod: boolean;
   canEditProfile: boolean;
   activeStaffForEod: EodStaffMember[];
-  teamEodRows: TeamEodRow[];
 }
 
 function StatCard({
@@ -76,7 +67,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 export function StaffDashboard({
   staff, employeeId, activeTab, signedInEmail, signedInName, signedInPhone,
-  ninUploaded, photoPublicUrl, canPostTeamEod, canEditProfile, activeStaffForEod, teamEodRows,
+  ninUploaded, photoPublicUrl, canPostTeamEod, canEditProfile, activeStaffForEod,
 }: Props) {
   const payday = computePayday(staff);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
@@ -281,14 +272,6 @@ export function StaffDashboard({
             <div className="mt-6">
               <TeamEodForm activeStaff={activeStaffForEod} />
             </div>
-          </Card>
-
-          <Card className="p-5 md:p-7">
-            <div className="flex items-baseline justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg md:text-xl font-bold text-fg">Past team EODs</h2>
-              <p className="text-xs text-fg-subtle">{teamEodRows.length} on file</p>
-            </div>
-            <TeamEodTable rows={teamEodRows} />
           </Card>
         </div>
       )}

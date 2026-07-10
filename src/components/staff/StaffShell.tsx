@@ -11,7 +11,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, FolderOpen, MessageSquare, UserCog,
-  ExternalLink, Menu, X, IdCard,
+  ExternalLink, Menu, X, IdCard, ShieldCheck,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -38,8 +38,10 @@ interface Props {
     fullName: string;
     roleTitle: string;
     employeeId: string;
-    /** Only the operations manager (slug=olivia) gets the Reports nav entry. */
+    /** Shows the Team EOD nav entry when the staff member is granted it. */
     canPostTeamEod?: boolean;
+    /** When set, the staff member has admin-panel access — link to this href. */
+    adminHref?: string | null;
   };
   children: React.ReactNode;
 }
@@ -77,6 +79,18 @@ export function StaffShell({ user, staff, children }: Props) {
           </Link>
         </li>
       ))}
+      {staff.adminHref && (
+        <li className="pt-2 mt-2 border-t border-border">
+          <Link
+            href={staff.adminHref}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-3 h-10 rounded-md text-sm font-semibold text-brand hover:bg-brand-tint transition-colors"
+          >
+            <span className="shrink-0"><ShieldCheck className="h-4 w-4" /></span>
+            Admin panel
+          </Link>
+        </li>
+      )}
     </ul>
   );
 
