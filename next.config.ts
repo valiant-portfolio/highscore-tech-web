@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
     'react-pdf',
   ],
 
+  // Portfolio image uploads go through a Server Action; the default 1 MB body
+  // limit would reject multi-image uploads. Allow up to ~45 MB (5 × 8 MB + slack).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '45mb',
+    },
+  },
+
   // Force the bundler to include @fontsource woff files in the function
   // output. Without this, react-pdf can't find them at runtime even
   // though we createRequire.resolve() them. We bundle Inter (400/600/800)

@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { AlertCircle, CheckCircle2, Save, Trash2 } from 'lucide-react';
 import { Input, Textarea, Button } from '@/components/ui';
+import { PortfolioImages } from './PortfolioImages';
 import {
   upsertPortfolioAction,
   deletePortfolioAction,
@@ -72,10 +73,14 @@ export function PortfolioForm({ project }: Props) {
           <Input name="category" label="Category" defaultValue={project?.category ?? ''} placeholder="AI / Software / Mobile" />
           <Input name="year"     label="Year"     type="number" defaultValue={project?.year ?? ''} />
           <Input name="sort_order" label="Sort order" type="number" defaultValue={project?.sort_order ?? 0} helper="Lower numbers show first." />
-          <Input name="cover_image_url" label="Cover image URL" defaultValue={project?.cover_image_url ?? ''} placeholder="https://…" fieldClassName="sm:col-span-2" />
           <Input name="external_url"    label="External link"    defaultValue={project?.external_url ?? ''} placeholder="https://…" fieldClassName="sm:col-span-2" />
           <Input name="tech_stack" label="Tech stack" defaultValue={project?.tech_stack?.join(', ') ?? ''} helper="Comma-separated list." fieldClassName="sm:col-span-2" />
         </div>
+
+        <PortfolioImages
+          initial={project?.images?.length ? project.images : (project?.cover_image_url ? [project.cover_image_url] : [])}
+          error={fieldErrors?.images}
+        />
 
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" name="published" defaultChecked={project?.published ?? true} className="h-4 w-4 accent-[var(--brand)]" />

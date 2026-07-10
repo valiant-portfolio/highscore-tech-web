@@ -363,7 +363,8 @@ CREATE TABLE portfolio_projects (
   body_md         TEXT,                              -- full case study, markdown
   tech_stack      TEXT[] DEFAULT ARRAY[]::TEXT[],
   category        TEXT,                              -- 'AI', 'Software', 'Mobile', etc.
-  cover_image_url TEXT,
+  cover_image_url TEXT,                               -- kept in sync with images[0]
+  images          TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[], -- up to 5 uploaded image URLs (public 'portfolio' bucket)
   year            INTEGER,
   external_url    TEXT,                              -- live link if public
   sort_order      INTEGER NOT NULL DEFAULT 0,

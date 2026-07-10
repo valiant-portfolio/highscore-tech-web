@@ -6,12 +6,43 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { randomUUID } from 'crypto';
+import sharp from 'sharp';
 import { serviceClient } from '@/lib/supabase/service';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { markPaymentSucceededAction } from '@/lib/enrollment/actions';
 import { sendContactReply } from '@/lib/email/send-helpers';
 import { requireSection } from './access';
 import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
+
+const PORTFOLIO_BUCKET = 'portfolio';
+const MAX_PORTFOLIO_IMAGES = 5;
+
+// Process + upload one picked image to the public 'portfolio' bucket, returning
+// its public URL. Resizes to a sane max and converts to WebP; falls back to the
+// original bytes if sharp can't handle the input.
+async function uploadPortfolioImage(admin: SupabaseClient, slug: string, file: File): Promise<string> {
+  const raw = Buffer.from(await file.arrayBuffer());
+  let out: Uint8Array = raw;
+  let ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  let contentType = file.type || 'image/png';
+  try {
+    out = await sharp(raw)
+      .rotate()
+      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+    ext = 'webp';
+    contentType = 'image/webp';
+  } catch {
+    // keep original bytes/type
+  }
+  const path = `${slug || 'project'}/${randomUUID()}.${ext}`;
+  const { error } = await admin.storage.from(PORTFOLIO_BUCKET).upload(path, out, { contentType, upsert: false });
+  if (error) throw new Error(error.message);
+  return admin.storage.from(PORTFOLIO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
 
 export type AdminFormState =
   | { status: 'idle' }
@@ -42,23 +73,43 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
   const sort_order = Number(formData.get('sort_order')) || 0;
   const tech_stack = csvToArray(String(formData.get('tech_stack') ?? ''));
   const body_md = String(formData.get('body_md') ?? '').trim() || null;
-  const cover_image_url = String(formData.get('cover_image_url') ?? '').trim() || null;
   const external_url = String(formData.get('external_url') ?? '').trim() || null;
   const published = formData.get('published') === 'on';
+
+  // Images: existing URLs the admin kept + newly uploaded files. First = cover.
+  const keptImages = formData.getAll('existing_images').map((v) => String(v)).filter(Boolean);
+  const newFiles = formData.getAll('new_images').filter((f): f is File => f instanceof File && f.size > 0);
 
   const errors: Record<string, string> = {};
   if (!slug) errors.slug = 'Slug required.';
   else if (!/^[a-z0-9-]+$/.test(slug)) errors.slug = 'Lowercase letters / digits / hyphens only.';
   if (!title) errors.title = 'Title required.';
   if (!summary) errors.summary = 'Summary required.';
+  if (keptImages.length + newFiles.length > MAX_PORTFOLIO_IMAGES) {
+    errors.images = `Up to ${MAX_PORTFOLIO_IMAGES} images.`;
+  }
+  if (newFiles.some((f) => f.size > 8 * 1024 * 1024)) {
+    errors.images = 'Each image must be 8 MB or smaller.';
+  }
   if (Object.keys(errors).length > 0) {
     return { status: 'error', message: 'Please fix the highlighted fields.', fieldErrors: errors };
   }
 
   const admin = serviceClient();
+
+  // Upload the new files, then assemble the final ordered image list.
+  let uploaded: string[] = [];
+  try {
+    uploaded = await Promise.all(newFiles.map((f) => uploadPortfolioImage(admin, slug, f)));
+  } catch (err) {
+    return { status: 'error', message: `Image upload failed: ${err instanceof Error ? err.message : 'unknown'}` };
+  }
+  const images = [...keptImages, ...uploaded].slice(0, MAX_PORTFOLIO_IMAGES);
+  const cover_image_url = images[0] ?? null;
+
   const payload = {
     slug, title, summary, client, category, year, sort_order,
-    tech_stack, body_md, cover_image_url, external_url, published,
+    tech_stack, body_md, cover_image_url, images, external_url, published,
   };
 
   if (id) {

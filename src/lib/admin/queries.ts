@@ -149,6 +149,7 @@ export interface AdminPortfolioFull extends AdminPortfolio {
   body_md: string | null;
   tech_stack: string[];
   cover_image_url: string | null;
+  images: string[];
   external_url: string | null;
 }
 
@@ -156,7 +157,7 @@ export async function getPortfolioAdmin(id: string): Promise<AdminPortfolioFull 
   const admin = serviceClient();
   const { data } = await admin
     .from('portfolio_projects')
-    .select('id, slug, title, client, category, year, published, sort_order, summary, body_md, tech_stack, cover_image_url, external_url')
+    .select('id, slug, title, client, category, year, published, sort_order, summary, body_md, tech_stack, cover_image_url, images, external_url')
     .eq('id', id)
     .maybeSingle<AdminPortfolioFull>();
   return data;

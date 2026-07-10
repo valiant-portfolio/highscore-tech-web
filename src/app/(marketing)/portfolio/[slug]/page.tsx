@@ -130,6 +130,25 @@ export default async function PortfolioDetailPage({ params }: PageParams) {
         </div>
       </section>
 
+      {/* ── Gallery (images beyond the cover) ─────────────────────── */}
+      {(project.images ?? []).length > 1 && (
+        <section className="px-4 md:px-8 pb-4 md:pb-8">
+          <div className="mx-auto max-w-[1180px] grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {(project.images ?? []).slice(1).map((src, i) => (
+              <div key={src} className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-border bg-surface">
+                <Image
+                  src={src}
+                  alt={`${project.title} — image ${i + 2}`}
+                  fill
+                  sizes="(min-width: 1180px) 580px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Body + sidebar ───────────────────────────────────────── */}
       <Reveal ambient="brand-soft" className="!py-12 md:!py-20">
         <div className="grid lg:grid-cols-[1fr_320px] gap-10 lg:gap-16">
