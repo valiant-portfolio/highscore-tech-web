@@ -5,7 +5,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
+import { PortfolioGallery } from '@/components/marketing/PortfolioGallery';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Reveal } from '@/components/marketing/sections';
@@ -104,20 +104,13 @@ export default async function PortfolioDetailPage({ params }: PageParams) {
         </div>
       </section>
 
-      {/* ── Cover ────────────────────────────────────────────────── */}
+      {/* ── Cover + gallery (click any to view full size) ───────────── */}
       <section className="relative px-4 md:px-8 pb-12 md:pb-20">
         <div className="mx-auto max-w-[1180px]">
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-border bg-surface">
-            {project.cover_image_url ? (
-              <Image
-                src={project.cover_image_url}
-                alt={project.title}
-                fill
-                priority
-                sizes="(min-width: 1180px) 1180px, 100vw"
-                className="object-cover"
-              />
-            ) : (
+          {(project.images ?? []).length > 0 ? (
+            <PortfolioGallery images={project.images ?? []} title={project.title} />
+          ) : (
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-border bg-surface">
               <div
                 className="absolute inset-0"
                 style={{
@@ -125,29 +118,10 @@ export default async function PortfolioDetailPage({ params }: PageParams) {
                     'radial-gradient(80% 50% at 50% 30%, color-mix(in srgb, #18C2DC 22%, transparent) 0%, transparent 70%), linear-gradient(135deg, var(--c-graphite-800), var(--c-graphite-900))',
                 }}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
-
-      {/* ── Gallery (images beyond the cover) ─────────────────────── */}
-      {(project.images ?? []).length > 1 && (
-        <section className="px-4 md:px-8 pb-4 md:pb-8">
-          <div className="mx-auto max-w-[1180px] grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {(project.images ?? []).slice(1).map((src, i) => (
-              <div key={src} className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-border bg-surface">
-                <Image
-                  src={src}
-                  alt={`${project.title} — image ${i + 2}`}
-                  fill
-                  sizes="(min-width: 1180px) 580px, 100vw"
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ── Body + sidebar ───────────────────────────────────────── */}
       <Reveal ambient="brand-soft" className="!py-12 md:!py-20">
