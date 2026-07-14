@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { AlertCircle, CheckCircle2, Save, Trash2 } from 'lucide-react';
 import { Input, Textarea, Button } from '@/components/ui';
 import { PortfolioImages } from './PortfolioImages';
+import { ConfirmDialog } from './ConfirmDialog';
 import {
   upsertPortfolioAction,
   deletePortfolioAction,
@@ -96,40 +99,67 @@ export function PortfolioForm({ project }: Props) {
             <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">ID</p>
             <p className="mt-1 font-mono tabular text-xs text-fg-muted break-all">{project.id}</p>
           </div>
-          <DeleteForm id={project.id} />
+          <DeleteForm id={project.id} title={project.title} />
         </aside>
       )}
     </div>
   );
 }
 
-function DeleteButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="danger" fullWidth leftIcon={<Trash2 className="h-4 w-4" />} loading={pending}>
-      Delete project
-    </Button>
-  );
-}
+function DeleteForm({ id, title }: { id: string; title: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
 
-function DeleteForm({ id }: { id: string }) {
-  return (
-    <form
-      action={async () => {
-        await deletePortfolioAction(id);
-      }}
-      onSubmit={(e) => {
-        if (!confirm('Delete this project permanently?')) {
-          e.preventDefault();
+  const doDelete = () =>
+    new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        const res = await deletePortfolioAction(id);
+        if (res.ok) {
+          setOpen(false);
+          // Navigate + refresh the server data so the deleted row is gone and
+          // the form is left in a clean state (fixes the "can't upload after
+          // delete" cascade from the old redirect-in-closure crash).
+          router.push('/admin/portfolio');
+          router.refresh();
+          resolve();
+        } else {
+          reject(new Error(res.error ?? 'Could not delete the project.'));
         }
-      }}
-      className="rounded-xl border border-danger/30 bg-danger/5 p-5"
-    >
+      });
+    });
+
+  return (
+    <div className="rounded-xl border border-danger/30 bg-danger/5 p-5">
       <p className="text-sm font-semibold text-fg">Danger zone</p>
       <p className="mt-1 text-xs text-fg-muted">Deletion is permanent and not reversible from the UI.</p>
       <div className="mt-3">
-        <DeleteButton />
+        <Button
+          type="button"
+          variant="danger"
+          fullWidth
+          leftIcon={<Trash2 className="h-4 w-4" />}
+          loading={pending}
+          onClick={() => setOpen(true)}
+        >
+          Delete project
+        </Button>
       </div>
-    </form>
+
+      <ConfirmDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onConfirm={doDelete}
+        destructive
+        title="Delete this project?"
+        description={
+          <>
+            <span className="font-semibold text-fg">{title}</span> and its uploaded images will be
+            permanently removed from the portfolio. This can’t be undone.
+          </>
+        }
+        confirmLabel="Delete project"
+      />
+    </div>
   );
 }

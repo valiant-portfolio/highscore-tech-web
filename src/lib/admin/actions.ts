@@ -151,21 +151,51 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
   return { status: 'success', message: 'Saved.' };
 }
 
-export async function deletePortfolioAction(id: string): Promise<void> {
+// Pull the storage object path out of a public portfolio URL, or null if the URL
+// isn't one of ours (e.g. a legacy pasted external cover).
+function portfolioStoragePath(url: string): string | null {
+  const marker = '/storage/v1/object/public/' + PORTFOLIO_BUCKET + '/';
+  const i = url.indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length));
+}
+
+// Returns a result instead of redirect()ing. The old version threw NEXT_REDIRECT
+// from inside a client-invoked closure, which surfaced as an unhandled error
+// (the "delete crashes the page") — the client now navigates on { ok: true }.
+export async function deletePortfolioAction(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSection('portfolio');
   const admin = serviceClient();
-  const { data: before } = await admin.from('portfolio_projects').select('title, slug').eq('id', id).maybeSingle();
-  await admin.from('portfolio_projects').delete().eq('id', id);
+
+  const { data: before } = await admin
+    .from('portfolio_projects')
+    .select('title, slug, images, cover_image_url')
+    .eq('id', id)
+    .maybeSingle();
+  if (!before) return { ok: false, error: 'Project not found — it may already be deleted. Refresh the list.' };
+
+  const { error } = await admin.from('portfolio_projects').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
+
+  // Best-effort: remove this project's uploaded images from the bucket. Never
+  // let a storage hiccup fail the delete — the row is already gone.
+  try {
+    const urls = [...(before.images ?? []), before.cover_image_url].filter(Boolean) as string[];
+    const paths = Array.from(new Set(urls.map(portfolioStoragePath).filter((p): p is string => !!p)));
+    if (paths.length) await admin.storage.from(PORTFOLIO_BUCKET).remove(paths);
+  } catch (e) {
+    console.error('[portfolio.delete] image cleanup failed (row already deleted):', e);
+  }
+
   await logAudit({
     action: 'portfolio.delete',
     targetType: 'portfolio_project',
     targetId: id,
-    targetLabel: before?.title ?? id,
-    notes: before?.slug ?? undefined,
+    targetLabel: before.title ?? id,
+    notes: before.slug ?? undefined,
   });
   revalidatePath('/portfolio');
   revalidatePath('/admin/portfolio');
-  redirect('/admin/portfolio');
+  return { ok: true };
 }
 
 // ════════════════════════════════════════════════════════════════════════
