@@ -17,7 +17,22 @@ import { logAudit } from './audit';
 import { computeDiff } from './audit-helpers';
 
 const PORTFOLIO_BUCKET = 'portfolio';
-const MAX_PORTFOLIO_IMAGES = 5;
+const MAX_PORTFOLIO_IMAGES = 8;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // bucket ceiling on this Supabase plan
+
+// Upload a picked video to the portfolio bucket (same flow as images — straight
+// through the form), returning its public URL.
+async function uploadPortfolioVideo(admin: SupabaseClient, file: File): Promise<string> {
+  const raw = Buffer.from(await file.arrayBuffer());
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
+  const path = `videos/${randomUUID()}.${ext}`;
+  const { error } = await admin.storage.from(PORTFOLIO_BUCKET).upload(path, raw, {
+    contentType: file.type || 'video/mp4',
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  return admin.storage.from(PORTFOLIO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
 
 // Process + upload one picked image to the public 'portfolio' bucket, returning
 // its public URL. Resizes to a sane max and converts to WebP; falls back to the
@@ -79,6 +94,10 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
   // Images: existing URLs the admin kept + newly uploaded files. First = cover.
   const keptImages = formData.getAll('existing_images').map((v) => String(v)).filter(Boolean);
   const newFiles = formData.getAll('new_images').filter((f): f is File => f instanceof File && f.size > 0);
+  // Video: an existing URL kept (empty = removed) and/or one newly picked file.
+  const keptVideo = String(formData.get('existing_video') ?? '').trim() || null;
+  const newVideo = formData.get('new_video');
+  const videoFile = newVideo instanceof File && newVideo.size > 0 ? newVideo : null;
 
   const errors: Record<string, string> = {};
   if (!slug) errors.slug = 'Slug required.';
@@ -90,6 +109,9 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
   }
   if (newFiles.some((f) => f.size > 8 * 1024 * 1024)) {
     errors.images = 'Each image must be 8 MB or smaller.';
+  }
+  if (videoFile && videoFile.size > MAX_VIDEO_BYTES) {
+    errors.video = 'Video must be 50 MB or smaller.';
   }
   if (Object.keys(errors).length > 0) {
     return { status: 'error', message: 'Please fix the highlighted fields.', fieldErrors: errors };
@@ -107,15 +129,31 @@ export async function upsertPortfolioAction(_prev: AdminFormState, formData: For
   const images = [...keptImages, ...uploaded].slice(0, MAX_PORTFOLIO_IMAGES);
   const cover_image_url = images[0] ?? null;
 
+  // A newly picked video replaces the kept one; otherwise keep what's there.
+  let video_url = keptVideo;
+  if (videoFile) {
+    try {
+      video_url = await uploadPortfolioVideo(admin, videoFile);
+    } catch (err) {
+      return { status: 'error', message: `Video upload failed: ${err instanceof Error ? err.message : 'unknown'}` };
+    }
+  }
+
   const payload = {
     slug, title, summary, client, category, year, sort_order,
-    tech_stack, body_md, cover_image_url, images, external_url, published,
+    tech_stack, body_md, cover_image_url, images, video_url, external_url, published,
   };
 
   if (id) {
     const { data: before } = await admin.from('portfolio_projects').select('*').eq('id', id).maybeSingle();
     const { error } = await admin.from('portfolio_projects').update(payload).eq('id', id);
     if (error) return { status: 'error', message: error.message };
+    // A replaced or removed video leaves the old file orphaned — clean it up
+    // (best-effort; the row is already saved).
+    if (before?.video_url && before.video_url !== video_url) {
+      const p = portfolioStoragePath(before.video_url as string);
+      if (p) { try { await admin.storage.from(PORTFOLIO_BUCKET).remove([p]); } catch { /* ignore */ } }
+    }
     if (before) {
       const diff = computeDiff(
         before as Record<string, unknown>,
@@ -168,7 +206,7 @@ export async function deletePortfolioAction(id: string): Promise<{ ok: boolean; 
 
   const { data: before } = await admin
     .from('portfolio_projects')
-    .select('title, slug, images, cover_image_url')
+    .select('title, slug, images, cover_image_url, video_url')
     .eq('id', id)
     .maybeSingle();
   if (!before) return { ok: false, error: 'Project not found — it may already be deleted. Refresh the list.' };
@@ -176,10 +214,10 @@ export async function deletePortfolioAction(id: string): Promise<{ ok: boolean; 
   const { error } = await admin.from('portfolio_projects').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
 
-  // Best-effort: remove this project's uploaded images from the bucket. Never
-  // let a storage hiccup fail the delete — the row is already gone.
+  // Best-effort: remove this project's uploaded images + video from the bucket.
+  // Never let a storage hiccup fail the delete — the row is already gone.
   try {
-    const urls = [...(before.images ?? []), before.cover_image_url].filter(Boolean) as string[];
+    const urls = [...(before.images ?? []), before.cover_image_url, before.video_url].filter(Boolean) as string[];
     const paths = Array.from(new Set(urls.map(portfolioStoragePath).filter((p): p is string => !!p)));
     if (paths.length) await admin.storage.from(PORTFOLIO_BUCKET).remove(paths);
   } catch (e) {

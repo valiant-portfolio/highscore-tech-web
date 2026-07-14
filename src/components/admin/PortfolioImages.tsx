@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, X, Star, Loader2 } from 'lucide-react';
 
-const MAX = 5;
+const MAX = 8;
 const MAX_EDGE = 1600; // px — downscale longest side before upload
 
 // Downscale + re-encode in the browser so the Server Action payload stays

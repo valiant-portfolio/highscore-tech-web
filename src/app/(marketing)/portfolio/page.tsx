@@ -4,10 +4,10 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowRight, Layers } from 'lucide-react';
 import { Reveal, SectionHeading } from '@/components/marketing/sections';
 import { PremiumCard } from '@/components/marketing/PremiumCard';
+import { PortfolioCardMedia } from '@/components/marketing/PortfolioCardMedia';
 import { LinkButton } from '@/components/ui';
 import { listProjects } from '@/lib/portfolio/queries';
 
@@ -79,33 +79,12 @@ export default async function PortfolioPage() {
             {projects.map((p) => (
               <PremiumCard key={p.id} href={`/portfolio/${p.slug}`} className="h-full">
                 <div className="flex flex-col h-full">
-                  <div
-                    className="relative aspect-[16/10] w-full overflow-hidden rounded-t-[15px] bg-surface-hover"
-                    aria-hidden="true"
-                  >
-                    {p.cover_image_url ? (
-                      <Image
-                        src={p.cover_image_url}
-                        alt=""
-                        fill
-                        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background:
-                            'radial-gradient(80% 50% at 50% 30%, color-mix(in srgb, #18C2DC 18%, transparent) 0%, transparent 70%), linear-gradient(135deg, var(--c-graphite-800), var(--c-graphite-900))',
-                        }}
-                      />
-                    )}
-                    {p.category && (
-                      <span className="absolute top-3 left-3 inline-flex h-6 items-center px-2.5 rounded-full bg-bg/70 backdrop-blur text-[10px] font-bold uppercase tracking-wider text-fg">
-                        {p.category}
-                      </span>
-                    )}
-                  </div>
+                  <PortfolioCardMedia
+                    cover={p.cover_image_url}
+                    video={p.video_url}
+                    category={p.category}
+                    title={p.title}
+                  />
                   <div className="p-5 md:p-6 flex-1 flex flex-col">
                     <div className="flex items-baseline justify-between gap-3">
                       <h3 className="text-lg md:text-xl font-semibold text-fg group-hover:text-brand transition-colors leading-tight">

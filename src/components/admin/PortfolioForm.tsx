@@ -7,6 +7,7 @@ import { useFormStatus } from 'react-dom';
 import { AlertCircle, CheckCircle2, Save, Trash2 } from 'lucide-react';
 import { Input, Textarea, Button } from '@/components/ui';
 import { PortfolioImages } from './PortfolioImages';
+import { PortfolioVideo } from './PortfolioVideo';
 import { ConfirmDialog } from './ConfirmDialog';
 import {
   upsertPortfolioAction,
@@ -84,6 +85,8 @@ export function PortfolioForm({ project }: Props) {
           initial={project?.images?.length ? project.images : (project?.cover_image_url ? [project.cover_image_url] : [])}
           error={fieldErrors?.images}
         />
+
+        <PortfolioVideo initial={project?.video_url ?? null} error={fieldErrors?.video} />
 
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" name="published" defaultChecked={project?.published ?? true} className="h-4 w-4 accent-[var(--brand)]" />

@@ -12,11 +12,12 @@ const nextConfig: NextConfig = {
     'react-pdf',
   ],
 
-  // Portfolio image uploads go through a Server Action; the default 1 MB body
-  // limit would reject multi-image uploads. Allow up to ~45 MB (5 × 8 MB + slack).
+  // Portfolio media uploads go through a Server Action; the default 1 MB body
+  // limit would reject them. Allow headroom for a 50 MB video (the bucket
+  // ceiling) plus the images + form fields in the same submit.
   experimental: {
     serverActions: {
-      bodySizeLimit: '45mb',
+      bodySizeLimit: '60mb',
     },
   },
 

@@ -107,8 +107,8 @@ export default async function PortfolioDetailPage({ params }: PageParams) {
       {/* ── Cover + gallery (click any to view full size) ───────────── */}
       <section className="relative px-4 md:px-8 pb-12 md:pb-20">
         <div className="mx-auto max-w-[1180px]">
-          {(project.images ?? []).length > 0 ? (
-            <PortfolioGallery images={project.images ?? []} title={project.title} />
+          {((project.images ?? []).length > 0 || project.video_url) ? (
+            <PortfolioGallery images={project.images ?? []} title={project.title} videoUrl={project.video_url} />
           ) : (
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-border bg-surface">
               <div

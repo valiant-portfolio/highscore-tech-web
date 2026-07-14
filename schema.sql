@@ -364,7 +364,8 @@ CREATE TABLE portfolio_projects (
   tech_stack      TEXT[] DEFAULT ARRAY[]::TEXT[],
   category        TEXT,                              -- 'AI', 'Software', 'Mobile', etc.
   cover_image_url TEXT,                               -- kept in sync with images[0]
-  images          TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[], -- up to 5 uploaded image URLs (public 'portfolio' bucket)
+  images          TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[], -- uploaded image URLs (public 'portfolio' bucket)
+  video_url       TEXT,                               -- optional showcase clip (public 'portfolio' bucket, <=50MB)
   year            INTEGER,
   external_url    TEXT,                              -- live link if public
   sort_order      INTEGER NOT NULL DEFAULT 0,

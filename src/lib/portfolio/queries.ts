@@ -26,6 +26,7 @@ export interface PortfolioProject {
   category: string | null;
   cover_image_url: string | null;
   images: string[];
+  video_url: string | null;
   year: number | null;
   external_url: string | null;
   sort_order: number;
@@ -35,7 +36,7 @@ export async function listProjects(): Promise<PortfolioProject[]> {
   const supabase = anonClient();
   const { data, error } = await supabase
     .from('portfolio_projects')
-    .select('id, slug, title, client, summary, body_md, tech_stack, category, cover_image_url, images, year, external_url, sort_order')
+    .select('id, slug, title, client, summary, body_md, tech_stack, category, cover_image_url, images, video_url, year, external_url, sort_order')
     .eq('published', true)
     .order('sort_order', { ascending: true })
     .order('year', { ascending: false });
@@ -50,7 +51,7 @@ export async function getProject(slug: string): Promise<PortfolioProject | null>
   const supabase = anonClient();
   const { data, error } = await supabase
     .from('portfolio_projects')
-    .select('id, slug, title, client, summary, body_md, tech_stack, category, cover_image_url, images, year, external_url, sort_order')
+    .select('id, slug, title, client, summary, body_md, tech_stack, category, cover_image_url, images, video_url, year, external_url, sort_order')
     .eq('slug', slug)
     .eq('published', true)
     .maybeSingle();
