@@ -1,199 +1,262 @@
-// /admin/trading-bot — live view of the forex bot: per-market performance +
-// controls (lot size, enable/disable), recent signals, trades, the event log,
-// and daily summaries. Data is written by the bot (forex-bot/) into Supabase.
+// /admin/trading-bot — read-only live monitor of the forex bot.
+//
+// The bot (a Python process) writes to the bot_* tables every ~60s; this page
+// only reads and auto-refreshes. One row per market with trend + state, the
+// account line (equity/balance/open positions), open positions and recent
+// closed trades. Click any market for the full detail view. Nothing here writes
+// to the bot — the new contract is read-only (see trading-bot-db/FRONTEND.md).
 
-import { Activity, LineChart, Radio, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronRight, Wallet, Layers, TrendingUp, TrendingDown, ShieldCheck, FlaskConical } from 'lucide-react';
 import { PageHead, AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { TradingBotControls } from '@/components/admin/TradingBotControls';
-import { getTradingBot } from '@/lib/admin/trading-bot-queries';
+import { BotStatus, TrendChip, StateBadge, TimeAgo, Sparkline, STALE_MS } from '@/components/admin/bot/BotBits';
+import { getBotOverview, type BotMarket, type BotTrade } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'never';
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-function dt(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-function r(n: number | null): string {
-  if (n == null) return '—';
+function money(n: number | null | undefined, dp = 2): string {
+  if (n == null || !Number.isFinite(Number(n))) return '—';
   const x = Number(n);
-  if (!Number.isFinite(x)) return '—';
-  return `${x >= 0 ? '+' : ''}${x.toFixed(2)}R`;
+  return `${x < 0 ? '−' : ''}$${Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
 }
-function money(n: number | null): string {
-  if (n == null) return '—';
-  const x = Number(n);
-  if (!Number.isFinite(x)) return '—';
-  return `${x < 0 ? '−' : ''}$${Math.abs(x).toFixed(2)}`;
+function px(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(Number(n))) return '—';
+  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 5 });
 }
-const resultTone: Record<string, string> = { win: 'text-success', loss: 'text-danger', breakeven: 'text-fg-muted' };
+function pnlTone(n: number | null | undefined): string {
+  if (n == null) return 'text-fg-muted';
+  return Number(n) > 0 ? 'text-success' : Number(n) < 0 ? 'text-danger' : 'text-fg-muted';
+}
 
 export default async function TradingBotPage() {
-  const { markets, signals, trades, events, summaries, lastHeartbeat } = await getTradingBot();
-  const fresh = lastHeartbeat ? (Date.now() - new Date(lastHeartbeat).getTime()) < 10 * 60 * 1000 : false;
+  const { markets, openTrades, recentTrades, equity, equityCurve, lastUpdate } = await getBotOverview();
+
+  const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
+  const inPosition = markets.filter((m) => m.state === 'position').length;
+  const activeSetups = markets.filter((m) => m.state === 'setup_ready' || m.state === 'order').length;
+  const anyArmed = markets.some((m) => !m.is_dry_run);
+  const pnlUp = equity ? equity.equity >= equity.balance : true;
 
   return (
     <>
       <PageHead
-        title="Trading Bot"
-        description="Live gold (XAUUSD) structure bot — signals, trades, performance and controls. The bot reads the lot size / enabled flags below and obeys them."
-        actions={
-          <span className={`inline-flex items-center gap-2 h-9 px-3 rounded-md text-xs font-bold ${fresh ? 'bg-success/15 text-success' : 'bg-fg-subtle/10 text-fg-muted'}`}>
-            <Radio className="h-3.5 w-3.5" /> {fresh ? 'Bot online' : 'No recent activity'} · {timeAgo(lastHeartbeat)}
-          </span>
-        }
+        title="Trading bot"
+        description="Live monitor of every market the bot is watching. Read-only — the bot trades autonomously."
+        actions={<BotStatus lastUpdate={lastUpdate} />}
       />
 
-      {/* Per-market performance + controls */}
-      {markets.length === 0 ? (
-        <AdminCard className="mb-6"><p className="p-6 text-sm text-fg-muted text-center">No markets configured yet.</p></AdminCard>
-      ) : (
-        <div className="space-y-4 mb-8">
-          {markets.map((m) => {
-            const decided = m.wins + m.losses;
-            const winPct = decided > 0 ? Math.round((m.wins / decided) * 100) : 0;
-            return (
-              <AdminCard key={m.symbol}>
-                <div className="p-5 md:p-6">
-                  <header className="flex items-center justify-between gap-3 flex-wrap mb-4">
-                    <h2 className="font-display text-lg md:text-xl font-bold text-fg inline-flex items-center gap-2">
-                      <LineChart className="h-5 w-5 text-brand" /> {m.symbol}
-                      {m.note && <span className="text-xs font-medium text-fg-subtle">· {m.note}</span>}
-                    </h2>
-                    <TradingBotControls symbol={m.symbol} enabled={m.enabled} lotSize={Number(m.lot_size)} />
-                  </header>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Kpi label="Record (W–L)" value={`${m.wins}–${m.losses}`} hint={`${winPct}% win · ${m.breakeven} BE`} />
-                    <Kpi label="Net R" value={r(Number(m.net_r))} tone={Number(m.net_r) >= 0 ? 'success' : 'danger'} />
-                    <Kpi label="Net P/L" value={money(Number(m.net_profit))} tone={Number(m.net_profit) >= 0 ? 'success' : 'danger'} />
-                    <Kpi label="Lot size" value={Number(m.lot_size).toFixed(2)} hint={m.enabled ? 'trading enabled' : 'disabled'} tone={m.enabled ? 'brand' : 'default'} />
-                  </div>
-                </div>
-              </AdminCard>
-            );
-          })}
-        </div>
-      )}
+      {/* ── Account line ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Kpi
+          label="Equity"
+          value={equity ? money(equity.equity) : '—'}
+          hint={equity ? <>Balance {money(equity.balance)}</> : 'no snapshot yet'}
+          tone={pnlUp ? 'success' : 'danger'}
+        />
+        <Kpi
+          label="Floating P&L"
+          value={<span className={pnlTone(floating)}>{floating >= 0 ? '+' : ''}{money(floating)}</span>}
+          hint="across open positions"
+        />
+        <Kpi label="Open positions" value={openTrades.length} hint={`${inPosition} market${inPosition === 1 ? '' : 's'} in position`} tone="brand" />
+        <Kpi
+          label="Mode"
+          value={anyArmed ? 'Armed' : 'Demo'}
+          hint={anyArmed ? 'trading real capital' : 'paper / dry-run'}
+          tone={anyArmed ? 'danger' : 'default'}
+        />
+      </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        {/* Recent signals */}
+      {/* ── Markets table ────────────────────────────────────────────── */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-lg font-bold text-fg">Markets</h2>
+          <p className="text-xs text-fg-subtle">
+            {markets.length} tracked · {activeSetups} setup{activeSetups === 1 ? '' : 's'} forming
+          </p>
+        </div>
+
         <AdminCard>
-          <div className="p-5 md:p-6">
-            <header className="flex items-baseline justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg font-bold text-fg inline-flex items-center gap-2"><Activity className="h-5 w-5 text-brand" /> Recent signals</h2>
-              <span className="text-xs text-fg-subtle">{signals.length}</span>
-            </header>
-            {signals.length === 0 ? (
-              <p className="text-sm text-fg-muted text-center py-6">No signals yet.</p>
+          {markets.length === 0 ? (
+            <Empty>No market data yet. Start the bot and it will appear here within a minute.</Empty>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] text-sm">
+                <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
+                  <tr>
+                    <Th className="text-left pl-4">Market</Th>
+                    <Th className="text-left">Trend</Th>
+                    <Th className="text-left">Higher TF</Th>
+                    <Th className="text-left">State</Th>
+                    <Th className="text-left">Detail</Th>
+                    <Th className="text-right">Price</Th>
+                    <Th className="text-right">Level</Th>
+                    <Th className="text-right">P&L</Th>
+                    <Th className="text-right pr-4">Updated</Th>
+                    <Th className="pr-2"> </Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {markets.map((m) => <MarketRow key={m.symbol} m={m} />)}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </AdminCard>
+      </div>
+
+      {/* ── Positions + account curve ────────────────────────────────── */}
+      <div className="mt-6 grid lg:grid-cols-[1fr_320px] gap-6">
+        <AdminCard>
+          <div className="p-5">
+            <h3 className="font-semibold text-fg flex items-center gap-2"><Layers className="h-4 w-4 text-brand" /> Open positions</h3>
+            {openTrades.length === 0 ? (
+              <p className="mt-3 text-sm text-fg-muted">No positions open right now.</p>
             ) : (
-              <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                {signals.map((s) => (
-                  <li key={s.id} className="rounded-md border border-border bg-surface/30 p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`font-bold ${s.side === 'LONG' ? 'text-success' : 'text-danger'}`}>{s.state}</span>
-                      <span className="text-xs text-fg-subtle">{dt(s.created_at)}</span>
-                    </div>
-                    <p className="mt-1 font-mono text-xs text-fg-muted">
-                      entry {s.entry ?? '—'} · SL {s.sl ?? '—'} · TP {s.tp ?? '—'} {s.rr ? `· 1:${Number(s.rr).toFixed(1)}` : ''}
-                    </p>
-                    {s.topdown && <p className="mt-0.5 text-[11px] text-fg-subtle">{s.topdown}</p>}
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[560px] text-sm">
+                  <thead className="text-[11px] uppercase tracking-wider text-fg-subtle">
+                    <tr>
+                      <Th className="text-left">Market</Th><Th className="text-left">Side</Th>
+                      <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th>
+                      <Th className="text-right">P&L</Th><Th className="text-right">Opened</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {openTrades.map((t) => <PositionRow key={t.id} t={t} markets={markets} />)}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </AdminCard>
 
-        {/* Recent trades */}
         <AdminCard>
-          <div className="p-5 md:p-6">
-            <header className="flex items-baseline justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg font-bold text-fg inline-flex items-center gap-2"><TrendingUp className="h-5 w-5 text-brand" /> Recent trades</h2>
-              <span className="text-xs text-fg-subtle">{trades.length}</span>
-            </header>
-            {trades.length === 0 ? (
-              <p className="text-sm text-fg-muted text-center py-6">No trades yet.</p>
+          <div className="p-5">
+            <h3 className="font-semibold text-fg flex items-center gap-2"><Wallet className="h-4 w-4 text-brand" /> Account</h3>
+            {equity ? (
+              <>
+                <p className="mt-3 font-mono tabular text-2xl font-extrabold text-fg">{money(equity.equity)}</p>
+                <p className="text-xs text-fg-muted">equity · balance {money(equity.balance)}</p>
+                <div className="mt-4">
+                  <Sparkline values={equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite)} />
+                </div>
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-fg-subtle">
+                  {equity.is_dry_run ? <FlaskConical className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                  {equity.is_dry_run ? 'Demo account' : 'Live account'} · <TimeAgo iso={equity.ts} />
+                </p>
+              </>
             ) : (
-              <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                {trades.map((t) => (
-                  <li key={t.id} className="rounded-md border border-border bg-surface/30 p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`font-bold ${t.side === 'LONG' ? 'text-success' : 'text-danger'}`}>{t.side} {t.lot}</span>
-                      <span className={`font-mono font-bold ${t.result ? resultTone[t.result] ?? 'text-fg' : 'text-fg-muted'}`}>
-                        {t.closed_at ? `${t.result ?? ''} ${r(t.r_multiple)} · ${money(t.profit)}` : 'open'}
-                      </span>
-                    </div>
-                    <p className="mt-1 font-mono text-xs text-fg-muted">
-                      entry {t.entry ?? '—'} → {t.exit_price ?? '…'} · {dt(t.opened_at)}
-                    </p>
-                    {t.close_reason && <p className="mt-0.5 text-[11px] text-fg-subtle">{t.close_reason}</p>}
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-3 text-sm text-fg-muted">No equity snapshot yet.</p>
             )}
           </div>
         </AdminCard>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Event log */}
+      {/* ── Recent closed trades ─────────────────────────────────────── */}
+      <div className="mt-6">
+        <h3 className="mb-3 font-semibold text-fg">Recent trades</h3>
         <AdminCard>
-          <div className="p-5 md:p-6">
-            <header className="flex items-baseline justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg font-bold text-fg inline-flex items-center gap-2"><Radio className="h-5 w-5 text-brand" /> Event log</h2>
-              <span className="text-xs text-fg-subtle">{events.length}</span>
-            </header>
-            {events.length === 0 ? (
-              <p className="text-sm text-fg-muted text-center py-6">No events yet — run the bot.</p>
-            ) : (
-              <ul className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1 font-mono text-xs">
-                {events.map((e) => (
-                  <li key={e.id} className={`flex items-start gap-2 ${e.level === 'error' ? 'text-danger' : 'text-fg-muted'}`}>
-                    {e.level === 'error' && <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
-                    <span className="text-fg-subtle shrink-0">{dt(e.created_at)}</span>
-                    <span className="uppercase text-[10px] font-bold shrink-0 mt-0.5">{e.kind}</span>
-                    <span className="break-all">{e.message}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </AdminCard>
-
-        {/* Daily summaries */}
-        <AdminCard>
-          <div className="p-5 md:p-6">
-            <header className="flex items-baseline justify-between gap-3 mb-4">
-              <h2 className="font-display text-lg font-bold text-fg inline-flex items-center gap-2"><TrendingDown className="h-5 w-5 text-brand" /> Daily summaries</h2>
-              <span className="text-xs text-fg-subtle">{summaries.length}</span>
-            </header>
-            {summaries.length === 0 ? (
-              <p className="text-sm text-fg-muted text-center py-6">No daily summaries yet.</p>
-            ) : (
-              <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                {summaries.map((s) => (
-                  <li key={s.id} className="rounded-md border border-border bg-surface/30 p-3 flex items-center justify-between gap-3 text-sm">
-                    <div>
-                      <p className="font-semibold text-fg">{new Date(s.day).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</p>
-                      <p className="text-xs text-fg-subtle">{s.symbol} · {s.trades} trades · {s.wins}W {s.losses}L</p>
-                    </div>
-                    <div className="text-right font-mono">
-                      <p className={`font-bold ${s.net_r >= 0 ? 'text-success' : 'text-danger'}`}>{r(s.net_r)}</p>
-                      <p className="text-xs text-fg-muted">{money(s.net_profit)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {recentTrades.length === 0 ? (
+            <Empty>No closed trades yet.</Empty>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
+                  <tr>
+                    <Th className="text-left pl-4">Market</Th><Th className="text-left">Side</Th>
+                    <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th>
+                    <Th className="text-right">Exit</Th><Th className="text-right">P&L</Th>
+                    <Th className="text-left">Reason</Th><Th className="text-right pr-4">Closed</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentTrades.map((t) => (
+                    <tr key={t.id} className="hover:bg-surface-hover/30">
+                      <Td className="pl-4 font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
+                      <Td><SideTag side={t.side} /></Td>
+                      <Td className="text-right tabular">{t.volume}</Td>
+                      <Td className="text-right tabular">{px(t.open_price)}</Td>
+                      <Td className="text-right tabular">{px(t.close_price)}</Td>
+                      <Td className={`text-right tabular font-bold ${pnlTone(t.pnl)}`}>{t.pnl == null ? '—' : `${Number(t.pnl) >= 0 ? '+' : ''}${money(t.pnl)}`}</Td>
+                      <Td className="text-fg-muted">{t.close_reason ?? '—'}</Td>
+                      <Td className="text-right pr-4 text-fg-subtle"><TimeAgo iso={t.close_ts} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </AdminCard>
       </div>
     </>
   );
+}
+
+/* ── Row + cell helpers ──────────────────────────────────────────────── */
+
+function MarketRow({ m }: { m: BotMarket }) {
+  const stale = m.updated_at ? Date.now() - new Date(m.updated_at).getTime() > STALE_MS : true;
+  return (
+    <tr className={`hover:bg-surface-hover/40 ${stale ? 'opacity-45' : ''}`}>
+      <Td className="pl-4">
+        <Link href={`/admin/trading-bot/${encodeURIComponent(m.symbol)}`} className="font-semibold text-fg hover:text-brand">
+          {m.alias}
+        </Link>
+        <p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p>
+      </Td>
+      <Td><TrendChip trend={m.entry_trend} /><span className="ml-1 text-[10px] text-fg-subtle">{m.timeframe}</span></Td>
+      <Td><TrendChip trend={m.htf_trend} /><span className="ml-1 text-[10px] text-fg-subtle">{m.htf}</span></Td>
+      <Td><StateBadge state={m.state} /></Td>
+      <Td className="max-w-[240px] truncate text-fg-muted" title={m.detail ?? ''}>{m.detail ?? '—'}</Td>
+      <Td className="text-right tabular">{px(m.price)}</Td>
+      <Td className="text-right tabular text-fg-muted">{m.level == null ? '—' : px(m.level)}</Td>
+      <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>
+        {m.pnl == null ? '—' : `${Number(m.pnl) >= 0 ? '+' : ''}${money(m.pnl)}`}
+      </Td>
+      <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
+      <Td className="pr-2 text-right">
+        <Link href={`/admin/trading-bot/${encodeURIComponent(m.symbol)}`} className="inline-flex text-fg-subtle hover:text-brand" aria-label="View details">
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      </Td>
+    </tr>
+  );
+}
+
+function PositionRow({ t, markets }: { t: BotTrade; markets: BotMarket[] }) {
+  // Live P&L for an open trade lives on the market_state row, not the trade.
+  const live = markets.find((m) => m.symbol === t.symbol)?.pnl ?? null;
+  return (
+    <tr className="hover:bg-surface-hover/30">
+      <Td className="font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
+      <Td><SideTag side={t.side} /></Td>
+      <Td className="text-right tabular">{t.volume}</Td>
+      <Td className="text-right tabular">{px(t.open_price)}</Td>
+      <Td className={`text-right tabular font-bold ${pnlTone(live)}`}>{live == null ? '—' : `${Number(live) >= 0 ? '+' : ''}${money(live)}`}</Td>
+      <Td className="text-right text-fg-subtle"><TimeAgo iso={t.open_ts} /></Td>
+    </tr>
+  );
+}
+
+function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <th className={`px-3 py-3 font-bold ${className}`}>{children}</th>;
+}
+function Td({ children, className = '', title }: { children: React.ReactNode; className?: string; title?: string }) {
+  return <td className={`px-3 py-3 ${className}`} title={title}>{children}</td>;
+}
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div className="p-10 text-center text-sm text-fg-muted">{children}</div>;
+}
+function SideTag({ side }: { side: string }) {
+  const buy = side === 'buy';
+  const Icon = buy ? TrendingUp : TrendingDown;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-bold ${buy ? 'text-success' : 'text-danger'}`}>
+      <Icon className="h-3.5 w-3.5" /> {side.toUpperCase()}
+    </span>
+  );
+}
+function DryTag() {
+  return <span className="ml-1.5 rounded bg-surface-hover px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-fg-subtle align-middle">demo</span>;
 }

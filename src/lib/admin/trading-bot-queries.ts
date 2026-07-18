@@ -1,105 +1,170 @@
-// Server-only reads for the /admin/trading-bot dashboard. All five trading_bot_*
-// tables are written by the forex bot (service-role) and read here via the same
-// service client (bypasses RLS; the page itself is admin-gated by the layout).
+// Read-only queries for the trading-bot monitor. The bot (a Python process)
+// writes to the `bot_*` tables; the dashboard only reads. See
+// trading-bot-db/FRONTEND.md for the contract.
+//
+// We read with the service client (bypasses RLS) because this is an admin-only
+// page — the trading tables stay private to the browser (no anon read policy).
 
 import 'server-only';
 import { serviceClient } from '@/lib/supabase/service';
 
+export type BotTrend = 'uptrend' | 'downtrend' | 'no-trend' | string;
+export type BotState = 'watching' | 'held' | 'setup_ready' | 'order' | 'position' | string;
+
 export interface BotMarket {
   symbol: string;
-  enabled: boolean;
-  lot_size: number;
-  magic: number | null;
-  note: string | null;
-  wins: number;
-  losses: number;
-  breakeven: number;
-  net_r: number;
-  net_profit: number;
+  alias: string;
+  timeframe: string | null;
+  htf: string | null;
+  entry_trend: BotTrend | null;
+  htf_trend: BotTrend | null;
+  state: BotState | null;
+  detail: string | null;
+  price: number | null;
+  level: number | null;
+  pnl: number | null;
+  strategy: string | null;
+  is_dry_run: boolean;
   updated_at: string;
-}
-
-export interface BotSignal {
-  id: string;
-  symbol: string;
-  side: string | null;
-  state: string | null;
-  entry: number | null;
-  sl: number | null;
-  tp: number | null;
-  rr: number | null;
-  reason: string | null;
-  topdown: string | null;
-  created_at: string;
 }
 
 export interface BotTrade {
   id: string;
-  symbol: string;
   ticket: number | null;
-  side: string | null;
-  lot: number | null;
-  entry: number | null;
+  symbol: string;
+  timeframe: string | null;
+  strategy: string | null;
+  side: 'buy' | 'sell' | string;
+  volume: number;
+  open_ts: string;
+  open_price: number;
+  close_ts: string | null;
+  close_price: number | null;
   sl: number | null;
   tp: number | null;
-  opened_at: string;
-  closed_at: string | null;
-  exit_price: number | null;
-  profit: number | null;
-  r_multiple: number | null;
-  result: string | null;
+  pnl: number | null;
+  commission: number | null;
+  swap: number | null;
+  entry_spread: number | null;
   close_reason: string | null;
-  peak_r: number | null;
+  is_dry_run: boolean;
 }
 
-export interface BotEvent {
-  id: string;
-  symbol: string | null;
-  level: string;
-  kind: string;
-  message: string | null;
-  created_at: string;
+export interface BotEquity {
+  ts: string;
+  balance: number;
+  equity: number;
+  margin: number | null;
+  margin_free: number | null;
+  open_positions: number;
+  is_dry_run: boolean;
 }
 
-export interface BotSummary {
+export interface BotPrediction {
   id: string;
-  day: string;
   symbol: string;
-  trades: number;
-  wins: number;
-  losses: number;
-  net_r: number;
-  net_profit: number;
-  max_dd_r: number | null;
+  timeframe: string;
+  ts: string;
+  horizon_bars: number;
+  direction: 'long' | 'short' | 'flat' | string;
+  edge_bps: number | null;
+  confidence: number | null;
+  predicted_vol: number | null;
+  acted_on: boolean;
+  skip_reason: string | null;
   created_at: string;
 }
 
-export interface TradingBotData {
-  markets: BotMarket[];
-  signals: BotSignal[];
-  trades: BotTrade[];
-  events: BotEvent[];
-  summaries: BotSummary[];
-  lastHeartbeat: string | null;
+export interface BotModelRun {
+  id: string;
+  symbol: string;
+  model_type: string;
+  timeframe: string | null;
+  trained_at: string;
+  oos_sharpe: number | null;
+  oos_hit_rate: number | null;
+  oos_profit_factor: number | null;
+  oos_net_pnl: number | null;
+  oos_max_dd_pct: number | null;
+  n_oos_trades: number | null;
+  buy_hold_pct: number | null;
+  beats_buy_hold: boolean | null;
+  passed_gate: boolean;
+  gate_notes: string | null;
 }
 
-export async function getTradingBot(): Promise<TradingBotData> {
+export interface BotOverview {
+  markets: BotMarket[];
+  openTrades: BotTrade[];
+  recentTrades: BotTrade[];
+  equity: BotEquity | null;
+  equityCurve: BotEquity[];
+  /** Newest market write across all symbols — drives the online/stale badge. */
+  lastUpdate: string | null;
+}
+
+const TRADE_COLS =
+  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run';
+
+export async function getBotOverview(): Promise<BotOverview> {
   const admin = serviceClient();
-  const [markets, signals, trades, events, summaries, beat] = await Promise.all([
-    admin.from('trading_bot_markets').select('*').order('symbol', { ascending: true }),
-    admin.from('trading_bot_signals').select('*').order('created_at', { ascending: false }).limit(20),
-    admin.from('trading_bot_trades').select('*').order('opened_at', { ascending: false }).limit(20),
-    admin.from('trading_bot_events').select('*').order('created_at', { ascending: false }).limit(30),
-    admin.from('trading_bot_daily_summary').select('*').order('day', { ascending: false }).limit(14),
-    admin.from('trading_bot_events').select('created_at').order('created_at', { ascending: false }).limit(1),
+
+  const [markets, openTrades, recentTrades, equity, equityCurve] = await Promise.all([
+    admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
+    admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
+    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(20),
+    admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
+    admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(60),
+  ]);
+
+  const marketRows = (markets.data ?? []) as BotMarket[];
+  const lastUpdate = marketRows.reduce<string | null>(
+    (max, m) => (!max || m.updated_at > max ? m.updated_at : max),
+    null,
+  );
+
+  return {
+    markets: marketRows,
+    openTrades: (openTrades.data ?? []) as BotTrade[],
+    recentTrades: (recentTrades.data ?? []) as BotTrade[],
+    equity: (equity.data?.[0] as BotEquity | undefined) ?? null,
+    equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
+    lastUpdate,
+  };
+}
+
+export interface BotMarketDetail {
+  market: BotMarket | null;
+  trades: BotTrade[];
+  predictions: BotPrediction[];
+  modelRun: BotModelRun | null;
+}
+
+export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
+  const admin = serviceClient();
+
+  const [market, trades, predictions, modelRun] = await Promise.all([
+    admin.from('bot_market_state').select('*').eq('symbol', symbol).maybeSingle(),
+    admin.from('bot_trades').select(TRADE_COLS).eq('symbol', symbol).order('open_ts', { ascending: false }).limit(30),
+    admin.from('bot_predictions')
+      .select('id, symbol, timeframe, ts, horizon_bars, direction, edge_bps, confidence, predicted_vol, acted_on, skip_reason, created_at')
+      .eq('symbol', symbol).order('ts', { ascending: false }).limit(25),
+    admin.from('bot_model_runs')
+      .select('id, symbol, model_type, timeframe, trained_at, oos_sharpe, oos_hit_rate, oos_profit_factor, oos_net_pnl, oos_max_dd_pct, n_oos_trades, buy_hold_pct, beats_buy_hold, passed_gate, gate_notes')
+      .eq('symbol', symbol).order('trained_at', { ascending: false }).limit(1),
   ]);
 
   return {
-    markets: (markets.data ?? []) as BotMarket[],
-    signals: (signals.data ?? []) as BotSignal[],
+    market: (market.data as BotMarket | null) ?? null,
     trades: (trades.data ?? []) as BotTrade[],
-    events: (events.data ?? []) as BotEvent[],
-    summaries: (summaries.data ?? []) as BotSummary[],
-    lastHeartbeat: ((beat.data ?? [])[0] as { created_at: string } | undefined)?.created_at ?? null,
+    predictions: (predictions.data ?? []) as BotPrediction[],
+    modelRun: (modelRun.data?.[0] as BotModelRun | undefined) ?? null,
   };
+}
+
+/** All symbols the bot tracks — for detail links. */
+export async function listBotSymbols(): Promise<string[]> {
+  const admin = serviceClient();
+  const { data } = await admin.from('bot_market_state').select('symbol');
+  return (data ?? []).map((r: { symbol: string }) => r.symbol);
 }
