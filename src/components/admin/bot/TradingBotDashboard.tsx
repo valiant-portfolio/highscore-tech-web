@@ -6,14 +6,16 @@
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
 import { useMemo, useState } from 'react';
-import { LayoutGrid, ListTree, Layers, Receipt, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { ClosePositionButton } from './ClosePositionButton';
+import { MarketEnableToggle } from './MarketEnableToggle';
+import { FlattenAllButton } from './FlattenAllButton';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity } from '@/lib/admin/trading-bot-queries';
 
-type Tab = 'overview' | 'markets' | 'positions' | 'transactions';
+type Tab = 'overview' | 'markets' | 'positions' | 'transactions' | 'performance';
 
 const money = (n: number | null | undefined, dp = 2) =>
   n == null || !Number.isFinite(Number(n)) ? '—'
@@ -52,11 +54,12 @@ export function TradingBotDashboard({
     { key: 'markets', label: 'Markets', icon: <ListTree className="h-4 w-4" />, badge: markets.length },
     { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: openTrades.length },
     { key: 'transactions', label: 'Transactions', icon: <Receipt className="h-4 w-4" /> },
+    { key: 'performance', label: 'Performance', icon: <BarChart3 className="h-4 w-4" /> },
   ];
 
   return (
     <div>
-      {/* Tab bar */}
+      {/* Tab bar + kill switch */}
       <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-px">
         {tabs.map((t) => (
           <button
@@ -73,6 +76,7 @@ export function TradingBotDashboard({
             )}
           </button>
         ))}
+        <div className="ml-auto pb-1"><FlattenAllButton openCount={openTrades.length} /></div>
       </div>
 
       {tab === 'overview' && (
@@ -83,7 +87,8 @@ export function TradingBotDashboard({
       )}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
       {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} />}
-      {tab === 'transactions' && <Transactions closedTrades={closedTrades} />}
+      {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} />}
+      {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
     </div>
   );
 }
@@ -184,7 +189,8 @@ function Markets({
               <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th><Th className="text-left">Bias (H1)</Th>
               <Th className="text-left">State</Th><Th className="text-left">Detail</Th>
               <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
-              <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th><Th className="text-right pr-4">Updated</Th>
+              <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th>
+              <Th className="text-center">On</Th><Th className="text-right pr-4">Updated</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -211,6 +217,7 @@ function Markets({
                       step={spec ? Number(spec.volume_step) : null}
                     />
                   </Td>
+                  <Td className="text-center"><MarketEnableToggle symbol={m.symbol} enabled={cfg?.enabled ?? true} /></Td>
                   <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
                 </tr>
               );
@@ -273,14 +280,23 @@ function Positions({
 
 /* ── Transactions ─────────────────────────────────────────────────────── */
 
-function Transactions({ closedTrades }: { closedTrades: BotTrade[] }) {
+function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; markets: BotMarket[] }) {
   const [market, setMarket] = useState<string>('all');
   const [order, setOrder] = useState<'newest' | 'oldest'>('newest');
 
-  const marketOptions = useMemo(
-    () => Array.from(new Set(closedTrades.map((t) => t.symbol))).sort(),
-    [closedTrades],
-  );
+  // Every market the bot tracks appears in the filter — not only ones that have
+  // closed a trade — so it's clear the tab covers all of them. Count per market
+  // shows which have activity yet.
+  const marketOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of closedTrades) counts.set(t.symbol, (counts.get(t.symbol) ?? 0) + 1);
+    const known = markets.map((m) => ({ symbol: m.symbol, alias: m.alias, count: counts.get(m.symbol) ?? 0 }));
+    // Include any traded symbol that isn't in the current market list (defensive).
+    for (const [symbol, count] of counts) {
+      if (!known.some((k) => k.symbol === symbol)) known.push({ symbol, alias: symbol, count });
+    }
+    return known.sort((a, b) => a.alias.localeCompare(b.alias));
+  }, [closedTrades, markets]);
 
   const rows = useMemo(() => {
     let r = market === 'all' ? closedTrades : closedTrades.filter((t) => t.symbol === market);
@@ -303,8 +319,10 @@ function Transactions({ closedTrades }: { closedTrades: BotTrade[] }) {
         <label className="inline-flex items-center gap-2 text-xs font-semibold text-fg-muted">
           Market
           <select value={market} onChange={(e) => setMarket(e.target.value)} className={sel}>
-            <option value="all">All ({closedTrades.length})</option>
-            {marketOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="all">All markets ({closedTrades.length})</option>
+            {marketOptions.map((o) => (
+              <option key={o.symbol} value={o.symbol}>{o.alias} ({o.count})</option>
+            ))}
           </select>
         </label>
         <label className="inline-flex items-center gap-2 text-xs font-semibold text-fg-muted">
@@ -321,7 +339,7 @@ function Transactions({ closedTrades }: { closedTrades: BotTrade[] }) {
       </div>
 
       {rows.length === 0 ? (
-        <Empty>No transactions match.</Empty>
+        <Empty>{market === 'all' ? 'No closed trades yet.' : 'This market hasn’t closed a trade yet.'}</Empty>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
@@ -350,6 +368,124 @@ function Transactions({ closedTrades }: { closedTrades: BotTrade[] }) {
         </div>
       )}
     </AdminCard>
+  );
+}
+
+/* ── Performance ──────────────────────────────────────────────────────── */
+
+interface Group { key: string; count: number; net: number; wins: number }
+
+function groupBy(trades: BotTrade[], keyFn: (t: BotTrade) => string | null): Group[] {
+  const m = new Map<string, Group>();
+  for (const t of trades) {
+    const k = keyFn(t) || '—';
+    const g = m.get(k) ?? { key: k, count: 0, net: 0, wins: 0 };
+    g.count++; g.net += Number(t.pnl) || 0; if (Number(t.pnl) > 0) g.wins++;
+    m.set(k, g);
+  }
+  return [...m.values()].sort((a, b) => b.net - a.net);
+}
+
+function Breakdown({ title, groups }: { title: string; groups: Group[] }) {
+  const scale = Math.max(1, ...groups.map((g) => Math.abs(g.net)));
+  return (
+    <AdminCard>
+      <div className="p-5">
+        <h4 className="text-sm font-semibold text-fg mb-4">{title}</h4>
+        {groups.length === 0 ? (
+          <p className="text-sm text-fg-muted">No data.</p>
+        ) : (
+          <div className="space-y-3">
+            {groups.map((g) => {
+              const w = (Math.abs(g.net) / scale) * 100;
+              const pos = g.net >= 0;
+              return (
+                <div key={g.key}>
+                  <div className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="font-semibold text-fg truncate">{g.key}</span>
+                    <span className={`tabular font-bold ${pnlTone(g.net)}`}>{signed(g.net)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="h-2 flex-1 rounded-full bg-surface-hover overflow-hidden">
+                      <div className={`h-full rounded-full ${pos ? 'bg-success' : 'bg-danger'}`} style={{ width: `${w}%` }} />
+                    </div>
+                    <span className="text-[10px] text-fg-subtle whitespace-nowrap">{g.count}t · {Math.round((g.wins / g.count) * 100)}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </AdminCard>
+  );
+}
+
+function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; equityCurve: BotEquity[] }) {
+  const s = useMemo(() => {
+    const t = closedTrades;
+    const pnls = t.map((x) => Number(x.pnl) || 0);
+    const wins = pnls.filter((p) => p > 0);
+    const losses = pnls.filter((p) => p < 0);
+    const grossProfit = wins.reduce((a, b) => a + b, 0);
+    const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+    const net = pnls.reduce((a, b) => a + b, 0);
+    const decided = wins.length + losses.length;
+
+    // Max drawdown from the equity curve (oldest → newest).
+    let peak = -Infinity, maxDD = 0, ddPct = 0;
+    for (const e of equityCurve) {
+      const v = Number(e.equity);
+      if (!Number.isFinite(v)) continue;
+      peak = Math.max(peak, v);
+      const dd = peak - v;
+      if (dd > maxDD) { maxDD = dd; ddPct = peak > 0 ? (dd / peak) * 100 : 0; }
+    }
+
+    return {
+      count: t.length,
+      net,
+      winRate: decided ? (wins.length / decided) * 100 : 0,
+      profitFactor: grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0),
+      expectancy: t.length ? net / t.length : 0,
+      avgWin: wins.length ? grossProfit / wins.length : 0,
+      avgLoss: losses.length ? grossLoss / losses.length : 0,
+      best: pnls.length ? Math.max(...pnls) : 0,
+      worst: pnls.length ? Math.min(...pnls) : 0,
+      maxDD, ddPct,
+      wins: wins.length, losses: losses.length,
+    };
+  }, [closedTrades, equityCurve]);
+
+  if (closedTrades.length === 0) return <AdminCard><Empty>No closed trades to analyse yet.</Empty></AdminCard>;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <Kpi label="Net P&L" value={<span className={pnlTone(s.net)}>{signed(s.net)}</span>} hint={`${s.count} trades`} tone={s.net >= 0 ? 'success' : 'danger'} />
+        <Kpi label="Win rate" value={`${s.winRate.toFixed(0)}%`} hint={`${s.wins}W · ${s.losses}L`} />
+        <Kpi label="Profit factor" value={Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'} hint="gross win / gross loss" tone={s.profitFactor >= 1 ? 'success' : 'danger'} />
+        <Kpi label="Expectancy" value={<span className={pnlTone(s.expectancy)}>{signed(s.expectancy)}</span>} hint="avg per trade" />
+        <Kpi label="Max drawdown" value={s.maxDD ? `${money(s.maxDD)}` : '—'} hint={s.ddPct ? `${s.ddPct.toFixed(1)}% of peak` : 'equity curve'} tone={s.maxDD ? 'danger' : 'default'} />
+        <Kpi label="Avg win / loss" value={<span className="text-base"><span className="text-success">{money(s.avgWin)}</span> / <span className="text-danger">{money(s.avgLoss)}</span></span>} hint={`best ${money(s.best)} · worst ${money(s.worst)}`} />
+      </div>
+
+      <div>
+        <h3 className="mb-3 font-semibold text-fg">Equity curve</h3>
+        <AdminCard>
+          <div className="p-5">
+            <Sparkline values={equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite)} width={640} height={80} />
+            <p className="mt-2 text-xs text-fg-subtle">{equityCurve.length} snapshots</p>
+          </div>
+        </AdminCard>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        <Breakdown title="P&L by market" groups={groupBy(closedTrades, (t) => t.symbol)} />
+        <Breakdown title="P&L by strategy" groups={groupBy(closedTrades, (t) => t.strategy)} />
+        <Breakdown title="P&L by close reason" groups={groupBy(closedTrades, (t) => t.close_reason)} />
+      </div>
+    </div>
   );
 }
 

@@ -136,9 +136,9 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
-    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(200),
+    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
-    admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(60),
+    admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];

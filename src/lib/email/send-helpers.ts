@@ -13,6 +13,7 @@ import { ContactNotifyEmail } from './templates/ContactNotifyEmail';
 import { ContactAckEmail }    from './templates/ContactAckEmail';
 import { ContactReplyEmail }  from './templates/ContactReplyEmail';
 import { TradingBotAlertEmail, type BotAlertKind } from './templates/TradingBotAlertEmail';
+import { TradingBotDailyEmail } from './templates/TradingBotDailyEmail';
 import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
@@ -245,6 +246,21 @@ export async function sendTradingBotAlert(args: {
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const html = await render(createElement(TradingBotAlertEmail, { kind: args.kind, rows: args.rows }));
   return sendEmail({ to: args.to, subject: args.subject, html });
+}
+
+export async function sendTradingBotDaily(args: {
+  to: string[];
+  subject: string;
+  dateLabel: string;
+  online: boolean;
+  netTodayLabel: string;
+  netTodayPositive: boolean;
+  rows: { label: string; value: string }[];
+  movers: { market: string; value: string; positive: boolean }[];
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const { to, subject, ...rest } = args;
+  const html = await render(createElement(TradingBotDailyEmail, rest));
+  return sendEmail({ to, subject, html });
 }
 
 // ── Overdue instalment reminder ────────────────────────────────────────
