@@ -12,6 +12,7 @@ import { sendEmail, emailConfig } from './client';
 import { ContactNotifyEmail } from './templates/ContactNotifyEmail';
 import { ContactAckEmail }    from './templates/ContactAckEmail';
 import { ContactReplyEmail }  from './templates/ContactReplyEmail';
+import { TradingBotAlertEmail, type BotAlertKind } from './templates/TradingBotAlertEmail';
 import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
@@ -231,6 +232,18 @@ export async function sendContactReply(args: {
       originalMessage: args.originalMessage ?? null,
     }),
   );
+  return sendEmail({ to: args.to, subject: args.subject, html });
+}
+
+// ── Trading-bot event alert ────────────────────────────────────────────
+// Sent to the ops mailboxes on a new pending order / position open / close.
+export async function sendTradingBotAlert(args: {
+  to: string[];
+  kind: BotAlertKind;
+  subject: string;
+  rows: { label: string; value: string }[];
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const html = await render(createElement(TradingBotAlertEmail, { kind: args.kind, rows: args.rows }));
   return sendEmail({ to: args.to, subject: args.subject, html });
 }
 

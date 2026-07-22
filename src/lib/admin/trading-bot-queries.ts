@@ -93,10 +93,32 @@ export interface BotModelRun {
   gate_notes: string | null;
 }
 
+/** Admin-set lot sizing, one row per market (bot_symbol_config). */
+export interface BotConfig {
+  symbol: string;
+  alias: string;
+  lot_size: number | null; // null = broker minimum
+  enabled: boolean;
+  updated_at: string;
+}
+
+/** Broker contract limits used to validate a lot size (bot_symbols). */
+export interface BotSymbolSpec {
+  name: string;
+  alias: string;
+  digits: number;
+  volume_min: number;
+  volume_max: number;
+  volume_step: number;
+}
+
 export interface BotOverview {
   markets: BotMarket[];
+  configs: BotConfig[];
+  specs: BotSymbolSpec[];
   openTrades: BotTrade[];
-  recentTrades: BotTrade[];
+  /** Closed trades for the Transactions tab (client filters/sorts these). */
+  closedTrades: BotTrade[];
   equity: BotEquity | null;
   equityCurve: BotEquity[];
   /** Newest market write across all symbols — drives the online/stale badge. */
@@ -109,10 +131,12 @@ const TRADE_COLS =
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = serviceClient();
 
-  const [markets, openTrades, recentTrades, equity, equityCurve] = await Promise.all([
+  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
+    admin.from('bot_symbol_config').select('symbol, alias, lot_size, enabled, updated_at'),
+    admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
-    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(20),
+    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(200),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(60),
   ]);
@@ -125,8 +149,10 @@ export async function getBotOverview(): Promise<BotOverview> {
 
   return {
     markets: marketRows,
+    configs: (configs.data ?? []) as BotConfig[],
+    specs: (specs.data ?? []) as BotSymbolSpec[],
     openTrades: (openTrades.data ?? []) as BotTrade[],
-    recentTrades: (recentTrades.data ?? []) as BotTrade[],
+    closedTrades: (closedTrades.data ?? []) as BotTrade[],
     equity: (equity.data?.[0] as BotEquity | undefined) ?? null,
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,

@@ -19,6 +19,9 @@
 [functions."api/cron/weekly-summary"]
   timeout = 26
 
+[functions."api/cron/trading-bot-notify"]
+  timeout = 26
+
 [functions."api/staff/[slug]/contract.pdf"]
   timeout = 26
 
@@ -41,10 +44,11 @@
 # The actual schedules live inside each function's `export const config`
 # block (see netlify/functions/cron-*.mjs):
 #
-#   netlify/functions/cron-installments.mjs    → Mon 08:00 UTC
-#   netlify/functions/cron-weekly-summary.mjs  → Fri 16:00 UTC
+#   netlify/functions/cron-installments.mjs        → Mon 08:00 UTC
+#   netlify/functions/cron-weekly-summary.mjs      → Fri 16:00 UTC
+#   netlify/functions/cron-trading-bot-notify.mjs  → every minute
 #
-# Both functions proxy to the Next.js cron API routes using CRON_SECRET.
+# All proxy to the Next.js cron API routes using CRON_SECRET.
 
 # ── Headers ─────────────────────────────────────────────────────────────────
 [[headers]]
