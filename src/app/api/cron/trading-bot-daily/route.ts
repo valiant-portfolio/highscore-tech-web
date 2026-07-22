@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     admin.from('bot_market_state').select('updated_at').order('updated_at', { ascending: false }).limit(1),
   ]);
 
-  const closedToday = closed.data ?? [];
+  // Only count trades with a real P&L — reconciled-stale orphans (null P&L) are
+  // bookkeeping, not results, and would distort the day's numbers.
+  const closedToday = (closed.data ?? []).filter((t) => t.pnl != null);
   const pnls = closedToday.map((t) => Number(t.pnl) || 0);
   const net = pnls.reduce((a, b) => a + b, 0);
   const wins = pnls.filter((p) => p > 0).length;

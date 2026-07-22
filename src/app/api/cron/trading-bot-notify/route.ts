@@ -89,6 +89,9 @@ export async function POST(req: Request) {
     });
   }
   for (const t of closes.data ?? []) {
+    // Reconciliation closes (V2) are backend catch-up on old orphans, not live
+    // trading events — don't alert on them.
+    if (t.close_reason === 'reconciled_stale' || t.close_reason === 'reconciled_closed') continue;
     const pnl = Number(t.pnl);
     candidates.push({
       kind: 'position_closed',

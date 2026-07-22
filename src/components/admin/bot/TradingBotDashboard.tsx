@@ -5,8 +5,8 @@
 // the tab state, the interactive controls (lot size, close), and the
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
-import { useMemo, useState } from 'react';
-import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
@@ -26,13 +26,14 @@ const signed = (n: number | null | undefined) => (n == null ? '—' : `${Number(
 const pnlTone = (n: number | null | undefined) => (n == null ? 'text-fg-muted' : Number(n) > 0 ? 'text-success' : Number(n) < 0 ? 'text-danger' : 'text-fg-muted');
 
 export function TradingBotDashboard({
-  markets, configs, specs, openTrades, closedTrades, equity, equityCurve, lastUpdate,
+  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
   openTrades: BotTrade[];
   closedTrades: BotTrade[];
+  closedCount: number;
   equity: BotEquity | null;
   equityCurve: BotEquity[];
   lastUpdate: string | null;
@@ -87,7 +88,7 @@ export function TradingBotDashboard({
       )}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
       {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} />}
-      {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} />}
+      {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
       {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
     </div>
   );
@@ -280,9 +281,13 @@ function Positions({
 
 /* ── Transactions ─────────────────────────────────────────────────────── */
 
-function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; markets: BotMarket[] }) {
+const PAGE_SIZE = 15;
+
+function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade[]; markets: BotMarket[]; total: number }) {
+  const capped = total > closedTrades.length;
   const [market, setMarket] = useState<string>('all');
   const [order, setOrder] = useState<'newest' | 'oldest'>('newest');
+  const [page, setPage] = useState(1);
 
   // Every market the bot tracks appears in the filter — not only ones that have
   // closed a trade — so it's clear the tab covers all of them. Count per market
@@ -308,8 +313,17 @@ function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; mar
     return r;
   }, [closedTrades, market, order]);
 
-  const total = rows.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+  const sumPnl = rows.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
   const wins = rows.filter((t) => Number(t.pnl) > 0).length;
+
+  // Paginate, 15 per view. Reset to page 1 whenever the filter/sort changes the
+  // result set, and clamp if the current page fell off the end.
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  useEffect(() => { setPage(1); }, [market, order]);
+  const safePage = Math.min(page, pageCount);
+  const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const firstShown = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const lastShown = Math.min(safePage * PAGE_SIZE, rows.length);
 
   const sel = 'rounded-md border border-border bg-bg px-3 py-1.5 text-sm text-fg outline-none focus:border-brand';
 
@@ -319,7 +333,7 @@ function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; mar
         <label className="inline-flex items-center gap-2 text-xs font-semibold text-fg-muted">
           Market
           <select value={market} onChange={(e) => setMarket(e.target.value)} className={sel}>
-            <option value="all">All markets ({closedTrades.length})</option>
+            <option value="all">All markets ({total})</option>
             {marketOptions.map((o) => (
               <option key={o.symbol} value={o.symbol}>{o.alias} ({o.count})</option>
             ))}
@@ -333,8 +347,9 @@ function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; mar
           </select>
         </label>
         <span className="ml-auto text-xs text-fg-muted">
+          {market === 'all' && capped && <span className="text-fg-subtle">latest {closedTrades.length} of {total} · </span>}
           {rows.length} trade{rows.length === 1 ? '' : 's'} · {wins} win{wins === 1 ? '' : 's'} ·{' '}
-          <span className={pnlTone(total)}>{signed(total)}</span>
+          <span className={pnlTone(sumPnl)}>{signed(sumPnl)}</span>
         </span>
       </div>
 
@@ -351,7 +366,7 @@ function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; mar
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {rows.map((t) => (
+              {pageRows.map((t) => (
                 <tr key={t.id} className="hover:bg-surface-hover/30">
                   <Td className="pl-4 text-fg-muted whitespace-nowrap">{t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</Td>
                   <Td className="font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
@@ -365,6 +380,17 @@ function Transactions({ closedTrades, markets }: { closedTrades: BotTrade[]; mar
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {rows.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
+          <span className="text-xs text-fg-subtle">Showing {firstShown}–{lastShown} of {rows.length}</span>
+          <div className="flex items-center gap-2">
+            <PagerBtn onClick={() => setPage(safePage - 1)} disabled={safePage <= 1} label="Previous"><ChevronLeft className="h-4 w-4" /></PagerBtn>
+            <span className="text-xs font-semibold text-fg-muted tabular">Page {safePage} / {pageCount}</span>
+            <PagerBtn onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount} label="Next"><ChevronRight className="h-4 w-4" /></PagerBtn>
+          </div>
         </div>
       )}
     </AdminCard>
@@ -422,8 +448,13 @@ function Breakdown({ title, groups }: { title: string; groups: Group[] }) {
 }
 
 function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; equityCurve: BotEquity[] }) {
+  // Analyse only trades with a known P&L. Reconciled-stale rows (pre-v1 orphans
+  // closed with no recoverable P&L) carry null and would distort every stat.
+  const measured = useMemo(() => closedTrades.filter((t) => t.pnl != null), [closedTrades]);
+  const excluded = closedTrades.length - measured.length;
+
   const s = useMemo(() => {
-    const t = closedTrades;
+    const t = measured;
     const pnls = t.map((x) => Number(x.pnl) || 0);
     const wins = pnls.filter((p) => p > 0);
     const losses = pnls.filter((p) => p < 0);
@@ -455,9 +486,9 @@ function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; 
       maxDD, ddPct,
       wins: wins.length, losses: losses.length,
     };
-  }, [closedTrades, equityCurve]);
+  }, [measured, equityCurve]);
 
-  if (closedTrades.length === 0) return <AdminCard><Empty>No closed trades to analyse yet.</Empty></AdminCard>;
+  if (measured.length === 0) return <AdminCard><Empty>No closed trades with P&L to analyse yet.</Empty></AdminCard>;
 
   return (
     <div className="space-y-6">
@@ -481,10 +512,17 @@ function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; 
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <Breakdown title="P&L by market" groups={groupBy(closedTrades, (t) => t.symbol)} />
-        <Breakdown title="P&L by strategy" groups={groupBy(closedTrades, (t) => t.strategy)} />
-        <Breakdown title="P&L by close reason" groups={groupBy(closedTrades, (t) => t.close_reason)} />
+        <Breakdown title="P&L by market" groups={groupBy(measured, (t) => t.symbol)} />
+        <Breakdown title="P&L by strategy" groups={groupBy(measured, (t) => t.strategy)} />
+        <Breakdown title="P&L by close reason" groups={groupBy(measured, (t) => t.close_reason)} />
       </div>
+
+      {excluded > 0 && (
+        <p className="text-xs text-fg-subtle">
+          {excluded} reconciled trade{excluded === 1 ? '' : 's'} excluded from these stats — closed during a
+          backend reconciliation with no recoverable P&L. They still appear in Transactions.
+        </p>
+      )}
     </div>
   );
 }
@@ -499,6 +537,19 @@ function Td({ children, className = '', title }: { children: React.ReactNode; cl
 }
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="p-10 text-center text-sm text-fg-muted">{children}</div>;
+}
+function PagerBtn({ onClick, disabled, label, children }: { onClick: () => void; disabled: boolean; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-fg-muted hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
+  );
 }
 function SideTag({ side }: { side: string }) {
   const buy = side === 'buy';
