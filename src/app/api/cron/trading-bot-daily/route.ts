@@ -10,7 +10,9 @@ import { sendTradingBotDaily } from '@/lib/email/send-helpers';
 
 export const runtime = 'nodejs';
 
-const RECIPIENTS = ['admin@highzcore.tech', 'olivia@highzcore.tech'];
+// Daily digest goes to admin only. (Per-event alerts still go to both — see
+// /api/cron/trading-bot-notify.)
+const RECIPIENTS = ['admin@highzcore.tech'];
 const LAGOS_OFFSET_MS = 60 * 60 * 1000; // UTC+1, no DST
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toFixed(2)}`;
