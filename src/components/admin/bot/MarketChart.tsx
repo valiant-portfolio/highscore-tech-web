@@ -12,6 +12,7 @@
 // When the VM turns on H1 bar sync, real history loads automatically.
 
 import { useEffect, useRef, useState } from 'react';
+import { CandlestickChart } from 'lucide-react';
 import {
   createChart, CandlestickSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
@@ -86,37 +87,33 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
       const bars: Candle[] = (data.bars ?? []).map((b: Candle) => ({ ...b, time: b.time as UTCTimestamp }));
       setHasHistory(bars.length > 0);
       series.setData(bars);
+
+      // Overlays only make sense once there's a candle timeline. Without history
+      // every marker/line collapses onto the right edge and overlaps the axis —
+      // so we draw them ONLY when there are candles to anchor them to.
       if (bars.length) {
         liveBar.current = bars[bars.length - 1];
         chartRef.current?.timeScale().fitContent();
-      }
 
-      // Trade overlays: entry/exit markers + SL/TP lines on open trades.
-      const trades: Trade[] = data.trades ?? [];
-      const markers: SeriesMarker<Time>[] = [];
-      for (const t of trades) {
-        const buy = t.side === 'buy';
-        markers.push({
-          time: Math.floor(new Date(t.open_ts).getTime() / 1000) as UTCTimestamp,
-          position: buy ? 'belowBar' : 'aboveBar',
-          color: buy ? '#22c55e' : '#ef4444',
-          shape: buy ? 'arrowUp' : 'arrowDown',
-          text: `${t.side.toUpperCase()} ${fmt(t.open_price, data.digits ?? 5)}`,
-        });
-        if (t.close_ts) {
+        const trades: Trade[] = data.trades ?? [];
+        const markers: SeriesMarker<Time>[] = [];
+        for (const t of trades) {
+          const buy = t.side === 'buy';
           markers.push({
-            time: Math.floor(new Date(t.close_ts).getTime() / 1000) as UTCTimestamp,
-            position: 'inBar', color: '#98A2B3', shape: 'circle',
-            text: `close ${t.pnl != null ? (Number(t.pnl) >= 0 ? '+' : '') + Number(t.pnl).toFixed(2) : ''}`,
+            time: Math.floor(new Date(t.open_ts).getTime() / 1000) as UTCTimestamp,
+            position: buy ? 'belowBar' : 'aboveBar',
+            color: buy ? '#22c55e' : '#ef4444',
+            shape: buy ? 'arrowUp' : 'arrowDown',
+            text: t.side.toUpperCase(),
           });
         }
-      }
-      markers.sort((a, b) => (a.time as number) - (b.time as number));
-      if (markers.length) createSeriesMarkers(series, markers);
+        markers.sort((a, b) => (a.time as number) - (b.time as number));
+        if (markers.length) createSeriesMarkers(series, markers);
 
-      for (const t of trades.filter((x) => !x.close_ts)) {
-        if (t.sl != null) series.createPriceLine({ price: Number(t.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' });
-        if (t.tp != null) series.createPriceLine({ price: Number(t.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' });
+        for (const t of trades.filter((x) => !x.close_ts)) {
+          if (t.sl != null) series.createPriceLine({ price: Number(t.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' });
+          if (t.tp != null) series.createPriceLine({ price: Number(t.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' });
+        }
       }
 
       setLoading(false);
@@ -137,7 +134,10 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
       setQuote(q);
       const price = q.bid;
       const series = seriesRef.current;
-      if (series && price != null && Number.isFinite(price)) {
+      // Only move the chart when the quote is genuinely fresh — a stale feed
+      // (bot's quote_feed not running) must not paint a lone candle/line.
+      const fresh = q.updated_at && Date.now() - new Date(q.updated_at).getTime() < 60_000;
+      if (fresh && series && price != null && Number.isFinite(price)) {
         const secs = TF_SECONDS[tf] ?? 900;
         const bucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
         const lb = liveBar.current;
@@ -160,6 +160,8 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
   }, [symbol, tf]);
 
   const stale = quote?.updated_at ? Date.now() - new Date(quote.updated_at).getTime() > 60_000 : true;
+  // Nothing to draw: no candle history AND no live feed to build one from.
+  const showEmpty = hasHistory === false && stale && !loading;
 
   return (
     <div className="space-y-3">
@@ -187,17 +189,26 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
         </div>
       </div>
 
-      {hasHistory === false && !loading && (
-        <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-fg-muted">
-          No candles for {alias} yet. History builds automatically once the price feed is running
-          (<code className="font-mono">scripts.quote_feed</code> on the VM) — the feed looks stale right now, so
-          there’s nothing to chart. It’ll fill in from the moment it starts.
-        </p>
-      )}
-
       <div className="relative rounded-lg border border-border bg-bg-elevated overflow-hidden">
-        <div ref={wrapRef} className="h-[440px] w-full" />
+        {/* The chart canvas — hidden (not unmounted) behind the placeholder so
+            the chart instance stays alive and reappears the instant data flows. */}
+        <div ref={wrapRef} className={`h-[440px] w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`} />
+
         {loading && <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">Loading {alias}…</div>}
+
+        {showEmpty && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover">
+              <CandlestickChart className="h-6 w-6 text-fg-subtle" />
+            </div>
+            <p className="text-sm font-semibold text-fg">Waiting for the price feed</p>
+            <p className="max-w-md text-xs text-fg-muted leading-relaxed">
+              No candles for {alias} yet — the quote feed is stale, so there’s nothing to chart.
+              Start <code className="font-mono text-fg-subtle">scripts.quote_feed</code> on the VM and the chart
+              builds itself from the next tick.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
