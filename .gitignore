@@ -57,3 +57,6 @@ hr/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Unused: license-gated TradingView Charting Library assets (we use lightweight-charts)
+charting_library-master/

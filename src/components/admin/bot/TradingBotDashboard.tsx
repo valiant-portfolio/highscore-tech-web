@@ -6,16 +6,17 @@
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
 import { useEffect, useMemo, useState } from 'react';
-import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { ClosePositionButton } from './ClosePositionButton';
 import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
+import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity } from '@/lib/admin/trading-bot-queries';
 
-type Tab = 'overview' | 'markets' | 'positions' | 'transactions' | 'performance';
+type Tab = 'overview' | 'chart' | 'markets' | 'positions' | 'transactions' | 'performance';
 
 const money = (n: number | null | undefined, dp = 2) =>
   n == null || !Number.isFinite(Number(n)) ? '—'
@@ -52,6 +53,7 @@ export function TradingBotDashboard({
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: <LayoutGrid className="h-4 w-4" /> },
+    { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
     { key: 'markets', label: 'Markets', icon: <ListTree className="h-4 w-4" />, badge: markets.length },
     { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: openTrades.length },
     { key: 'transactions', label: 'Transactions', icon: <Receipt className="h-4 w-4" /> },
@@ -86,6 +88,7 @@ export function TradingBotDashboard({
           floating={floating} todayRealized={todayRealized}
         />
       )}
+      {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} />}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
       {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
