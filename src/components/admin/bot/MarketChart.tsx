@@ -189,8 +189,9 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
 
       {hasHistory === false && !loading && (
         <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-fg-muted">
-          No synced historical candles for {alias} yet — the chart is building live candles from the price feed.
-          Enable H1 bar sync on the VM for full history (thousands of rows, safe on the free tier).
+          No candles for {alias} yet. History builds automatically once the price feed is running
+          (<code className="font-mono">scripts.quote_feed</code> on the VM) — the feed looks stale right now, so
+          there’s nothing to chart. It’ll fill in from the moment it starts.
         </p>
       )}
 

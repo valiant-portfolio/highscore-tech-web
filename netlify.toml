@@ -25,6 +25,9 @@
 [functions."api/cron/trading-bot-daily"]
   timeout = 26
 
+[functions."api/cron/trading-bot-candles"]
+  timeout = 26
+
 [functions."api/staff/[slug]/contract.pdf"]
   timeout = 26
 
@@ -51,6 +54,7 @@
 #   netlify/functions/cron-weekly-summary.mjs      → Fri 16:00 UTC
 #   netlify/functions/cron-trading-bot-notify.mjs  → every minute
 #   netlify/functions/cron-trading-bot-daily.mjs   → daily 21:00 UTC
+#   netlify/functions/cron-trading-bot-candles.mjs → every minute
 #
 # All proxy to the Next.js cron API routes using CRON_SECRET.
 

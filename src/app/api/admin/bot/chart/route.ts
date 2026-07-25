@@ -37,17 +37,36 @@ export async function GET(request: Request) {
     admin.from('bot_quotes').select('digits').eq('symbol', symbol).maybeSingle(),
   ]);
 
-  // Lightweight-Charts wants UTC seconds.
-  const bars = (barsRes.data ?? []).map((b) => ({
-    time: Math.floor(new Date(b.ts as string).getTime() / 1000),
+  // Lightweight-Charts wants UTC seconds. Normalise whichever source we use.
+  const toCandle = (b: { ts: string; open: number; high: number; low: number; close: number; tick_volume?: number | null }) => ({
+    time: Math.floor(new Date(b.ts).getTime() / 1000),
     open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
     volume: b.tick_volume == null ? undefined : Number(b.tick_volume),
-  }));
+  });
+
+  // Prefer the bot's own synced bars; if it hasn't synced this market/timeframe,
+  // fall back to the candles highzcore builds from the quote feed.
+  let source: 'bot_bars' | 'quote_feed' | 'none' = 'none';
+  let bars: ReturnType<typeof toCandle>[] = [];
+  if ((barsRes.data?.length ?? 0) > 0) {
+    source = 'bot_bars';
+    bars = (barsRes.data ?? []).map((b) => toCandle(b as never));
+  } else {
+    const { data: qbars } = await admin.from('bot_quote_bars')
+      .select('ts, open, high, low, close')
+      .eq('symbol', symbol).eq('timeframe', tf)
+      .order('ts', { ascending: true }).limit(1500);
+    if ((qbars?.length ?? 0) > 0) {
+      source = 'quote_feed';
+      bars = (qbars ?? []).map((b) => toCandle(b as never));
+    }
+  }
 
   return NextResponse.json({
     symbol,
     tf,
     digits: quoteRes.data?.digits ?? 5,
+    source,
     bars,
     trades: tradesRes.data ?? [],
   });
