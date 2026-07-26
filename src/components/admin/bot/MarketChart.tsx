@@ -5,19 +5,21 @@
 // Data (all admin-gated, server-read — nothing exposed to the browser via the
 // anon key):
 //   • history  → /api/admin/bot/chart  (bot_bars OHLCV + this market's trades)
-//   • live      → /api/admin/bot/quote  polled ~1.5s (bot_quotes bid/ask)
+//   • live     → /api/admin/bot/quote   polled ~1.5s (bid/ask + floating P&L)
 //
-// With no synced bars yet, the chart still comes alive: each quote builds the
-// forming candle at the chosen timeframe, and a live price line tracks the bid.
-// When the VM turns on H1 bar sync, real history loads automatically.
+// Overlays for the ACTIVE (open) trade only: a blue ENTRY line, dashed SL/TP,
+// and a live current-price line carrying the position's P&L. The selected market
+// + timeframe persist across a refresh (localStorage).
 
 import { useEffect, useRef, useState } from 'react';
 import { CandlestickChart } from 'lucide-react';
 import {
   createChart, CandlestickSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
-  type SeriesMarker, type IPriceLine,
+  type SeriesMarker, type IPriceLine, type ISeriesMarkersPluginApi,
 } from 'lightweight-charts';
+
+const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
 // v4: only M15 / H1 / D1 are synced into bot_bars. Do NOT offer M1/M5/H4 — they
 // return empty. (One-line VM change to add more, per the backend contract.)
@@ -34,11 +36,30 @@ interface Trade {
 const fmt = (n: number | null | undefined, digits: number) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits);
 
+interface Quote { bid: number | null; ask: number | null; spread: number | null; updated_at: string | null; pnl: number | null; state: string | null }
+
 export function MarketChart({ markets }: { markets: { symbol: string; alias: string }[] }) {
-  const [symbol, setSymbol] = useState(markets[0]?.symbol ?? '');
-  const [tf, setTf] = useState<string>('M15');
+  // Restore the last-viewed market + timeframe so a refresh keeps your place.
+  const [symbol, setSymbol] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+        if (s.symbol && markets.some((m) => m.symbol === s.symbol)) return s.symbol as string;
+      } catch { /* ignore */ }
+    }
+    return markets[0]?.symbol ?? '';
+  });
+  const [tf, setTf] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+        if (s.tf && (TIMEFRAMES as readonly string[]).includes(s.tf)) return s.tf as string;
+      } catch { /* ignore */ }
+    }
+    return 'M15';
+  });
   const [digits, setDigits] = useState(5);
-  const [quote, setQuote] = useState<{ bid: number | null; ask: number | null; spread: number | null; updated_at: string | null } | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,9 +67,17 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const liveBar = useRef<Candle | null>(null);
-  const priceLine = useRef<IPriceLine | null>(null);
+  const priceLine = useRef<IPriceLine | null>(null);     // live current-price line
+  const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (active trade)
+  const markersApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const activeSide = useRef<'buy' | 'sell' | null>(null); // side of the open trade, for the live P&L line
 
   const alias = markets.find((m) => m.symbol === symbol)?.alias ?? symbol;
+
+  // Persist the selection.
+  useEffect(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ symbol, tf })); } catch { /* ignore */ }
+  }, [symbol, tf]);
 
   // ── Create the chart once ─────────────────────────────────────────────
   useEffect(() => {
@@ -90,31 +119,41 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
       setHasHistory(bars.length > 0);
       series.setData(bars);
 
-      // Overlays only make sense once there's a candle timeline. Without history
-      // every marker/line collapses onto the right edge and overlaps the axis —
-      // so we draw them ONLY when there are candles to anchor them to.
+      // CLEAR every overlay from the previous market/timeframe first — otherwise
+      // price lines (entry/SL/TP) and markers pile up on the axis and lines from
+      // other markets linger. This was the "so many SL/TP" bug.
+      overlayLines.current.forEach((l) => series.removePriceLine(l));
+      overlayLines.current = [];
+      if (priceLine.current) { series.removePriceLine(priceLine.current); priceLine.current = null; }
+      activeSide.current = null;
+
       if (bars.length) {
         liveBar.current = bars[bars.length - 1];
         chartRef.current?.timeScale().fitContent();
 
         const trades: Trade[] = data.trades ?? [];
-        const markers: SeriesMarker<Time>[] = [];
-        for (const t of trades) {
+
+        // Markers for every trade (entry arrows) — updated in place, not stacked.
+        const markers = trades.map((t) => {
           const buy = t.side === 'buy';
-          markers.push({
+          return {
             time: Math.floor(new Date(t.open_ts).getTime() / 1000) as UTCTimestamp,
             position: buy ? 'belowBar' : 'aboveBar',
             color: buy ? '#22c55e' : '#ef4444',
             shape: buy ? 'arrowUp' : 'arrowDown',
-            text: t.side.toUpperCase(),
-          });
-        }
-        markers.sort((a, b) => (a.time as number) - (b.time as number));
-        if (markers.length) createSeriesMarkers(series, markers);
+            text: buy ? 'BUY' : 'SELL',
+          } as SeriesMarker<Time>;
+        }).sort((a, b) => (a.time as number) - (b.time as number));
+        if (markersApi.current) markersApi.current.setMarkers(markers);
+        else markersApi.current = createSeriesMarkers(series, markers);
 
-        for (const t of trades.filter((x) => !x.close_ts)) {
-          if (t.sl != null) series.createPriceLine({ price: Number(t.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' });
-          if (t.tp != null) series.createPriceLine({ price: Number(t.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' });
+        // Entry / SL / TP — ONLY for the active (open) trade on this market.
+        const open = trades.find((t) => !t.close_ts);
+        if (open) {
+          activeSide.current = open.side === 'sell' ? 'sell' : 'buy';
+          overlayLines.current.push(series.createPriceLine({ price: Number(open.open_price), color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
+          if (open.sl != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (open.tp != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
         }
       }
 
@@ -150,9 +189,18 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
         }
         series.update(liveBar.current);
 
-        // A live price line that follows the bid.
+        // The live current-price line, carrying the position's P&L when one is
+        // open (green in profit, red in loss); plain blue otherwise.
         if (priceLine.current) series.removePriceLine(priceLine.current);
-        priceLine.current = series.createPriceLine({ price, color: '#3b9de7', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: '' });
+        const pl = activeSide.current && q.pnl != null ? Number(q.pnl) : null;
+        priceLine.current = series.createPriceLine({
+          price,
+          color: pl == null ? '#3b9de7' : pl >= 0 ? '#22c55e' : '#ef4444',
+          lineWidth: 2,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: pl == null ? 'PRICE' : `P/L ${pl >= 0 ? '+' : ''}${pl.toFixed(2)}`,
+        });
       }
     };
 
@@ -181,6 +229,11 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
           ))}
         </div>
         <div className="ml-auto flex items-center gap-4 text-sm">
+          {quote?.pnl != null && (
+            <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono tabular text-sm font-bold ${Number(quote.pnl) >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
+              P/L {Number(quote.pnl) >= 0 ? '+' : ''}{Number(quote.pnl).toFixed(2)}
+            </span>
+          )}
           <span className="font-mono tabular">
             <span className="text-fg-subtle text-xs">BID </span><span className="font-bold text-fg">{fmt(quote?.bid, digits)}</span>
             <span className="text-fg-subtle text-xs ml-3">ASK </span><span className="font-bold text-fg">{fmt(quote?.ask, digits)}</span>

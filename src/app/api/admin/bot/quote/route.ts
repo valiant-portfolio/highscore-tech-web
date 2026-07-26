@@ -24,11 +24,11 @@ export async function GET(request: Request) {
   if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 });
 
   const admin = serviceClient();
-  const { data } = await admin
-    .from('bot_quotes')
-    .select('bid, ask, spread, digits, updated_at')
-    .eq('symbol', symbol)
-    .maybeSingle();
+  const [quoteRes, stateRes] = await Promise.all([
+    admin.from('bot_quotes').select('bid, ask, spread, digits, updated_at').eq('symbol', symbol).maybeSingle(),
+    admin.from('bot_market_state').select('pnl, state').eq('symbol', symbol).maybeSingle(),
+  ]);
+  const data = quoteRes.data;
 
   return NextResponse.json({
     bid: data?.bid ?? null,
@@ -36,5 +36,8 @@ export async function GET(request: Request) {
     spread: data?.spread ?? null,
     digits: data?.digits ?? 5,
     updated_at: data?.updated_at ?? null,
+    // Live floating P&L for this market (only meaningful when a position is open).
+    pnl: stateRes.data?.pnl ?? null,
+    state: stateRes.data?.state ?? null,
   });
 }
