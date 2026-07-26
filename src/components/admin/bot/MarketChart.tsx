@@ -19,8 +19,10 @@ import {
   type SeriesMarker, type IPriceLine,
 } from 'lightweight-charts';
 
-const TF_SECONDS: Record<string, number> = { M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 };
-const TIMEFRAMES = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1'] as const;
+// v4: only M15 / H1 / D1 are synced into bot_bars. Do NOT offer M1/M5/H4 — they
+// return empty. (One-line VM change to add more, per the backend contract.)
+const TF_SECONDS: Record<string, number> = { M15: 900, H1: 3600, D1: 86400 };
+const TIMEFRAMES = ['M15', 'H1', 'D1'] as const;
 
 type Candle = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
 interface Trade {
@@ -201,11 +203,11 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover">
               <CandlestickChart className="h-6 w-6 text-fg-subtle" />
             </div>
-            <p className="text-sm font-semibold text-fg">Waiting for the price feed</p>
+            <p className="text-sm font-semibold text-fg">No candles for {alias}</p>
             <p className="max-w-md text-xs text-fg-muted leading-relaxed">
-              No candles for {alias} yet — the quote feed is stale, so there’s nothing to chart.
-              Start <code className="font-mono text-fg-subtle">scripts.quote_feed</code> on the VM and the chart
-              builds itself from the next tick.
+              No history in <code className="font-mono text-fg-subtle">bot_bars</code> for this market/timeframe.
+              Candles are synced by <code className="font-mono text-fg-subtle">scripts.bar_sync</code> on the VM —
+              if it isn’t running, history stops refreshing.
             </p>
           </div>
         )}
