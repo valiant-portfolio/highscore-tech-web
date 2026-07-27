@@ -12,12 +12,15 @@
 // + timeframe persist across a refresh (localStorage).
 
 import { useEffect, useRef, useState } from 'react';
-import { CandlestickChart } from 'lucide-react';
+import { CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2 } from 'lucide-react';
 import {
-  createChart, CandlestickSeries, LineStyle, createSeriesMarkers,
+  createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
   type SeriesMarker, type IPriceLine, type ISeriesMarkersPluginApi,
+  type MouseEventParams,
 } from 'lightweight-charts';
+
+type Tool = 'cursor' | 'hline' | 'trend';
 
 const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
@@ -63,6 +66,10 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [tool, setTool] = useState<Tool>('cursor');
+  const [fs, setFs] = useState(false);
+
+  const cardRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -71,8 +78,36 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
   const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (active trade)
   const markersApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const activeSide = useRef<'buy' | 'sell' | null>(null); // side of the open trade, for the live P&L line
+  // Drawings (manual annotations).
+  const toolRef = useRef<Tool>('cursor');
+  const drawHLines = useRef<IPriceLine[]>([]);
+  const drawTrends = useRef<ISeriesApi<'Line'>[]>([]);
+  const trendStart = useRef<{ time: Time; value: number } | null>(null);
+
+  useEffect(() => { toolRef.current = tool; }, [tool]);
 
   const alias = markets.find((m) => m.symbol === symbol)?.alias ?? symbol;
+
+  const clearDrawings = () => {
+    drawHLines.current.forEach((l) => seriesRef.current?.removePriceLine(l));
+    drawHLines.current = [];
+    drawTrends.current.forEach((s) => chartRef.current?.removeSeries(s));
+    drawTrends.current = [];
+    trendStart.current = null;
+  };
+
+  // Fullscreen (native) on the chart card.
+  const toggleFullscreen = () => {
+    const el = cardRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else el.requestFullscreen().catch(() => {});
+  };
+  useEffect(() => {
+    const onFs = () => setFs(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
 
   // Persist the selection.
   useEffect(() => {
@@ -96,6 +131,28 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
     });
     chartRef.current = chart;
     seriesRef.current = series;
+
+    // Drawing: a click places a horizontal line at the price, or the two ends of
+    // a trend line. Reads the current tool from a ref so we subscribe only once.
+    const onClick = (param: MouseEventParams) => {
+      const t = toolRef.current;
+      if (t === 'cursor' || !param.point || param.time === undefined) return;
+      const price = series.coordinateToPrice(param.point.y);
+      if (price == null) return;
+      if (t === 'hline') {
+        drawHLines.current.push(series.createPriceLine({ price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '' }));
+      } else if (t === 'trend') {
+        const pt = { time: param.time as Time, value: price };
+        if (!trendStart.current) { trendStart.current = pt; return; }
+        const line = chart.addSeries(LineSeries, { color: '#eab308', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        const pts = [trendStart.current, pt].sort((a, b) => (a.time as number) - (b.time as number));
+        line.setData(pts);
+        drawTrends.current.push(line);
+        trendStart.current = null;
+      }
+    };
+    chart.subscribeClick(onClick);
+
     return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, []);
 
@@ -106,6 +163,7 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
     setLoading(true);
     liveBar.current = null;
     priceLine.current = null;
+    clearDrawings(); // manual annotations don't carry across markets/timeframes
 
     (async () => {
       const res = await fetch(`/api/admin/bot/chart?symbol=${encodeURIComponent(symbol)}&tf=${tf}`);
@@ -244,10 +302,33 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
         </div>
       </div>
 
-      <div className="relative rounded-lg border border-border bg-bg-elevated overflow-hidden">
-        {/* The chart canvas — hidden (not unmounted) behind the placeholder so
-            the chart instance stays alive and reappears the instant data flows. */}
-        <div ref={wrapRef} className={`h-[440px] w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`} />
+      <div
+        ref={cardRef}
+        className={`relative flex flex-col rounded-lg border border-border bg-bg-elevated overflow-hidden ${fs ? 'h-screen rounded-none' : 'h-[560px] md:h-[680px]'}`}
+      >
+        {/* Chart toolbar: drawing tools (left) + fullscreen (right). */}
+        <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+          <ToolBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Cursor"><MousePointer2 className="h-4 w-4" /></ToolBtn>
+          <ToolBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price"><Minus className="h-4 w-4" /></ToolBtn>
+          <ToolBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points"><PenLine className="h-4 w-4" /></ToolBtn>
+          <ToolBtn active={false} onClick={clearDrawings} title="Clear drawings"><Eraser className="h-4 w-4" /></ToolBtn>
+          {tool === 'trend' && trendStart.current && <span className="ml-1 text-[11px] text-fg-subtle">click the second point…</span>}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={fs ? 'Exit full screen' : 'Full screen'}
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-surface-hover"
+          >
+            {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {/* Canvas — fills remaining height; hidden behind the placeholder when empty. */}
+        <div
+          ref={wrapRef}
+          className={`flex-1 w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`}
+          style={tool !== 'cursor' ? { cursor: 'crosshair' } : undefined}
+        />
 
         {loading && <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">Loading {alias}…</div>}
 
@@ -266,5 +347,18 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
         )}
       </div>
     </div>
+  );
+}
+
+function ToolBtn({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${active ? 'bg-brand text-brand-fg' : 'text-fg-muted hover:text-fg hover:bg-surface-hover'}`}
+    >
+      {children}
+    </button>
   );
 }

@@ -65,7 +65,7 @@ export function StateBadge({ state }: { state: string | null }) {
  * newest write is older than STALE_MS it's offline. Also refreshes the server
  * component every `intervalMs` so the monitor stays live without a manual reload.
  */
-export function BotStatus({ lastUpdate, intervalMs = 30_000 }: { lastUpdate: string | null; intervalMs?: number }) {
+export function BotStatus({ lastUpdate, intervalMs = 30_000, compact = false }: { lastUpdate: string | null; intervalMs?: number; compact?: boolean }) {
   const router = useRouter();
   const [, tick] = useState(0);
 
@@ -77,6 +77,21 @@ export function BotStatus({ lastUpdate, intervalMs = 30_000 }: { lastUpdate: str
 
   const ms = since(lastUpdate);
   const online = ms !== null && ms < STALE_MS;
+
+  // Compact: just a pulsing dot (title carries the detail). Keeps the top tight
+  // while still auto-refreshing the page every intervalMs.
+  if (compact) {
+    return (
+      <span
+        title={online ? 'Bot online' : 'Bot offline'}
+        aria-label={online ? 'Bot online' : 'Bot offline'}
+        className="relative flex h-2.5 w-2.5 shrink-0"
+      >
+        {online && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />}
+        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-success' : 'bg-danger'}`} />
+      </span>
+    );
+  }
 
   return (
     <span

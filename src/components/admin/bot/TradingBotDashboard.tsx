@@ -39,7 +39,17 @@ export function TradingBotDashboard({
   equityCurve: BotEquity[];
   lastUpdate: string | null;
 }) {
+  // Persist the active tab so a refresh keeps you where you were.
   const [tab, setTab] = useState<Tab>('overview');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bot-tab');
+      if (saved && ['overview', 'chart', 'markets', 'positions', 'transactions', 'performance'].includes(saved)) {
+        setTab(saved as Tab);
+      }
+    } catch { /* ignore */ }
+  }, []);
+  const selectTab = (t: Tab) => { setTab(t); try { localStorage.setItem('bot-tab', t); } catch { /* ignore */ } };
 
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
@@ -62,24 +72,29 @@ export function TradingBotDashboard({
 
   return (
     <div>
-      {/* Tab bar + kill switch */}
-      <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-px">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`inline-flex items-center gap-2 rounded-t-md px-3.5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-              tab === t.key ? 'border-brand text-brand' : 'border-transparent text-fg-muted hover:text-fg'
-            }`}
-          >
-            {t.icon}{t.label}
-            {t.badge != null && t.badge > 0 && (
-              <span className={`rounded-full px-1.5 text-[10px] font-bold ${tab === t.key ? 'bg-brand text-brand-fg' : 'bg-surface-hover text-fg-muted'}`}>{t.badge}</span>
-            )}
-          </button>
-        ))}
-        <div className="ml-auto pb-1"><FlattenAllButton openCount={openTrades.length} /></div>
+      {/* Compact top: online dot + a horizontally-scrollable tab strip + kill
+          switch. No page title/description — the tab content owns the space, and
+          the strip swipes left/right on small screens instead of wrapping. */}
+      <div className="mb-5 flex items-center gap-2 border-b border-border">
+        <BotStatus lastUpdate={lastUpdate} compact />
+        <div className="flex-1 flex items-center gap-1 overflow-x-auto -mb-px [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => selectTab(t.key)}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-t-md px-3 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+                tab === t.key ? 'border-brand text-brand' : 'border-transparent text-fg-muted hover:text-fg'
+              }`}
+            >
+              {t.icon}{t.label}
+              {t.badge != null && t.badge > 0 && (
+                <span className={`rounded-full px-1.5 text-[10px] font-bold ${tab === t.key ? 'bg-brand text-brand-fg' : 'bg-surface-hover text-fg-muted'}`}>{t.badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={openTrades.length} /></div>
       </div>
 
       {tab === 'overview' && (
