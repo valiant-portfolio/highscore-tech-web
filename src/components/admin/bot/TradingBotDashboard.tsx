@@ -51,6 +51,20 @@ export function TradingBotDashboard({
   }, []);
   const selectTab = (t: Tab) => { setTab(t); try { localStorage.setItem('bot-tab', t); } catch { /* ignore */ } };
 
+  // Jump to the chart focused on a market. MarketChart reads its selection from
+  // this localStorage key on mount, and it remounts when we switch to the tab —
+  // so writing the symbol (keeping the current timeframe) then switching lands
+  // the trading view on that market. Used to click an ongoing trade → its chart.
+  const openChartFor = (sym: string) => {
+    try {
+      const cur = JSON.parse(localStorage.getItem('bot-chart-selection') || '{}');
+      localStorage.setItem('bot-chart-selection', JSON.stringify({ ...cur, symbol: sym }));
+    } catch {
+      try { localStorage.setItem('bot-chart-selection', JSON.stringify({ symbol: sym })); } catch { /* ignore */ }
+    }
+    selectTab('chart');
+  };
+
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
   const liveBySymbol = useMemo(() => new Map(markets.map((m) => [m.symbol, m])), [markets]);
@@ -105,7 +119,7 @@ export function TradingBotDashboard({
       )}
       {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} openTrades={openTrades.map((t) => ({ symbol: t.symbol, side: t.side }))} />}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
-      {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} />}
+      {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} onOpenChart={openChartFor} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
       {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
     </div>
@@ -251,9 +265,10 @@ function Markets({
 /* ── Open positions ───────────────────────────────────────────────────── */
 
 function Positions({
-  openTrades, liveBySymbol, floating,
+  openTrades, liveBySymbol, floating, onOpenChart,
 }: {
   openTrades: BotTrade[]; liveBySymbol: Map<string, BotMarket>; floating: number;
+  onOpenChart: (symbol: string) => void;
 }) {
   if (openTrades.length === 0) {
     return <AdminCard><Empty>No positions open right now.</Empty></AdminCard>;
@@ -261,7 +276,7 @@ function Positions({
   return (
     <AdminCard>
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-        <span className="text-sm text-fg-muted">{openTrades.length} open</span>
+        <span className="text-sm text-fg-muted">{openTrades.length} open · click a row to open its chart</span>
         <span className={`text-sm font-bold ${pnlTone(floating)}`}>Floating {signed(floating)}</span>
       </div>
       <div className="overflow-x-auto">
@@ -278,15 +293,26 @@ function Positions({
             {openTrades.map((t) => {
               const live = liveBySymbol.get(t.symbol)?.pnl ?? t.pnl ?? null;
               return (
-                <tr key={t.id} className="hover:bg-surface-hover/30">
-                  <Td className="pl-4 font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
+                <tr
+                  key={t.id}
+                  onClick={() => onOpenChart(t.symbol)}
+                  title="Open this market in the chart"
+                  className="cursor-pointer hover:bg-surface-hover/30"
+                >
+                  <Td className="pl-4 font-semibold text-fg">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CandlestickChart className="h-3.5 w-3.5 text-fg-subtle" />
+                      {t.symbol}{t.is_dry_run && <DryTag />}
+                    </span>
+                  </Td>
                   <Td><SideTag side={t.side} /></Td>
                   <Td className="text-right tabular">{t.volume}</Td>
                   <Td className="text-right tabular">{px(t.open_price)}</Td>
                   <Td className="text-right tabular text-fg-muted">{px(t.sl)} / {px(t.tp)}</Td>
                   <Td className={`text-right tabular font-bold ${pnlTone(live)}`}>{live == null ? '—' : signed(live)}</Td>
                   <Td className="text-right text-fg-subtle"><TimeAgo iso={t.open_ts} /></Td>
-                  <Td className="text-right pr-4"><ClosePositionButton symbol={t.symbol} ticket={t.ticket} /></Td>
+                  {/* stop the row click so closing a position doesn't also navigate */}
+                  <Td className="text-right pr-4" onClick={(e) => e.stopPropagation()}><ClosePositionButton symbol={t.symbol} ticket={t.ticket} /></Td>
                 </tr>
               );
             })}
@@ -550,8 +576,8 @@ function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; 
 function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <th className={`px-3 py-3 font-bold ${className}`}>{children}</th>;
 }
-function Td({ children, className = '', title }: { children: React.ReactNode; className?: string; title?: string }) {
-  return <td className={`px-3 py-3 ${className}`} title={title}>{children}</td>;
+function Td({ children, className = '', title, onClick }: { children: React.ReactNode; className?: string; title?: string; onClick?: React.MouseEventHandler<HTMLTableCellElement> }) {
+  return <td className={`px-3 py-3 ${className}`} title={title} onClick={onClick}>{children}</td>;
 }
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="p-10 text-center text-sm text-fg-muted">{children}</div>;
