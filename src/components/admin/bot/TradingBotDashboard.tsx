@@ -103,7 +103,7 @@ export function TradingBotDashboard({
           floating={floating} todayRealized={todayRealized}
         />
       )}
-      {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} />}
+      {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} openTrades={openTrades.map((t) => ({ symbol: t.symbol, side: t.side }))} />}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
       {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}

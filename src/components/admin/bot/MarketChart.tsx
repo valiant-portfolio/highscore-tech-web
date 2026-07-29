@@ -9,7 +9,8 @@
 //
 // Overlays for the ACTIVE (open) trade only: a blue ENTRY line, dashed SL/TP,
 // and a live current-price line carrying the position's P&L. The selected market
-// + timeframe persist across a refresh (localStorage).
+// + timeframe persist across a refresh (localStorage). Client-side indicators
+// (MA/EMA/Bollinger) and manual drawings (h-line/trend) are drawn on top.
 
 import { useEffect, useRef, useState } from 'react';
 import { CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2 } from 'lucide-react';
@@ -24,10 +25,28 @@ type Tool = 'cursor' | 'hline' | 'trend';
 
 const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
-// v4: only M15 / H1 / D1 are synced into bot_bars. Do NOT offer M1/M5/H4 — they
-// return empty. (One-line VM change to add more, per the backend contract.)
-const TF_SECONDS: Record<string, number> = { M15: 900, H1: 3600, D1: 86400 };
-const TIMEFRAMES = ['M15', 'H1', 'D1'] as const;
+// v6: bot_bars now syncs 8 timeframes. The DB stores D1/W1 but Olivia's picker
+// labels them Day1/WK1 — so keep label + value separate. M1 is deliberately NOT
+// synced (Deriv caps its history); leaving it out avoids an empty chart.
+const TIMEFRAMES: { label: string; value: string }[] = [
+  { label: 'M5', value: 'M5' },
+  { label: 'M15', value: 'M15' },
+  { label: 'M30', value: 'M30' },
+  { label: 'H1', value: 'H1' },
+  { label: 'H4', value: 'H4' },
+  { label: 'Day1', value: 'D1' },
+  { label: 'WK1', value: 'W1' },
+  { label: 'MN', value: 'MN' },
+];
+const TF_VALUES = TIMEFRAMES.map((t) => t.value);
+const TF_SECONDS: Record<string, number> = {
+  M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800, MN: 2592000,
+};
+// The live quote only rolls a brand-new forming candle for intraday buckets,
+// where UTC-epoch alignment matches the broker's bars. For H4 and higher we just
+// extend the last historical bar with the live price (epoch buckets wouldn't line
+// up with the broker's week/month boundaries and would paint a spurious bar).
+const INTRADAY_MAX_SECS = 3600;
 
 type Candle = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
 interface Trade {
@@ -41,7 +60,71 @@ const fmt = (n: number | null | undefined, digits: number) =>
 
 interface Quote { bid: number | null; ask: number | null; spread: number | null; updated_at: string | null; pnl: number | null; state: string | null }
 
-export function MarketChart({ markets }: { markets: { symbol: string; alias: string }[] }) {
+/* ── Indicators (computed client-side from the loaded candles) ─────────── */
+type IndId = 'sma20' | 'sma50' | 'ema20' | 'boll';
+const IND_META: { id: IndId; label: string; color: string; title: string }[] = [
+  { id: 'sma20', label: 'MA20', color: '#f59e0b', title: 'Simple moving average (20)' },
+  { id: 'sma50', label: 'MA50', color: '#a855f7', title: 'Simple moving average (50)' },
+  { id: 'ema20', label: 'EMA20', color: '#06b6d4', title: 'Exponential moving average (20)' },
+  { id: 'boll', label: 'BOLL', color: '#94a3b8', title: 'Bollinger Bands (20, 2σ)' },
+];
+type LinePt = { time: UTCTimestamp; value: number };
+
+function sma(bars: Candle[], period: number): LinePt[] {
+  const out: LinePt[] = [];
+  let sum = 0;
+  for (let i = 0; i < bars.length; i++) {
+    sum += bars[i].close;
+    if (i >= period) sum -= bars[i - period].close;
+    if (i >= period - 1) out.push({ time: bars[i].time, value: sum / period });
+  }
+  return out;
+}
+function ema(bars: Candle[], period: number): LinePt[] {
+  const out: LinePt[] = [];
+  const k = 2 / (period + 1);
+  let prev = 0;
+  for (let i = 0; i < bars.length; i++) {
+    const c = bars[i].close;
+    prev = i === 0 ? c : c * k + prev * (1 - k);
+    if (i >= period - 1) out.push({ time: bars[i].time, value: prev });
+  }
+  return out;
+}
+function bollinger(bars: Candle[], period: number, mult: number): { upper: LinePt[]; mid: LinePt[]; lower: LinePt[] } {
+  const upper: LinePt[] = [], mid: LinePt[] = [], lower: LinePt[] = [];
+  for (let i = period - 1; i < bars.length; i++) {
+    let s = 0;
+    for (let j = i - period + 1; j <= i; j++) s += bars[j].close;
+    const m = s / period;
+    let v = 0;
+    for (let j = i - period + 1; j <= i; j++) { const d = bars[j].close - m; v += d * d; }
+    const sd = Math.sqrt(v / period);
+    const t = bars[i].time;
+    mid.push({ time: t, value: m });
+    upper.push({ time: t, value: m + mult * sd });
+    lower.push({ time: t, value: m - mult * sd });
+  }
+  return { upper, mid, lower };
+}
+
+export function MarketChart({
+  markets, openTrades = [],
+}: {
+  markets: { symbol: string; alias: string }[];
+  openTrades?: { symbol: string; side: string }[];
+}) {
+  // A market's label reads "Alias — SYMBOL", but when the alias IS the symbol
+  // (e.g. NZDUSD) that renders as "NZDUSD — NZDUSD". Show it once in that case.
+  const label = (sym: string) => {
+    const m = markets.find((x) => x.symbol === sym);
+    const a = m?.alias;
+    return a && a !== sym ? `${a} — ${sym}` : sym;
+  };
+  // Symbols that currently hold an open trade (deduped), with a side for the dot.
+  const openBySymbol = new Map<string, string>();
+  for (const t of openTrades) if (!openBySymbol.has(t.symbol)) openBySymbol.set(t.symbol, t.side);
+
   // Restore the last-viewed market + timeframe so a refresh keeps your place.
   const [symbol, setSymbol] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -56,7 +139,7 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
     if (typeof window !== 'undefined') {
       try {
         const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-        if (s.tf && (TIMEFRAMES as readonly string[]).includes(s.tf)) return s.tf as string;
+        if (s.tf && TF_VALUES.includes(s.tf)) return s.tf as string;
       } catch { /* ignore */ }
     }
     return 'M15';
@@ -68,6 +151,7 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
 
   const [tool, setTool] = useState<Tool>('cursor');
   const [fs, setFs] = useState(false);
+  const [inds, setInds] = useState<Set<IndId>>(new Set());
 
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -83,6 +167,10 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
   const drawHLines = useRef<IPriceLine[]>([]);
   const drawTrends = useRef<ISeriesApi<'Line'>[]>([]);
   const trendStart = useRef<{ time: Time; value: number } | null>(null);
+  // Indicators.
+  const barsRef = useRef<Candle[]>([]);
+  const indsRef = useRef<Set<IndId>>(inds);
+  const indSeries = useRef<ISeriesApi<'Line'>[]>([]);
 
   useEffect(() => { toolRef.current = tool; }, [tool]);
 
@@ -95,6 +183,47 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
     drawTrends.current = [];
     trendStart.current = null;
   };
+
+  // Draw the active indicators from the currently-loaded candles. Clear-then-draw
+  // so it's idempotent: called both when the candles reload and when a toggle flips.
+  const redrawIndicators = () => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    indSeries.current.forEach((s) => chart.removeSeries(s));
+    indSeries.current = [];
+    const bars = barsRef.current;
+    if (!bars.length) return;
+    const addLine = (data: LinePt[], color: string, dashed = false) => {
+      const s = chart.addSeries(LineSeries, {
+        color, lineWidth: dashed ? 1 : 2,
+        lineStyle: dashed ? LineStyle.Dashed : LineStyle.Solid,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      s.setData(data);
+      indSeries.current.push(s);
+    };
+    for (const id of indsRef.current) {
+      if (id === 'boll') {
+        const { upper, mid, lower } = bollinger(bars, 20, 2);
+        addLine(upper, '#94a3b8', true);
+        addLine(mid, '#94a3b8', false);
+        addLine(lower, '#94a3b8', true);
+      } else if (id === 'sma20') {
+        addLine(sma(bars, 20), '#f59e0b');
+      } else if (id === 'sma50') {
+        addLine(sma(bars, 50), '#a855f7');
+      } else if (id === 'ema20') {
+        addLine(ema(bars, 20), '#06b6d4');
+      }
+    }
+  };
+
+  const toggleInd = (id: IndId) => setInds((prev) => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  useEffect(() => { indsRef.current = inds; redrawIndicators(); }, [inds]);
 
   // Fullscreen (native) on the chart card.
   const toggleFullscreen = () => {
@@ -174,8 +303,10 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
 
       setDigits(data.digits ?? 5);
       const bars: Candle[] = (data.bars ?? []).map((b: Candle) => ({ ...b, time: b.time as UTCTimestamp }));
+      barsRef.current = bars;
       setHasHistory(bars.length > 0);
       series.setData(bars);
+      redrawIndicators(); // recompute active indicators for the new candles
 
       // CLEAR every overlay from the previous market/timeframe first — otherwise
       // price lines (entry/SL/TP) and markers pile up on the axis and lines from
@@ -238,9 +369,13 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
       const fresh = q.updated_at && Date.now() - new Date(q.updated_at).getTime() < 60_000;
       if (fresh && series && price != null && Number.isFinite(price)) {
         const secs = TF_SECONDS[tf] ?? 900;
-        const bucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
         const lb = liveBar.current;
-        if (!lb || (bucket as number) > (lb.time as number)) {
+        const bucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
+        // Intraday: roll into a fresh bucket when the clock crosses it. H4+ : just
+        // extend the last historical bar (epoch buckets don't match broker weeks/months).
+        if (!lb) {
+          liveBar.current = { time: bucket, open: price, high: price, low: price, close: price };
+        } else if (secs <= INTRADAY_MAX_SECS && (bucket as number) > (lb.time as number)) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price };
         } else {
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price };
@@ -276,13 +411,13 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
       {/* Controls + ticker */}
       <div className="flex flex-wrap items-center gap-3">
         <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="rounded-md border border-border bg-bg px-3 py-1.5 text-sm font-semibold text-fg outline-none focus:border-brand">
-          {markets.map((m) => <option key={m.symbol} value={m.symbol}>{m.alias} — {m.symbol}</option>)}
+          {markets.map((m) => <option key={m.symbol} value={m.symbol}>{label(m.symbol)}{openBySymbol.has(m.symbol) ? '  ●' : ''}</option>)}
         </select>
         <div className="inline-flex rounded-md border border-border overflow-hidden">
           {TIMEFRAMES.map((f) => (
-            <button key={f} type="button" onClick={() => setTf(f)}
-              className={`px-2.5 py-1.5 text-xs font-bold ${tf === f ? 'bg-brand text-brand-fg' : 'text-fg-muted hover:bg-surface-hover'}`}>
-              {f}
+            <button key={f.value} type="button" onClick={() => setTf(f.value)}
+              className={`px-2.5 py-1.5 text-xs font-bold ${tf === f.value ? 'bg-brand text-brand-fg' : 'text-fg-muted hover:bg-surface-hover'}`}>
+              {f.label}
             </button>
           ))}
         </div>
@@ -302,16 +437,42 @@ export function MarketChart({ markets }: { markets: { symbol: string; alias: str
         </div>
       </div>
 
+      {/* Jump straight to a market that has an ongoing trade, then watch the
+          candle move live with its entry/SL/TP overlaid. */}
+      {openBySymbol.size > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-fg-subtle">Ongoing trades:</span>
+          {[...openBySymbol.entries()].map(([sym, side]) => (
+            <button key={sym} type="button" onClick={() => setSymbol(sym)}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold transition-colors ${symbol === sym ? 'border-brand text-brand' : 'border-border text-fg-muted hover:text-fg hover:bg-surface-hover'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${side === 'sell' ? 'bg-danger' : 'bg-success'}`} />
+              {label(sym)}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div
         ref={cardRef}
         className={`relative flex flex-col rounded-lg border border-border bg-bg-elevated overflow-hidden ${fs ? 'h-screen rounded-none' : 'h-[560px] md:h-[680px]'}`}
       >
-        {/* Chart toolbar: drawing tools (left) + fullscreen (right). */}
+        {/* Chart toolbar: drawing tools · indicators (left) + fullscreen (right). */}
         <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
           <ToolBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Cursor"><MousePointer2 className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price"><Minus className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points"><PenLine className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={false} onClick={clearDrawings} title="Clear drawings"><Eraser className="h-4 w-4" /></ToolBtn>
+
+          <span className="mx-1 h-5 w-px bg-border" />
+          {/* The 4 indicators. */}
+          {IND_META.map((m) => (
+            <button key={m.id} type="button" onClick={() => toggleInd(m.id)} title={m.title}
+              className={`inline-flex h-8 items-center rounded-md px-2 text-[11px] font-bold transition-colors ${inds.has(m.id) ? 'text-brand-fg' : 'text-fg-muted hover:text-fg hover:bg-surface-hover'}`}
+              style={inds.has(m.id) ? { backgroundColor: m.color } : undefined}>
+              {m.label}
+            </button>
+          ))}
+
           {tool === 'trend' && trendStart.current && <span className="ml-1 text-[11px] text-fg-subtle">click the second point…</span>}
           <button
             type="button"
