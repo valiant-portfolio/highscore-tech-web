@@ -25,10 +25,16 @@ export default async function OnboardingPage() {
   if (user.role === 'staff') redirect('/staff');
   if (user.role === 'admin') redirect('/admin');
 
-  // Already onboarded → /profile.
-  const supabase = await createClient();
-  const { data } = await supabase.from('users').select('onboarded_at').eq('id', user.id).maybeSingle();
-  if (data?.onboarded_at) redirect('/profile');
+  // Already onboarded → /profile. Best-effort: a transient read failure here
+  // must not crash the render (that showed as a post-login 500 fixed by reload).
+  // If we can't tell, fall through and let them see the form.
+  let onboardedAt: string | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from('users').select('onboarded_at').eq('id', user.id).maybeSingle();
+    onboardedAt = (data?.onboarded_at as string | null) ?? null;
+  } catch { /* transient — treat as not-yet-onboarded */ }
+  if (onboardedAt) redirect('/profile');
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
