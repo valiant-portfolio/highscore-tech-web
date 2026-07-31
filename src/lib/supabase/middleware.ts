@@ -39,11 +39,42 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: do not put logic between createServerClient and getUser()
   // or sessions can be silently invalidated.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  //
+  // getUser() *returns* an error for a missing/invalid session (handled as
+  // anonymous below), but it can *throw* when the auth-token cookie is poisoned
+  // — a consumed/rotated refresh token that can never refresh. That throw made
+  // every request 500 with no way out ("reload doesn't fix it"). Retry once for
+  // a transient blip; if it still throws, the cookie is genuinely broken.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null;
+  let authThrew = false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await supabase.auth.getUser();
+      user = res.data.user;
+      authThrew = false;
+      break;
+    } catch {
+      authThrew = true;
+    }
+  }
 
   const path = request.nextUrl.pathname;
+
+  // Self-heal a poisoned session: drop every Supabase auth cookie so the browser
+  // becomes cleanly anonymous, then bounce protected routes to a fresh login.
+  // Without this, a broken cookie strands the user on a permanent 500.
+  if (authThrew) {
+    const sbCookies = request.cookies.getAll().map((c) => c.name).filter((n) => n.startsWith('sb-'));
+    const clear = (res: NextResponse) => { sbCookies.forEach((n) => res.cookies.delete(n)); return res; };
+    if (PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = '';
+      url.searchParams.set('next', path);
+      return clear(NextResponse.redirect(url));
+    }
+    return clear(NextResponse.next({ request }));
+  }
 
   // 1. Guard protected routes for anonymous visitors.
   if (!user && PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) {
