@@ -2,10 +2,12 @@
 
 // Candlestick chart for one market, TradingView Lightweight Charts (MIT).
 //
-// Data (all admin-gated, server-read — nothing exposed to the browser via the
-// anon key):
-//   • history  → /api/admin/bot/chart  (bot_bars OHLCV + this market's trades)
-//   • live     → /api/admin/bot/quote   polled ~1.5s (bid/ask + floating P&L)
+// Data is read STRAIGHT FROM SUPABASE in the browser — no Next.js API route, so
+// no Netlify Function per tick. Access is gated by admin-only RLS
+// (trading-bot-db/frontend_admin_read_policies.sql): only a logged-in admin or
+// trading-bot staff can SELECT these tables; the anon key alone reads nothing.
+//   • history  → bot_bars (OHLCV) + this market's bot_trades
+//   • live     → bot_quotes (bid/ask) + bot_market_state (floating P&L), ~1.5s
 //
 // Overlays for the ACTIVE (open) trade only: a blue ENTRY line, dashed SL/TP,
 // and a live current-price line carrying the position's P&L. The selected market
@@ -13,6 +15,7 @@
 // (MA/EMA/Bollinger) and manual drawings (h-line/trend) are drawn on top.
 
 import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2 } from 'lucide-react';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
@@ -22,6 +25,10 @@ import {
 } from 'lightweight-charts';
 
 type Tool = 'cursor' | 'hline' | 'trend';
+
+// One browser Supabase client for the module. Uses the logged-in admin's
+// session, so RLS lets it read the bot_* tables.
+const supabase = createClient();
 
 const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
@@ -295,14 +302,23 @@ export function MarketChart({
     clearDrawings(); // manual annotations don't carry across markets/timeframes
 
     (async () => {
-      const res = await fetch(`/api/admin/bot/chart?symbol=${encodeURIComponent(symbol)}&tf=${tf}`);
+      // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
+      const [barsRes, tradesRes, quoteRes] = await Promise.all([
+        supabase.from('bot_bars').select('ts,open,high,low,close')
+          .eq('symbol', symbol).eq('timeframe', tf).order('ts', { ascending: true }).limit(1500),
+        supabase.from('bot_trades').select('id,side,open_ts,open_price,close_ts,close_price,sl,tp,pnl,close_reason')
+          .eq('symbol', symbol).order('open_ts', { ascending: true }).limit(300),
+        supabase.from('bot_quotes').select('digits').eq('symbol', symbol).maybeSingle(),
+      ]);
       if (!alive) return;
-      const data = await res.json();
       const series = seriesRef.current;
       if (!series) return;
 
-      setDigits(data.digits ?? 5);
-      const bars: Candle[] = (data.bars ?? []).map((b: Candle) => ({ ...b, time: b.time as UTCTimestamp }));
+      setDigits((quoteRes.data?.digits as number) ?? 5);
+      const bars: Candle[] = (barsRes.data ?? []).map((b) => ({
+        time: Math.floor(new Date(b.ts as string).getTime() / 1000) as UTCTimestamp,
+        open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
+      }));
       barsRef.current = bars;
       setHasHistory(bars.length > 0);
       series.setData(bars);
@@ -320,7 +336,7 @@ export function MarketChart({
         liveBar.current = bars[bars.length - 1];
         chartRef.current?.timeScale().fitContent();
 
-        const trades: Trade[] = data.trades ?? [];
+        const trades: Trade[] = (tradesRes.data ?? []) as Trade[];
 
         // Markers for every trade (entry arrows) — updated in place, not stacked.
         const markers = trades.map((t) => {
@@ -358,9 +374,21 @@ export function MarketChart({
     let alive = true;
 
     const tick = async () => {
-      const res = await fetch(`/api/admin/bot/quote?symbol=${encodeURIComponent(symbol)}`);
+      // Live quote + floating P&L, read directly from Supabase (no Netlify Function).
+      const [qRes, msRes] = await Promise.all([
+        supabase.from('bot_quotes').select('bid,ask,spread,updated_at').eq('symbol', symbol).maybeSingle(),
+        supabase.from('bot_market_state').select('pnl,state').eq('symbol', symbol).maybeSingle(),
+      ]);
       if (!alive) return;
-      const q = await res.json();
+      const qd = qRes.data;
+      const q: Quote = {
+        bid: (qd?.bid as number) ?? null,
+        ask: (qd?.ask as number) ?? null,
+        spread: (qd?.spread as number) ?? null,
+        updated_at: (qd?.updated_at as string) ?? null,
+        pnl: (msRes.data?.pnl as number) ?? null,
+        state: (msRes.data?.state as string) ?? null,
+      };
       setQuote(q);
       const price = q.bid;
       const series = seriesRef.current;
