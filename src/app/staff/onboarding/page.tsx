@@ -392,23 +392,17 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
 
                   <p key="c2">
                     <strong className="block text-[13px] uppercase tracking-[0.12em] text-[#0A8EA8] mb-1">2. Working hours</strong>
-                    {isDev ? (
-                      <>
-                        As a <strong>developer</strong>, you are evaluated on delivery, not hours.
-                        You may work at any time of day or night provided you (a) deliver assigned
-                        tasks on or before agreed deadlines, (b) attend scheduled meetings, and
-                        (c) respond to time-sensitive communication during business hours.
-                      </>
-                    ) : (
-                      <>
-                        You must be <strong>available and active</strong> during standard business
-                        hours (<strong>09:00–17:00 West Africa Time</strong>, Monday to Friday).
-                        Active means online in the Company&apos;s communication tools and able to
-                        respond to messages within about thirty minutes during those hours.
-                      </>
-                    )}{' '}
-                    Scheduled meetings are mandatory unless prior approval to skip has been
-                    obtained from the meeting organiser.
+                    The Company operates fixed working sessions (all times West Africa Time):{' '}
+                    <strong>Monday to Friday, 9:00 AM–1:00 PM and 8:00 PM–11:00 PM</strong>, and{' '}
+                    <strong>Saturday, 9:00 PM–12:00 AM</strong>. You must be{' '}
+                    <strong>available and active</strong> for the full duration of every session —
+                    online in the Company&apos;s communication tools and able to respond promptly.
+                    During the <strong>evening sessions</strong> (Monday–Friday 8:00–11:00 PM and
+                    Saturday 9:00 PM–12:00 AM), all staff must <strong>share their screen for the
+                    entire session</strong>. Screen sharing is <strong>not</strong> required during
+                    the morning session (Monday–Friday 9:00 AM–1:00 PM). Scheduled meetings are
+                    mandatory unless prior approval to skip has been obtained from the meeting
+                    organiser.
                   </p>,
 
                   <p key="c3">
