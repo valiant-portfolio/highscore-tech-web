@@ -22,7 +22,7 @@ import { getCurrentUser } from '@/lib/auth/queries';
 import {
   signOfferLetterAction, signNdaAction, signCompanyPolicyAction,
 } from '@/lib/staff/signature-actions';
-import { ROLE_CONTENT, breakdownSalary } from '@/lib/staff/role-content';
+import { breakdownSalary } from '@/lib/staff/role-content';
 import { formatNgnPlain } from '@/lib/staff/pdf-shared';
 
 export const metadata: Metadata = {
@@ -92,7 +92,6 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   else if (requestedStep === 'details' && docsSigned && !state.detailsComplete)     activeStep = 'details';
   else if (requestedStep === 'done'    && state.complete)                           activeStep = 'done';
 
-  const content   = ROLE_CONTENT[staff.slug];
   const salary    = breakdownSalary(staff.slug, staff.salary_ngn);
   const firstName = staff.full_name.split(' ')[0] ?? 'team';
 
@@ -101,44 +100,32 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
     ? formatDate(new Date(staff.start_date))
     : 'a date to be confirmed';
   const recipient = `${staff.full_name}\n${staff.role_title}\nRemote · Nigeria`;
-  const isDev = /developer|engineer|dev/i.test(staff.role_title);
 
-  // ── Offer letter content ──────────────────────────────────────────────
+  // ── Offer letter content — kept simple and corporate ──────────────────
   const offerParagraphs: React.ReactNode[] = [
     <p key="p1">
       We are pleased to offer you the position of <strong>{staff.role_title}</strong>
       {staff.department ? <> in our {staff.department}</> : null} at Highscore Tech,
-      reporting to <strong>{staff.reports_to_name ?? 'Victor Otung, the Chief Executive Officer'}</strong>.
-      Your appointment will take effect from <strong>{startDateText}</strong>.
+      effective <strong>{startDateText}</strong>.
     </p>,
     <p key="p2">
-      Your monthly compensation will be <strong>{formatNgnPlain(salary.total)}</strong>
+      Your monthly salary will be <strong>{formatNgnPlain(salary.total)}</strong>
       {salary.allowance ? (
-        <> ({formatNgnPlain(salary.base)} basic salary plus {formatNgnPlain(salary.allowance.amount)} {salary.allowance.label.toLowerCase()})</>
+        <> ({formatNgnPlain(salary.base)} basic plus {formatNgnPlain(salary.allowance.amount)} {salary.allowance.label.toLowerCase()})</>
       ) : null}, paid on the <strong>15th of every month</strong> by bank transfer to a Nigerian account you nominate.
     </p>,
-    <p key="p2b">
-      Highscore Tech operates as a <strong>fully remote</strong> company. You will work from a quiet,
-      secure location of your choosing within Nigeria.{' '}
-      {isDev
-        ? 'As a developer, you may set your own hours provided you meet agreed deadlines, attend scheduled meetings, and remain reachable for time-sensitive matters.'
-        : 'You will be expected to be available and active during standard business hours (09:00–17:00 West Africa Time) on working days.'}
+    <p key="p3">
+      Highscore Tech is a <strong>fully remote</strong> company; you will work from a secure
+      location of your choosing within Nigeria. Your working hours and other terms of employment
+      are set out in the Company Policy and Staff Agreement.
     </p>,
-    ...(content
-      ? [
-          <p key="p3">
-            In this role you will own, among other things: {content.responsibilities.slice(0, 3).join('; ')}.
-            A complete role description is provided as a separate document and forms part of this agreement.
-          </p>,
-        ]
-      : []),
     <p key="p4">
-      Your employment will be governed by the Employment Contract and Non-Disclosure Agreement,
-      and by the Company Policy and Staff Agreement, which you will be asked to sign next. By
-      accepting this offer you confirm that you will read and accept those documents in full.
+      This offer is subject to the Employment Contract and Non-Disclosure Agreement and the
+      Company Policy and Staff Agreement, which you will sign next. By accepting, you confirm that
+      you will read and accept those documents in full.
     </p>,
     <p key="p5">
-      We are looking forward to having you join the team. To accept, sign in the space provided below.
+      We look forward to welcoming you to the team. To accept, please sign below.
     </p>,
   ];
 

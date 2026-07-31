@@ -23,9 +23,7 @@ interface Section {
   paragraphs: string[];
 }
 
-function buildSections(role: string): Section[] {
-  const isDev = /developer|engineer|dev/i.test(role);
-
+function buildSections(): Section[] {
   return [
     {
       heading: '1. Remote-first work model',
@@ -37,10 +35,9 @@ function buildSections(role: string): Section[] {
     {
       heading: '2. Working hours',
       paragraphs: [
-        isDev
-          ? 'As a developer, you are evaluated on delivery, not hours. You may choose when in the day or night you work, provided you (a) deliver assigned tasks on or before agreed deadlines, (b) attend scheduled meetings, and (c) respond to time-sensitive communication during business hours.'
-          : 'You must be available and actively contactable during standard business hours of 09:00 – 17:00 West Africa Time, Monday to Friday. Active means online in the Company\'s communication tools and able to respond to messages within a reasonable time (typically thirty minutes during business hours).',
-        'Regardless of role, scheduled meetings are mandatory unless prior approval to skip has been obtained from the meeting organiser.',
+        'The Company operates fixed working sessions (all times West Africa Time): Monday to Friday, 9:00 AM – 1:00 PM and 8:00 PM – 11:00 PM, and Saturday, 9:00 PM – 12:00 AM. You must be available and active for the full duration of every session — online in the Company\'s communication tools and able to respond promptly.',
+        'During the evening sessions (Monday to Friday 8:00 PM – 11:00 PM and Saturday 9:00 PM – 12:00 AM), all staff must share their screen for the entire session. Screen sharing is not required during the morning session (Monday to Friday 9:00 AM – 1:00 PM).',
+        'Scheduled meetings are mandatory unless prior approval to skip has been obtained from the meeting organiser.',
       ],
     },
     {
@@ -140,7 +137,7 @@ function buildSections(role: string): Section[] {
 }
 
 export function PolicyPdf({ staff, issuedDate, ceoSignatureDataUri, staffSignatureDataUri }: Props) {
-  const sections = buildSections(staff.role_title);
+  const sections = buildSections();
   const today = new Date();
   const formatFull = (d: Date): string =>
     new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);

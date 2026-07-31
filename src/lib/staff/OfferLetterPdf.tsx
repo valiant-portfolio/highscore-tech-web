@@ -73,12 +73,6 @@ export function OfferLetterPdf({ staff, issuedDate, ceoSignatureDataUri, staffSi
             <Text style={shared.kvVal}>{staff.role_title}</Text>
           </View>
           <View style={shared.kvRow}>
-            <Text style={shared.kvKey}>Reports to</Text>
-            <Text style={shared.kvVal}>
-              {staff.reports_to_name ?? `${CEO_NAME} — Chief Executive Officer`}
-            </Text>
-          </View>
-          <View style={shared.kvRow}>
             <Text style={shared.kvKey}>Work arrangement</Text>
             <Text style={shared.kvVal}>Fully remote — Nigeria</Text>
           </View>
