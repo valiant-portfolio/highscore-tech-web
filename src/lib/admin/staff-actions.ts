@@ -515,6 +515,22 @@ export async function createStaffAction(
     return { status: 'error', message: `Could not create staff record: ${staffErr?.message ?? 'unknown'}` };
   }
 
+  // Mark the linked account as staff. The handle_new_user trigger creates the
+  // public.users row with the DEFAULT role 'student', and login/middleware route
+  // by users.role — so without this the new hire is treated as a student and
+  // sent to /onboarding (student) instead of /staff → /staff/onboarding, where
+  // the agreement + signatory wizard lives.
+  const { error: roleErr } = await admin.from('users').update({ role: 'staff' }).eq('id', newUserId);
+  if (roleErr) {
+    // Non-fatal: the staff record exists, but flag it so the admin can fix the
+    // role rather than leave the hire stuck on the student onboarding page.
+    console.error(`[staff.create] failed to set users.role='staff' for ${newUserId}:`, roleErr);
+    return {
+      status: 'error',
+      message: `Staff record created, but setting their account role failed (${roleErr.message}). Set role='staff' for ${work_email} in Supabase, or they'll be routed to student onboarding.`,
+    };
+  }
+
   // 3. Audit log. We DO record the email (it's not secret); we do NOT
   //    record the password.
   await logAudit({
