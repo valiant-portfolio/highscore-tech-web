@@ -23,12 +23,16 @@ export async function uploadStaffNinAction(_prev: NinUploadState, formData: Form
   // Confirm caller is a linked, active staff member with edit access.
   const [{ data: staff }, { data: me }] = await Promise.all([
     admin.from('staff').select('id, status').eq('user_id', user.id).maybeSingle(),
-    admin.from('users').select('admin_sections').eq('id', user.id).maybeSingle(),
+    admin.from('users').select('admin_sections, nin_doc_url').eq('id', user.id).maybeSingle(),
   ]);
   if (!staff)                      return { status: 'error', message: 'You are not registered as staff.' };
   if (staff.status !== 'active')   return { status: 'error', message: 'Your staff record is not active.' };
   if (!((me?.admin_sections as string[] | null) ?? []).includes('profile-edit')) {
     return { status: 'error', message: 'You do not have access to edit your profile. Ask an admin to grant it.' };
+  }
+  // Write-once: once a NIN is on file it can't be changed by the staff member.
+  if (me?.nin_doc_url) {
+    return { status: 'error', message: 'Your NIN is already on file and cannot be changed. Contact an admin if it needs updating.' };
   }
 
   const file = formData.get('nin_doc') as File | null;

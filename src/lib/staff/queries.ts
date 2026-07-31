@@ -102,22 +102,31 @@ export interface OnboardingState {
   offerSigned:   boolean;
   ndaSigned:     boolean;
   policySigned:  boolean;
+  /** Both the NIN document and the bank account are on file. Captured once, at
+   *  the end of onboarding, on the details step. */
+  detailsComplete: boolean;
   complete:      boolean;
-  /** The next step to take. 'done' means the dashboard is unlocked. */
+  /** The next SIGNING step. 'done' means all three documents are signed — the
+   *  celebrate screen shows, then routes to the one-time details capture. */
   nextStep: 'offer' | 'nda' | 'policy' | 'done';
 }
 
-export function getOnboardingState(staff: StaffRecord): OnboardingState {
+// `ninUploaded` comes from users.nin_doc_url (a separate table from staff), so
+// the caller passes it in. Onboarding is only truly complete once the documents
+// are signed AND the NIN + bank details are captured.
+export function getOnboardingState(staff: StaffRecord, ninUploaded = false): OnboardingState {
   const hasSignature  = !!staff.signature_url;
   const offerSigned   = !!staff.offer_signed_at;
   const ndaSigned     = !!staff.nda_signed_at;
   const policySigned  = !!staff.policy_signed_at;
-  const complete      = offerSigned && ndaSigned && policySigned;
+  const docsSigned    = offerSigned && ndaSigned && policySigned;
+  const detailsComplete = ninUploaded && !!staff.bank_account_number;
+  const complete      = docsSigned && detailsComplete;
   const nextStep: OnboardingState['nextStep'] =
     !offerSigned  ? 'offer'  :
     !ndaSigned    ? 'nda'    :
     !policySigned ? 'policy' : 'done';
-  return { hasSignature, offerSigned, ndaSigned, policySigned, complete, nextStep };
+  return { hasSignature, offerSigned, ndaSigned, policySigned, detailsComplete, complete, nextStep };
 }
 
 export async function getStaffBySlug(slug: string): Promise<StaffRecord | null> {

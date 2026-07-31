@@ -11,9 +11,12 @@ interface Props {
   firstName: string;
   slug: string;
   signedAt: string;
+  /** True until the one-time NIN + bank details are captured. When true, the
+   *  dashboard button routes to that capture step first. */
+  needsDetails?: boolean;
 }
 
-export function DoneStep({ firstName, slug, signedAt }: Props) {
+export function DoneStep({ firstName, slug, signedAt, needsDetails = false }: Props) {
   const router = useRouter();
   const docs = [
     { title: 'Offer letter',         href: `/api/staff/${slug}/offer-letter.pdf`, icon: <ScrollText className="h-4 w-4" /> },
@@ -62,7 +65,7 @@ export function DoneStep({ firstName, slug, signedAt }: Props) {
           <Button
             type="button"
             size="lg"
-            onClick={() => router.push('/staff')}
+            onClick={() => router.push(needsDetails ? '/staff/onboarding?step=details' : '/staff')}
             rightIcon={<ArrowRight className="h-4 w-4" />}
           >
             Open my dashboard

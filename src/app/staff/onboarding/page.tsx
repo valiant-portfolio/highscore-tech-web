@@ -16,6 +16,7 @@ import Logo from '@/components/brand/Logo';
 import { AgreementSignBlock } from '@/components/staff/onboarding/AgreementSignBlock';
 import { DoneStep } from '@/components/staff/onboarding/DoneStep';
 import { OnboardingWizardChrome } from '@/components/staff/onboarding/OnboardingWizardChrome';
+import { OnboardingDetailsForm } from '@/components/staff/onboarding/OnboardingDetailsForm';
 import { getStaffByUserId, getOnboardingState } from '@/lib/staff/queries';
 import { getCurrentUser } from '@/lib/auth/queries';
 import {
@@ -35,7 +36,7 @@ interface PageProps {
   searchParams: Promise<{ step?: string }>;
 }
 
-const ALLOWED_STEPS = ['offer', 'nda', 'policy', 'done'] as const;
+const ALLOWED_STEPS = ['offer', 'nda', 'policy', 'details', 'done'] as const;
 type Step = (typeof ALLOWED_STEPS)[number];
 
 function formatDate(d: Date): string {
@@ -68,18 +69,28 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
   }
   if (staff.status !== 'active') redirect('/login?inactive=1');
 
-  const state = getOnboardingState(staff);
+  // NIN lives on users.nin_doc_url (separate table) — read it so the wizard
+  // knows whether the one-time details step still needs doing.
+  const { serviceClient } = await import('@/lib/supabase/service');
+  const { data: meRow } = await serviceClient()
+    .from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
+  const ninUploaded = !!meRow?.nin_doc_url;
+
+  const state = getOnboardingState(staff, ninUploaded);
   const { step: stepParam } = await searchParams;
   const requestedStep = (ALLOWED_STEPS as readonly string[]).includes(stepParam ?? '')
     ? (stepParam as Step)
     : state.nextStep;
 
+  const docsSigned = state.offerSigned && state.ndaSigned && state.policySigned;
+
   // Snap forward if the user tries to jump past an unfinished step.
   let activeStep: Step = state.nextStep;
   if (requestedStep === 'offer') activeStep = 'offer';
-  else if (requestedStep === 'nda'    && state.offerSigned)                       activeStep = 'nda';
-  else if (requestedStep === 'policy' && state.offerSigned && state.ndaSigned)    activeStep = 'policy';
-  else if (requestedStep === 'done'   && state.complete)                          activeStep = 'done';
+  else if (requestedStep === 'nda'     && state.offerSigned)                        activeStep = 'nda';
+  else if (requestedStep === 'policy'  && state.offerSigned && state.ndaSigned)     activeStep = 'policy';
+  else if (requestedStep === 'details' && docsSigned && !state.detailsComplete)     activeStep = 'details';
+  else if (requestedStep === 'done'    && state.complete)                           activeStep = 'done';
 
   const content   = ROLE_CONTENT[staff.slug];
   const salary    = breakdownSalary(staff.slug, staff.salary_ngn);
@@ -283,12 +294,14 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
 
       <main className="flex-1 px-4 md:px-8 py-10 md:py-14">
         <div className="mx-auto max-w-[840px]">
-          <OnboardingWizardChrome
-            current={activeStep}
-            offerSigned={state.offerSigned}
-            ndaSigned={state.ndaSigned}
-            policySigned={state.policySigned}
-          />
+          {activeStep !== 'details' && (
+            <OnboardingWizardChrome
+              current={activeStep}
+              offerSigned={state.offerSigned}
+              ndaSigned={state.ndaSigned}
+              policySigned={state.policySigned}
+            />
+          )}
 
           {activeStep === 'offer' && (
             <div>
@@ -500,11 +513,28 @@ export default async function StaffOnboardingPage({ searchParams }: PageProps) {
             </div>
           )}
 
+          {activeStep === 'details' && (
+            <div>
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">One last step</p>
+                <h1 className="mt-1 font-display text-3xl md:text-5xl font-extrabold tracking-[-0.025em] text-fg">
+                  Your payroll &amp; identity details.
+                </h1>
+                <p className="mt-2 text-fg-muted">
+                  We need these to pay your salary and for HR compliance. You enter them once — after you
+                  save, they&apos;re locked and only an administrator can access them.
+                </p>
+              </div>
+              <OnboardingDetailsForm needsBank={!staff.bank_account_number} needsNin={!ninUploaded} />
+            </div>
+          )}
+
           {activeStep === 'done' && (
             <DoneStep
               firstName={firstName}
               slug={staff.slug}
               signedAt={staff.nda_signed_at ?? new Date().toISOString()}
+              needsDetails={!state.detailsComplete}
             />
           )}
         </div>

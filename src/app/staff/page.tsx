@@ -42,7 +42,14 @@ export default async function StaffPage({ searchParams }: PageProps) {
   if (!staff) redirect('/profile');
   if (staff.status !== 'active') redirect('/login?inactive=1');
 
-  const onboarding = getOnboardingState(staff);
+  const { serviceClient } = await import('@/lib/supabase/service');
+  const admin = serviceClient();
+  const { data: meRow } = await admin.from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
+  const ninUploaded = !!meRow?.nin_doc_url;
+
+  // Onboarding now also requires the one-time NIN + bank capture, not just the
+  // signed documents — so a new hire can't reach the dashboard until it's done.
+  const onboarding = getOnboardingState(staff, ninUploaded);
   if (!onboarding.complete) redirect('/staff/onboarding');
 
   // Staff-portal capabilities are granted per-staff by an admin (stored in
@@ -67,11 +74,6 @@ export default async function StaffPage({ searchParams }: PageProps) {
     tab === 'documents' || tab === 'settings' || (tab === 'reports' && canPostTeamEod)
       ? tab
       : 'profile';
-
-  const { serviceClient } = await import('@/lib/supabase/service');
-  const admin = serviceClient();
-  const { data: meRow } = await admin.from('users').select('nin_doc_url').eq('id', user.id).maybeSingle();
-  const ninUploaded = !!meRow?.nin_doc_url;
 
   // For the Team EOD form: the list of active staff to compile. Past team EODs
   // are admin-only (visible at /admin/reports), not shown here.
