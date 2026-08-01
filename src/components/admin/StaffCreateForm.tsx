@@ -270,6 +270,24 @@ export function StaffCreateForm({ reportsToOptions }: Props) {
 
       <div className="grid sm:grid-cols-2 gap-4">
         <Field
+          label="Personal email"
+          name="personal_email"
+          error={fieldErrors?.personal_email}
+          hint="Private address for HR letters (e.g. offboarding). Not used to log in."
+        >
+          <input
+            id="personal_email"
+            name="personal_email"
+            type="email"
+            placeholder="their.name@gmail.com"
+            autoComplete="off"
+            className="input-text"
+          />
+        </Field>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field
           label="Monthly salary (NGN) *"
           name="salary_ngn"
           error={fieldErrors?.salary_ngn}

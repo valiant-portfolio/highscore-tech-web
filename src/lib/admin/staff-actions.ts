@@ -448,6 +448,7 @@ export async function createStaffAction(
   const role_title     = String(formData.get('role_title')  ?? '').trim();
   const department     = (String(formData.get('department') ?? '').trim() || null);
   const work_email     = String(formData.get('work_email')  ?? '').trim().toLowerCase();
+  const personal_email = String(formData.get('personal_email') ?? '').trim().toLowerCase();
   const salary_ngn     = Number(formData.get('salary_ngn')  ?? 0);
   const start_date     = String(formData.get('start_date')  ?? '');
   const reports_to     = (String(formData.get('reports_to') ?? '').trim() || null);
@@ -464,6 +465,9 @@ export async function createStaffAction(
   if (!work_email)                               fieldErrors.work_email  = 'Required.';
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(work_email))
                                                  fieldErrors.work_email  = 'Use a valid email address.';
+  // Personal email is optional, but must be valid if given.
+  if (personal_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal_email))
+                                                 fieldErrors.personal_email = 'Use a valid email address.';
   if (!salary_ngn || salary_ngn <= 0)            fieldErrors.salary_ngn  = 'Enter a salary in naira.';
   if (!start_date)                               fieldErrors.start_date  = 'Required.';
   if (!password || password.length < 6)          fieldErrors.password    = 'At least 6 characters.';
@@ -505,6 +509,7 @@ export async function createStaffAction(
     salary_ngn,
     start_date,
     work_email,
+    personal_email: personal_email || null,
     reports_to,
     status: 'active',
   }).select('id').single();
