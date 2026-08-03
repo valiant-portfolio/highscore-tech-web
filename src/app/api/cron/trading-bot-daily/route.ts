@@ -1,18 +1,15 @@
-// POST /api/cron/trading-bot-daily — one end-of-day digest email to the ops
-// mailboxes: today's realized P&L, win rate, best/worst, open positions, and
-// the account line, with a per-market breakdown. Complements the per-event
-// alerts. Schedule once daily (the Netlify function runs it at ~21:00 UTC).
+// POST /api/cron/trading-bot-daily — one end-of-day digest to Telegram: today's
+// realized P&L, win rate, best/worst, open positions, and the account line, with
+// a per-market breakdown. Complements the per-event alerts in
+// /api/cron/trading-bot-notify. Schedule once daily (~21:00 UTC).
 
 import { NextResponse } from 'next/server';
 import { checkCronSecret } from '@/lib/cron/guard';
-import { serviceClient } from '@/lib/supabase/service';
-import { sendTradingBotDaily } from '@/lib/email/send-helpers';
+import { botServiceClient } from '@/lib/supabase/bot';
+import { sendTelegram, tgEscape } from '@/lib/telegram/send';
 
 export const runtime = 'nodejs';
 
-// Daily digest goes to admin only. (Per-event alerts still go to both — see
-// /api/cron/trading-bot-notify.)
-const RECIPIENTS = ['admin@highzcore.tech'];
 const LAGOS_OFFSET_MS = 60 * 60 * 1000; // UTC+1, no DST
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toFixed(2)}`;
@@ -22,7 +19,7 @@ export async function POST(req: Request) {
   const gate = checkCronSecret(req);
   if (!gate.ok) return gate.response;
 
-  const admin = serviceClient();
+  const admin = botServiceClient();
 
   // "Today" = the current calendar day in Lagos (UTC+1).
   const lagosNow = new Date(Date.now() + LAGOS_OFFSET_MS);
@@ -69,16 +66,15 @@ export async function POST(req: Request) {
     { label: 'Bot status', value: online ? 'online' : 'offline' },
   ];
 
-  const res = await sendTradingBotDaily({
-    to: RECIPIENTS,
-    subject: `Trading bot · ${dateLabel} · ${signed(net)}${closedToday.length === 0 ? ' · no trades' : ''}`,
-    dateLabel,
-    online,
-    netTodayLabel: signed(net),
-    netTodayPositive: net >= 0,
-    rows,
-    movers,
-  });
+  const header = `${net >= 0 ? '📈' : '📉'} <b>Daily summary · ${tgEscape(dateLabel)}</b>`;
+  const status = `${online ? '🟢 bot online' : '🔴 bot offline'}`;
+  const body = rows.map((r) => `${tgEscape(r.label)}: <b>${tgEscape(r.value)}</b>`).join('\n');
+  const breakdown = movers.length
+    ? '\n\n<b>By market</b>\n' +
+      movers.map((m) => `${m.positive ? '▲' : '▼'} ${tgEscape(m.market)}: <b>${tgEscape(m.value)}</b>`).join('\n')
+    : '\n\nNo trades closed today.';
 
-  return NextResponse.json({ ok: res.ok, closed: closedToday.length, net, sent: res.ok });
+  const res = await sendTelegram(`${header}\n${status}\n\n${body}${breakdown}`);
+
+  return NextResponse.json({ ok: res.ok, closed: closedToday.length, net, sent: res.ok, error: res.error });
 }

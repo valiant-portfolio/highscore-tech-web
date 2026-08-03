@@ -2,14 +2,35 @@
 // writes to the `bot_*` tables; the dashboard only reads. See
 // trading-bot-db/FRONTEND.md for the contract.
 //
-// We read with the service client (bypasses RLS) because this is an admin-only
-// page — the trading tables stay private to the browser (no anon read policy).
+// These tables live in the BOT's own Supabase project, not the main app's —
+// hence botServiceClient() rather than serviceClient(). Service role bypasses
+// RLS, which is fine here: this is an admin-only page.
 
 import 'server-only';
-import { serviceClient } from '@/lib/supabase/service';
+import { botServiceClient } from '@/lib/supabase/bot';
 
-export type BotTrend = 'uptrend' | 'downtrend' | 'no-trend' | string;
-export type BotState = 'watching' | 'held' | 'setup_ready' | 'order' | 'position' | string;
+/** Five-tier trend, graded by close vs SMA20. `Sideways` = no trend. */
+export type BotTrend =
+  | 'Strong Uptrend'
+  | 'Weak Uptrend'
+  | 'Sideways'
+  | 'Weak Downtrend'
+  | 'Strong Downtrend'
+  | string;
+
+/** Strength of `entry_trend`. `None` is the string, not null. */
+export type BotStrength = 'High' | 'Low' | 'None' | string;
+
+export type BotState = 'monitoring' | 'ready' | 'active' | string;
+
+/** Why the bot is in its current state — one of five fixed tags. */
+export type BotReason =
+  | 'Awaiting Trend'
+  | 'Pullback'
+  | 'Entry ready'
+  | 'Weak momentum'
+  | 'Trend Confirmed'
+  | string;
 
 export interface BotMarket {
   symbol: string;
@@ -18,8 +39,11 @@ export interface BotMarket {
   htf: string | null;
   entry_trend: BotTrend | null;
   htf_trend: BotTrend | null;
+  trend_strength: BotStrength | null;
   state: BotState | null;
-  detail: string | null;
+  reason: BotReason | null;
+  /** Latest signal, e.g. `BUY @ 1.15250`. Null when there is none. */
+  latest_signal: string | null;
   price: number | null;
   level: number | null;
   pnl: number | null;
@@ -131,7 +155,7 @@ const TRADE_COLS =
   'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run';
 
 export async function getBotOverview(): Promise<BotOverview> {
-  const admin = serviceClient();
+  const admin = botServiceClient();
 
   const [markets, configs, specs, openTrades, closedTrades, closedCountRes, equity, equityCurve] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
@@ -171,7 +195,7 @@ export interface BotMarketDetail {
 }
 
 export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
-  const admin = serviceClient();
+  const admin = botServiceClient();
 
   const [market, trades, predictions, modelRun] = await Promise.all([
     admin.from('bot_market_state').select('*').eq('symbol', symbol).maybeSingle(),
@@ -194,7 +218,7 @@ export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
 
 /** All symbols the bot tracks — for detail links. */
 export async function listBotSymbols(): Promise<string[]> {
-  const admin = serviceClient();
+  const admin = botServiceClient();
   const { data } = await admin.from('bot_market_state').select('symbol');
   return (data ?? []).map((r: { symbol: string }) => r.symbol);
 }

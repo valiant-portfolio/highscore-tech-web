@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { ClosePositionButton } from './ClosePositionButton';
 import { MarketEnableToggle } from './MarketEnableToggle';
@@ -129,10 +129,9 @@ export function TradingBotDashboard({
 /* ── Overview ─────────────────────────────────────────────────────────── */
 
 const PIPELINE: { state: string; label: string; tone: string }[] = [
-  { state: 'watching', label: 'Watching', tone: 'text-fg-muted' },
-  { state: 'setup_ready', label: 'Setup ready', tone: 'text-brand' },
-  { state: 'order', label: 'Order resting', tone: 'text-warning' },
-  { state: 'position', label: 'In position', tone: 'text-success' },
+  { state: 'monitoring', label: 'Monitoring', tone: 'text-fg-muted' },
+  { state: 'ready', label: 'Ready', tone: 'text-brand' },
+  { state: 'active', label: 'Active', tone: 'text-success' },
 ];
 
 function Overview({
@@ -140,7 +139,7 @@ function Overview({
 }: {
   markets: BotMarket[]; equity: BotEquity | null; equityCurve: BotEquity[]; floating: number; todayRealized: number;
 }) {
-  const byState = (s: string) => markets.filter((m) => (m.state ?? 'watching') === s);
+  const byState = (s: string) => markets.filter((m) => (m.state ?? 'monitoring') === s);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -181,7 +180,7 @@ function Overview({
             })}
           </div>
           <div className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
-            Entry timeframe M15, bias timeframe H1. A market moves left → right as a setup forms, an order rests, then fills into a position.
+            Entry timeframe M15, bias timeframe H1. A market moves left → right: monitoring while it waits for a trend, ready once an entry level is set or an order rests, active once a trade is open.
           </div>
         </AdminCard>
       </div>
@@ -219,8 +218,8 @@ function Markets({
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
             <tr>
-              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th><Th className="text-left">Bias (H1)</Th>
-              <Th className="text-left">State</Th><Th className="text-left">Detail</Th>
+              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th><Th className="text-left">Strength</Th><Th className="text-left">Bias (H1)</Th>
+              <Th className="text-left">State</Th><Th className="text-left">Reason</Th><Th className="text-left">Latest signal</Th>
               <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
               <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th>
               <Th className="text-center">On</Th><Th className="text-right pr-4">Updated</Th>
@@ -235,9 +234,11 @@ function Markets({
                 <tr key={m.symbol} className={`hover:bg-surface-hover/40 ${stale ? 'opacity-45' : ''}`}>
                   <Td className="pl-4"><span className="font-semibold text-fg">{m.alias}</span><p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p></Td>
                   <Td><TrendChip trend={m.entry_trend} /></Td>
+                  <Td><StrengthBadge strength={m.trend_strength} /></Td>
                   <Td><TrendChip trend={m.htf_trend} /></Td>
                   <Td><StateBadge state={m.state} /></Td>
-                  <Td className="max-w-[220px] truncate text-fg-muted" title={m.detail ?? ''}>{m.detail ?? '—'}</Td>
+                  <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
+                  <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
                   <Td className="text-right tabular">{px(m.price)}</Td>
                   <Td className="text-right tabular text-fg-muted">{m.level == null ? '—' : px(m.level)}</Td>
                   <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>

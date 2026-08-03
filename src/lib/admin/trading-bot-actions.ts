@@ -3,11 +3,15 @@
 // Admin controls for the trading bot — the only writes the frontend is allowed
 // (per trading-bot-db/BACKEND_V1.md): set a market's lot size, and queue a
 // "close" command. The engine itself is never exposed. Gated by the
-// 'trading-bot' section; writes go through the service client.
+// 'trading-bot' section.
+//
+// Two clients on purpose: bot_* tables live in the BOT's Supabase project
+// (botServiceClient), while auth — who is issuing the command — lives in the
+// main app project (createClient).
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { serviceClient } from '@/lib/supabase/service';
+import { botServiceClient } from '@/lib/supabase/bot';
 import { requireSection } from './access';
 
 type Result<T = undefined> = { ok: true; value?: T } | { ok: false; error: string };
@@ -31,7 +35,7 @@ function clampSnap(v: number, min: number, max: number, step: number): number {
  */
 export async function setLotSizeAction(symbol: string, lot: number | null): Promise<Result<number | null>> {
   await requireSection('trading-bot');
-  const admin = serviceClient();
+  const admin = botServiceClient();
 
   let saved: number | null = null;
   if (lot != null) {
@@ -64,7 +68,7 @@ export async function setLotSizeAction(symbol: string, lot: number | null): Prom
  */
 export async function setMarketEnabledAction(symbol: string, enabled: boolean): Promise<Result> {
   await requireSection('trading-bot');
-  const admin = serviceClient();
+  const admin = botServiceClient();
   const { error } = await admin
     .from('bot_symbol_config')
     .update({ enabled, updated_at: new Date().toISOString() })
@@ -88,7 +92,7 @@ async function issuer(): Promise<string> {
  */
 export async function closePositionAction(symbol: string, ticket: number | null): Promise<Result> {
   await requireSection('trading-bot');
-  const admin = serviceClient();
+  const admin = botServiceClient();
   const createdBy = await issuer();
 
   const { error } = await admin.from('bot_commands').insert({
@@ -107,7 +111,7 @@ export async function closePositionAction(symbol: string, ticket: number | null)
  */
 export async function closeAllPositionsAction(): Promise<Result<number>> {
   await requireSection('trading-bot');
-  const admin = serviceClient();
+  const admin = botServiceClient();
   const createdBy = await issuer();
 
   const { data: open } = await admin.from('bot_trades').select('symbol').is('close_ts', null);

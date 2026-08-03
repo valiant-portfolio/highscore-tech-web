@@ -12,8 +12,6 @@ import { sendEmail, emailConfig } from './client';
 import { ContactNotifyEmail } from './templates/ContactNotifyEmail';
 import { ContactAckEmail }    from './templates/ContactAckEmail';
 import { ContactReplyEmail }  from './templates/ContactReplyEmail';
-import { TradingBotAlertEmail, type BotAlertKind } from './templates/TradingBotAlertEmail';
-import { TradingBotDailyEmail } from './templates/TradingBotDailyEmail';
 import { EnrollmentEmail }    from './templates/EnrollmentEmail';
 import { ReceiptEmail }       from './templates/ReceiptEmail';
 import { StaffAmendmentEmail } from './templates/StaffAmendmentEmail';
@@ -236,32 +234,9 @@ export async function sendContactReply(args: {
   return sendEmail({ to: args.to, subject: args.subject, html });
 }
 
-// ── Trading-bot event alert ────────────────────────────────────────────
-// Sent to the ops mailboxes on a new pending order / position open / close.
-export async function sendTradingBotAlert(args: {
-  to: string[];
-  kind: BotAlertKind;
-  subject: string;
-  rows: { label: string; value: string }[];
-}): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const html = await render(createElement(TradingBotAlertEmail, { kind: args.kind, rows: args.rows }));
-  return sendEmail({ to: args.to, subject: args.subject, html });
-}
-
-export async function sendTradingBotDaily(args: {
-  to: string[];
-  subject: string;
-  dateLabel: string;
-  online: boolean;
-  netTodayLabel: string;
-  netTodayPositive: boolean;
-  rows: { label: string; value: string }[];
-  movers: { market: string; value: string; positive: boolean }[];
-}): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const { to, subject, ...rest } = args;
-  const html = await render(createElement(TradingBotDailyEmail, rest));
-  return sendEmail({ to, subject, html });
-}
+// Trading-bot alerts used to live here (sendTradingBotAlert / sendTradingBotDaily).
+// They now go to Telegram instead — see src/lib/telegram/send.ts, driven by
+// /api/cron/trading-bot-notify and /api/cron/trading-bot-daily.
 
 // ── Overdue instalment reminder ────────────────────────────────────────
 export async function sendInstallmentReminder(args: {

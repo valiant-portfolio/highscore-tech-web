@@ -1,25 +1,44 @@
-// POST /api/cron/trading-bot-notify — emails the ops mailboxes when the bot
-// places a new pending order, fills a position, or closes one.
+// POST /api/cron/trading-bot-notify — Telegram alert when the bot places a new
+// pending order, fills a position, closes one, or goes quiet.
 //
 // The bot only writes to Supabase; it doesn't call us. So we poll: point a cron
 // service at this route every ~1 minute with `X-Cron-Secret: <CRON_SECRET>`.
-// Each event is emailed exactly once — `bot_notify_log` records what's been sent
+// Each event is sent exactly once — `bot_notify_log` records what's been sent
 // (unique per event), so re-polling never double-sends.
 //
+// WHY THIS EXISTS ALONGSIDE THE BOT'S OWN TELEGRAM MESSAGES: the bot notifies
+// from inside its trading loop, so if the process dies it goes silent — no
+// alert, because there is nothing alive to send one. This poller reads the
+// database instead, so it can notice the silence and say so (bot_offline).
+// The bot keeps only `profit locked`, which is invisible from the database.
+//
 // Latency is one poll interval, and an order that appears AND fills between two
-// polls would only send the fill email. For most events (orders rest, positions
+// polls would only send the fill alert. For most events (orders rest, positions
 // live for minutes) a 1-min poll catches everything.
 
 import { NextResponse } from 'next/server';
 import { checkCronSecret } from '@/lib/cron/guard';
-import { serviceClient } from '@/lib/supabase/service';
-import { sendTradingBotAlert } from '@/lib/email/send-helpers';
-import type { BotAlertKind } from '@/lib/email/templates/TradingBotAlertEmail';
+import { botServiceClient } from '@/lib/supabase/bot';
+import { sendTelegram, tgBlock } from '@/lib/telegram/send';
 
 export const runtime = 'nodejs';
 
-const RECIPIENTS = ['admin@highzcore.tech', 'olivia@highzcore.tech'];
+type BotAlertKind = 'pending_order' | 'position_opened' | 'position_closed' | 'bot_offline';
+
 const RECENT_MS = 2 * 60 * 60 * 1000; // opens/closes within 2h are "recent"
+
+// The bot writes market state every ~60s. Past this it is considered down.
+const OFFLINE_MS = 5 * 60_000;
+// Re-alert about an offline bot at most once per bucket, so a bot that stays
+// down doesn't send one message every single poll.
+const OFFLINE_BUCKET_MS = 30 * 60_000;
+
+const ICON: Record<BotAlertKind, string> = {
+  pending_order: '⌛',
+  position_opened: '🚀',
+  position_closed: '🏁',
+  bot_offline: '🔴',
+};
 
 function money(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(Number(n))) return '—';
@@ -46,16 +65,36 @@ export async function POST(req: Request) {
   const gate = checkCronSecret(req);
   if (!gate.ok) return gate.response;
 
-  const admin = serviceClient();
+  const admin = botServiceClient();
   const cutoff = new Date(Date.now() - RECENT_MS).toISOString();
 
-  const [markets, opens, closes] = await Promise.all([
-    admin.from('bot_market_state').select('symbol, alias, state, detail, price, level, is_dry_run, updated_at').eq('state', 'order'),
+  const [markets, opens, closes, heartbeat] = await Promise.all([
+    admin.from('bot_market_state').select('symbol, alias, state, reason, latest_signal, price, level, is_dry_run, updated_at').eq('state', 'ready'),
     admin.from('bot_trades').select('id, symbol, side, volume, open_price, sl, tp, strategy, open_ts, is_dry_run').is('close_ts', null).gte('open_ts', cutoff),
     admin.from('bot_trades').select('id, symbol, side, volume, open_price, close_price, pnl, close_reason, close_ts, is_dry_run').not('close_ts', 'is', null).gte('close_ts', cutoff),
+    admin.from('bot_market_state').select('updated_at').order('updated_at', { ascending: false }).limit(1),
   ]);
 
   const candidates: Candidate[] = [];
+
+  // Bot heartbeat. This is the event the bot itself can never send — if the
+  // process is dead, nothing in it runs. Bucketed so a bot that stays down
+  // alerts twice an hour rather than sixty times.
+  const lastWrite = heartbeat.data?.[0]?.updated_at as string | undefined;
+  const silentFor = lastWrite ? Date.now() - new Date(lastWrite).getTime() : null;
+  if (silentFor === null || silentFor > OFFLINE_MS) {
+    const bucket = Math.floor(Date.now() / OFFLINE_BUCKET_MS);
+    candidates.push({
+      kind: 'bot_offline',
+      ref: `offline:${bucket}`,
+      subject: 'Bot offline — no market updates',
+      rows: [
+        { label: 'Last write', value: lastWrite ? when(lastWrite) : 'never' },
+        { label: 'Silent for', value: silentFor === null ? 'n/a' : `${Math.floor(silentFor / 60_000)} min` },
+        { label: 'Expected', value: 'a write every ~60s while running' },
+      ],
+    });
+  }
 
   for (const m of markets.data ?? []) {
     const dry = m.is_dry_run ? ' [demo]' : '';
@@ -67,7 +106,8 @@ export async function POST(req: Request) {
         { label: 'Market', value: `${m.alias} (${m.symbol})` },
         { label: 'Order level', value: px(m.level) },
         { label: 'Last price', value: px(m.price) },
-        { label: 'Detail', value: m.detail ?? '—' },
+        { label: 'Reason', value: m.reason ?? '—' },
+        { label: 'Latest signal', value: m.latest_signal ?? '—' },
         { label: 'Time', value: when(m.updated_at) },
       ],
     });
@@ -130,11 +170,11 @@ export async function POST(req: Request) {
   let sent = 0;
   const failures: string[] = [];
   for (const c of toSend) {
-    const res = await sendTradingBotAlert({ to: RECIPIENTS, kind: c.kind, subject: c.subject, rows: c.rows });
+    const res = await sendTelegram(tgBlock(`${ICON[c.kind]} ${c.subject}`, c.rows));
     if (res.ok) sent++;
     else {
       failures.push(`${c.ref}: ${res.error ?? 'send failed'}`);
-      // Roll back the claim so a transient email failure retries next poll.
+      // Roll back the claim so a transient Telegram failure retries next poll.
       await admin.from('bot_notify_log').delete().eq('kind', c.kind).eq('ref', c.ref);
     }
   }

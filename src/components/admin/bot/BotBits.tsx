@@ -5,7 +5,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
 // The bot writes each market every ~60s; older than this = something's wrong.
 export const STALE_MS = 3 * 60_000;
@@ -30,28 +29,59 @@ export function TimeAgo({ iso, className = '' }: { iso: string | null | undefine
   return <span className={className}>{label}</span>;
 }
 
-/** Trend pill: green up / red down / grey none. */
+// Five-tier trend. Dots per the dashboard spec: 🟢 strong up, 🟡 weak up,
+// ⚪ sideways, 🟠 weak down, 🔴 strong down. Keyed on the exact strings the bot
+// writes to bot_market_state.entry_trend / htf_trend.
+const TREND_STYLE: Record<string, { cls: string; dot: string }> = {
+  'strong uptrend':   { cls: 'bg-success/20 text-success',      dot: '🟢' },
+  'weak uptrend':     { cls: 'bg-success/10 text-success/80',   dot: '🟡' },
+  'sideways':         { cls: 'bg-surface-hover text-fg-muted',  dot: '⚪' },
+  'weak downtrend':   { cls: 'bg-warning/15 text-warning',      dot: '🟠' },
+  'strong downtrend': { cls: 'bg-danger/20 text-danger',        dot: '🔴' },
+};
+
+/** Trend pill carrying the full tier name. */
 export function TrendChip({ trend, label }: { trend: string | null; label?: string }) {
-  const t = (trend ?? '').toLowerCase();
-  const up = t.includes('up');
-  const down = t.includes('down');
-  const cls = up ? 'bg-success/15 text-success' : down ? 'bg-danger/15 text-danger' : 'bg-surface-hover text-fg-muted';
-  const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+  const s = TREND_STYLE[(trend ?? '').toLowerCase()];
+  if (!s) {
+    return (
+      <span className="inline-flex items-center rounded-md bg-surface-hover px-2 py-0.5 text-[11px] font-bold text-fg-subtle">
+        {trend ?? '—'}
+      </span>
+    );
+  }
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${cls}`}>
-      <Icon className="h-3 w-3" />
+    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold whitespace-nowrap ${s.cls}`}>
+      <span aria-hidden>{s.dot}</span>
       {label ? <span className="opacity-70">{label}</span> : null}
-      {up ? 'Up' : down ? 'Down' : 'Flat'}
+      {trend}
+    </span>
+  );
+}
+
+// `None` is the literal string the bot writes when entry_trend is Sideways —
+// it is NOT null, so don't test for nullishness here.
+const STRENGTH_STYLE: Record<string, string> = {
+  high: 'bg-brand/15 text-brand',
+  low:  'bg-surface-hover text-fg-muted',
+  none: 'bg-transparent text-fg-subtle',
+};
+
+/** Strength of the entry trend — sits beside the trend chip. */
+export function StrengthBadge({ strength }: { strength: string | null }) {
+  const key = (strength ?? '').toLowerCase();
+  const cls = STRENGTH_STYLE[key] ?? 'bg-surface-hover text-fg-muted';
+  return (
+    <span className={`inline-flex h-6 items-center rounded-md px-2 text-[11px] font-bold ${cls}`}>
+      {strength ?? '—'}
     </span>
   );
 }
 
 const STATE_STYLE: Record<string, { cls: string; label: string }> = {
-  watching:    { cls: 'bg-surface-hover text-fg-muted',   label: 'Watching' },
-  held:        { cls: 'bg-warning/15 text-warning',       label: 'Held' },
-  setup_ready: { cls: 'bg-brand/15 text-brand',           label: 'Setup ready' },
-  order:       { cls: 'bg-warning/15 text-warning',       label: 'Order resting' },
-  position:    { cls: 'bg-success/15 text-success',       label: 'In position' },
+  monitoring: { cls: 'bg-surface-hover text-fg-muted', label: 'Monitoring' },
+  ready:      { cls: 'bg-brand/15 text-brand',         label: 'Ready' },
+  active:     { cls: 'bg-success/15 text-success',     label: 'Active' },
 };
 
 /** State badge with the meanings from FRONTEND.md. */
