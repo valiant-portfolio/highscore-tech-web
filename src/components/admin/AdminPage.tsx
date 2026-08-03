@@ -58,7 +58,10 @@ export function Kpi({ label, value, hint, tone = 'default' }: KpiProps) {
   return (
     <div className="rounded-xl border border-border bg-bg-elevated p-5">
       <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">{label}</p>
-      <p className={cn('mt-2 font-mono tabular text-2xl md:text-3xl font-extrabold leading-none', accent)}>
+      {/* Values are monospaced and can be long (a six-figure drawdown is 10
+          characters). Without min-w-0 + break-words the grid track refuses to
+          shrink and the number is clipped mid-digit instead of wrapping. */}
+      <p className={cn('mt-2 min-w-0 break-words font-mono tabular text-xl md:text-2xl xl:text-3xl font-extrabold leading-tight', accent)}>
         {value}
       </p>
       {hint && <p className="mt-2 text-xs text-fg-muted">{hint}</p>}

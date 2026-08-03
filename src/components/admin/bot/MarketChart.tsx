@@ -15,7 +15,7 @@
 // (MA/EMA/Bollinger) and manual drawings (h-line/trend) are drawn on top.
 
 import { useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createBotClient } from '@/lib/supabase/bot-client';
 import { CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2 } from 'lucide-react';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
@@ -26,9 +26,11 @@ import {
 
 type Tool = 'cursor' | 'hline' | 'trend';
 
-// One browser Supabase client for the module. Uses the logged-in admin's
-// session, so RLS lets it read the bot_* tables.
-const supabase = createClient();
+// One browser Supabase client for the module, pointed at the BOT project — the
+// bot_* tables no longer live in the main app's database. There is no shared
+// session across projects, so these reads are governed by the bot project's own
+// RLS policies rather than by the logged-in user.
+const supabase = createBotClient();
 
 const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
