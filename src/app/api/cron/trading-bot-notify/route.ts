@@ -1,20 +1,17 @@
-// POST /api/cron/trading-bot-notify — Telegram alert when the bot places a new
-// pending order, fills a position, closes one, or goes quiet.
+// POST /api/cron/trading-bot-notify — Telegram alert when the bot goes quiet.
 //
-// The bot only writes to Supabase; it doesn't call us. So we poll: point a cron
-// service at this route every ~1 minute with `X-Cron-Secret: <CRON_SECRET>`.
-// Each event is sent exactly once — `bot_notify_log` records what's been sent
-// (unique per event), so re-polling never double-sends.
+// SCOPE, deliberately narrow: the bot sends its own alerts for placing, filling,
+// profit-locking and closing, because it knows the instant those happen and this
+// poller would only learn about them up to a minute later. Duplicating them here
+// would mean two messages per event.
 //
-// WHY THIS EXISTS ALONGSIDE THE BOT'S OWN TELEGRAM MESSAGES: the bot notifies
-// from inside its trading loop, so if the process dies it goes silent — no
-// alert, because there is nothing alive to send one. This poller reads the
-// database instead, so it can notice the silence and say so (bot_offline).
-// The bot keeps only `profit locked`, which is invisible from the database.
+// What the bot CANNOT report is its own death — if the process is gone, nothing
+// inside it runs. That is the one thing this route exists for. It reads Supabase,
+// so it keeps working when the bot does not.
 //
-// Latency is one poll interval, and an order that appears AND fills between two
-// polls would only send the fill alert. For most events (orders rest, positions
-// live for minutes) a 1-min poll catches everything.
+// Point a cron service at it every ~1 minute with `X-Cron-Secret: <CRON_SECRET>`.
+// `bot_notify_log` records what has been sent so a bot that stays down alerts
+// twice an hour rather than sixty times.
 
 import { NextResponse } from 'next/server';
 import { checkCronSecret } from '@/lib/cron/guard';
@@ -23,9 +20,7 @@ import { sendTelegram, tgBlock } from '@/lib/telegram/send';
 
 export const runtime = 'nodejs';
 
-type BotAlertKind = 'pending_order' | 'position_opened' | 'position_closed' | 'bot_offline';
-
-const RECENT_MS = 2 * 60 * 60 * 1000; // opens/closes within 2h are "recent"
+type BotAlertKind = 'bot_offline';
 
 // The bot writes market state every ~60s. Past this it is considered down.
 const OFFLINE_MS = 5 * 60_000;
@@ -34,21 +29,9 @@ const OFFLINE_MS = 5 * 60_000;
 const OFFLINE_BUCKET_MS = 30 * 60_000;
 
 const ICON: Record<BotAlertKind, string> = {
-  pending_order: '⌛',
-  position_opened: '🚀',
-  position_closed: '🏁',
   bot_offline: '🔴',
 };
 
-function money(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  const x = Number(n);
-  return `${x < 0 ? '−' : ''}$${Math.abs(x).toFixed(2)}`;
-}
-function px(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return String(Number(n));
-}
 function when(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' });
@@ -66,14 +49,12 @@ export async function POST(req: Request) {
   if (!gate.ok) return gate.response;
 
   const admin = botServiceClient();
-  const cutoff = new Date(Date.now() - RECENT_MS).toISOString();
 
-  const [markets, opens, closes, heartbeat] = await Promise.all([
-    admin.from('bot_market_state').select('symbol, alias, state, reason, latest_signal, price, level, is_dry_run, updated_at').eq('state', 'ready'),
-    admin.from('bot_trades').select('id, symbol, side, volume, open_price, sl, tp, strategy, open_ts, is_dry_run').is('close_ts', null).gte('open_ts', cutoff),
-    admin.from('bot_trades').select('id, symbol, side, volume, open_price, close_price, pnl, close_reason, close_ts, is_dry_run').not('close_ts', 'is', null).gte('close_ts', cutoff),
-    admin.from('bot_market_state').select('updated_at').order('updated_at', { ascending: false }).limit(1),
-  ]);
+  const heartbeat = await admin
+    .from('bot_market_state')
+    .select('updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(1);
 
   const candidates: Candidate[] = [];
 
@@ -92,59 +73,6 @@ export async function POST(req: Request) {
         { label: 'Last write', value: lastWrite ? when(lastWrite) : 'never' },
         { label: 'Silent for', value: silentFor === null ? 'n/a' : `${Math.floor(silentFor / 60_000)} min` },
         { label: 'Expected', value: 'a write every ~60s while running' },
-      ],
-    });
-  }
-
-  for (const m of markets.data ?? []) {
-    const dry = m.is_dry_run ? ' [demo]' : '';
-    candidates.push({
-      kind: 'pending_order',
-      ref: `order:${m.symbol}:${m.level ?? 'na'}`,
-      subject: `Pending order · ${m.alias}${dry}`,
-      rows: [
-        { label: 'Market', value: `${m.alias} (${m.symbol})` },
-        { label: 'Order level', value: px(m.level) },
-        { label: 'Last price', value: px(m.price) },
-        { label: 'Reason', value: m.reason ?? '—' },
-        { label: 'Latest signal', value: m.latest_signal ?? '—' },
-        { label: 'Time', value: when(m.updated_at) },
-      ],
-    });
-  }
-  for (const t of opens.data ?? []) {
-    candidates.push({
-      kind: 'position_opened',
-      ref: `open:${t.id}`,
-      subject: `Position opened · ${t.symbol} ${String(t.side).toUpperCase()}${t.is_dry_run ? ' [demo]' : ''}`,
-      rows: [
-        { label: 'Market', value: t.symbol },
-        { label: 'Side', value: String(t.side).toUpperCase() },
-        { label: 'Volume', value: String(t.volume) },
-        { label: 'Entry', value: px(t.open_price) },
-        { label: 'Stop / Target', value: `${px(t.sl)} / ${px(t.tp)}` },
-        { label: 'Strategy', value: t.strategy ?? '—' },
-        { label: 'Opened', value: when(t.open_ts) },
-      ],
-    });
-  }
-  for (const t of closes.data ?? []) {
-    // Reconciliation closes (V2) are backend catch-up on old orphans, not live
-    // trading events — don't alert on them.
-    if (t.close_reason === 'reconciled_stale' || t.close_reason === 'reconciled_closed') continue;
-    const pnl = Number(t.pnl);
-    candidates.push({
-      kind: 'position_closed',
-      ref: `close:${t.id}`,
-      subject: `Position closed · ${t.symbol} ${money(t.pnl)}${t.is_dry_run ? ' [demo]' : ''}`,
-      rows: [
-        { label: 'Market', value: t.symbol },
-        { label: 'Side', value: String(t.side).toUpperCase() },
-        { label: 'Volume', value: String(t.volume) },
-        { label: 'Entry → Exit', value: `${px(t.open_price)} → ${px(t.close_price)}` },
-        { label: 'Result', value: `${Number.isFinite(pnl) && pnl >= 0 ? '+' : ''}${money(t.pnl)}` },
-        { label: 'Reason', value: t.close_reason ?? '—' },
-        { label: 'Closed', value: when(t.close_ts) },
       ],
     });
   }

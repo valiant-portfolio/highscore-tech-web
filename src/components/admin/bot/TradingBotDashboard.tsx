@@ -67,8 +67,6 @@ export function TradingBotDashboard({
 
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
-  const liveBySymbol = useMemo(() => new Map(markets.map((m) => [m.symbol, m])), [markets]);
-
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayRealized = closedTrades
@@ -119,7 +117,7 @@ export function TradingBotDashboard({
       )}
       {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} openTrades={openTrades.map((t) => ({ symbol: t.symbol, side: t.side }))} />}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
-      {tab === 'positions' && <Positions openTrades={openTrades} liveBySymbol={liveBySymbol} floating={floating} onOpenChart={openChartFor} />}
+      {tab === 'positions' && <Positions markets={markets} openTrades={openTrades} floating={floating} onOpenChart={openChartFor} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
       {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
     </div>
@@ -231,7 +229,7 @@ function Markets({
               const spec = specByName.get(m.symbol);
               const stale = m.updated_at ? Date.now() - new Date(m.updated_at).getTime() > STALE_MS : true;
               return (
-                <tr key={m.symbol} className={`hover:bg-surface-hover/40 ${stale ? 'opacity-45' : ''}`}>
+                <tr key={m.symbol} className="hover:bg-surface-hover/40">
                   <Td className="pl-4"><span className="font-semibold text-fg">{m.alias}</span><p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p></Td>
                   <Td><TrendChip trend={m.entry_trend} /></Td>
                   <Td><StrengthBadge strength={m.trend_strength} /></Td>
@@ -252,7 +250,22 @@ function Markets({
                     />
                   </Td>
                   <Td className="text-center"><MarketEnableToggle symbol={m.symbol} enabled={cfg?.enabled ?? true} /></Td>
-                  <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
+                  {/* Staleness is flagged here rather than by dimming the row: the
+                      numbers stay fully legible, but an hour-old price never reads
+                      as live. A market goes stale when the bot stops writing. */}
+                  <Td className="text-right pr-4 whitespace-nowrap">
+                    {stale ? (
+                      <span
+                        className="inline-flex items-center gap-1.5 font-semibold text-warning"
+                        title="No update in over 3 minutes — the bot may not be running"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+                        <TimeAgo iso={m.updated_at} />
+                      </span>
+                    ) : (
+                      <span className="text-fg-subtle"><TimeAgo iso={m.updated_at} /></span>
+                    )}
+                  </Td>
                 </tr>
               );
             })}
@@ -266,61 +279,128 @@ function Markets({
 /* ── Open positions ───────────────────────────────────────────────────── */
 
 function Positions({
-  openTrades, liveBySymbol, floating, onOpenChart,
+  markets, openTrades, floating, onOpenChart,
 }: {
-  openTrades: BotTrade[]; liveBySymbol: Map<string, BotMarket>; floating: number;
+  markets: BotMarket[]; openTrades: BotTrade[]; floating: number;
   onOpenChart: (symbol: string) => void;
 }) {
-  if (openTrades.length === 0) {
-    return <AdminCard><Empty>No positions open right now.</Empty></AdminCard>;
+  // bot_market_state is the authority on what is live at the broker. The bot
+  // adopts positions it finds there, but only writes a bot_trades row for orders
+  // it placed itself — so a position opened before the bot was pointed at this
+  // database has state='active' and no trade row. Driving off market_state keeps
+  // this tab agreeing with the Open P&L tile, which reads the same source.
+  const ongoing = markets.filter((m) => m.state === 'active');
+  const pending = markets.filter((m) => m.state === 'ready');
+  const tradeBySymbol = new Map(openTrades.map((t) => [t.symbol, t]));
+
+  if (ongoing.length === 0 && pending.length === 0) {
+    return <AdminCard><Empty>No ongoing trades or pending orders right now.</Empty></AdminCard>;
   }
+
   return (
-    <AdminCard>
-      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-        <span className="text-sm text-fg-muted">{openTrades.length} open · click a row to open its chart</span>
-        <span className={`text-sm font-bold ${pnlTone(floating)}`}>Floating {signed(floating)}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
-            <tr>
-              <Th className="text-left pl-4">Market</Th><Th className="text-left">Side</Th>
-              <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th>
-              <Th className="text-right">SL / TP</Th><Th className="text-right">Live P&L</Th>
-              <Th className="text-right">Opened</Th><Th className="text-right pr-4">Action</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {openTrades.map((t) => {
-              const live = liveBySymbol.get(t.symbol)?.pnl ?? t.pnl ?? null;
-              return (
-                <tr
-                  key={t.id}
-                  onClick={() => onOpenChart(t.symbol)}
-                  title="Open this market in the chart"
-                  className="cursor-pointer hover:bg-surface-hover/30"
-                >
-                  <Td className="pl-4 font-semibold text-fg">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CandlestickChart className="h-3.5 w-3.5 text-fg-subtle" />
-                      {t.symbol}{t.is_dry_run && <DryTag />}
-                    </span>
-                  </Td>
-                  <Td><SideTag side={t.side} /></Td>
-                  <Td className="text-right tabular">{t.volume}</Td>
-                  <Td className="text-right tabular">{px(t.open_price)}</Td>
-                  <Td className="text-right tabular text-fg-muted">{px(t.sl)} / {px(t.tp)}</Td>
-                  <Td className={`text-right tabular font-bold ${pnlTone(live)}`}>{live == null ? '—' : signed(live)}</Td>
-                  <Td className="text-right text-fg-subtle"><TimeAgo iso={t.open_ts} /></Td>
-                  {/* stop the row click so closing a position doesn't also navigate */}
-                  <Td className="text-right pr-4" onClick={(e) => e.stopPropagation()}><ClosePositionButton symbol={t.symbol} ticket={t.ticket} /></Td>
+    <div className="space-y-6">
+      {/* ── Ongoing trades ─────────────────────────────────────────────── */}
+      <AdminCard>
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+          <span className="text-sm font-semibold text-fg">
+            Ongoing trades <span className="font-normal text-fg-muted">· {ongoing.length} open</span>
+          </span>
+          <span className={`text-sm font-bold ${pnlTone(floating)}`}>Floating {signed(floating)}</span>
+        </div>
+        {ongoing.length === 0 ? (
+          <Empty>No ongoing trades.</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
+              <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
+                <tr>
+                  <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
+                  <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th>
+                  <Th className="text-right">SL / TP</Th><Th className="text-right">Live P&L</Th>
+                  <Th className="text-right">Opened</Th><Th className="text-right pr-4">Action</Th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </AdminCard>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {ongoing.map((m) => {
+                  const t = tradeBySymbol.get(m.symbol);
+                  return (
+                    <tr
+                      key={m.symbol}
+                      onClick={() => onOpenChart(m.symbol)}
+                      title="Open this market in the chart"
+                      className="cursor-pointer hover:bg-surface-hover/30"
+                    >
+                      <Td className="pl-4 font-semibold text-fg">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CandlestickChart className="h-3.5 w-3.5 text-fg-subtle" />
+                          {m.alias}{m.is_dry_run && <DryTag />}
+                        </span>
+                      </Td>
+                      <Td>{t ? <SideTag side={t.side} /> : <span className="tabular text-fg-muted">{m.latest_signal ?? '—'}</span>}</Td>
+                      <Td className="text-right tabular">{t ? t.volume : '—'}</Td>
+                      <Td className="text-right tabular">{px(t ? t.open_price : m.level)}</Td>
+                      <Td className="text-right tabular text-fg-muted">{t ? `${px(t.sl)} / ${px(t.tp)}` : '—'}</Td>
+                      <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
+                      <Td className="text-right text-fg-subtle">{t ? <TimeAgo iso={t.open_ts} /> : '—'}</Td>
+                      {/* stop the row click so closing a position doesn't also navigate */}
+                      <Td className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                        <ClosePositionButton symbol={m.symbol} ticket={t?.ticket ?? null} />
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminCard>
+
+      {/* ── Pending orders ─────────────────────────────────────────────── */}
+      <AdminCard>
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-sm font-semibold text-fg">
+            Pending orders <span className="font-normal text-fg-muted">· {pending.length} waiting to fill</span>
+          </span>
+        </div>
+        {pending.length === 0 ? (
+          <Empty>No pending orders.</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
+                <tr>
+                  <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
+                  <Th className="text-left">Reason</Th><Th className="text-right">Entry level</Th>
+                  <Th className="text-right">Price now</Th><Th className="text-right pr-4">Updated</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pending.map((m) => (
+                  <tr
+                    key={m.symbol}
+                    onClick={() => onOpenChart(m.symbol)}
+                    title="Open this market in the chart"
+                    className="cursor-pointer hover:bg-surface-hover/30"
+                  >
+                    <Td className="pl-4 font-semibold text-fg">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CandlestickChart className="h-3.5 w-3.5 text-fg-subtle" />
+                        {m.alias}{m.is_dry_run && <DryTag />}
+                      </span>
+                    </Td>
+                    <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
+                    <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
+                    <Td className="text-right tabular font-semibold">{px(m.level)}</Td>
+                    <Td className="text-right tabular text-fg-muted">{px(m.price)}</Td>
+                    <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminCard>
+    </div>
   );
 }
 
@@ -537,7 +617,9 @@ function Performance({ closedTrades, equityCurve }: { closedTrades: BotTrade[]; 
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* 3 across rather than 6: six monospaced currency values in one row leaves
+          each tile too narrow for a six-figure number. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Kpi label="Net P&L" value={<span className={pnlTone(s.net)}>{signed(s.net)}</span>} hint={`${s.count} trades`} tone={s.net >= 0 ? 'success' : 'danger'} />
         <Kpi label="Win rate" value={`${s.winRate.toFixed(0)}%`} hint={`${s.wins}W · ${s.losses}L`} />
         <Kpi label="Profit factor" value={Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'} hint="gross win / gross loss" tone={s.profitFactor >= 1 ? 'success' : 'danger'} />
