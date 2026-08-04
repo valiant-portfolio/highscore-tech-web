@@ -115,7 +115,23 @@ export function TradingBotDashboard({
           floating={floating} todayRealized={todayRealized}
         />
       )}
-      {tab === 'chart' && <MarketChart markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))} openTrades={openTrades.map((t) => ({ symbol: t.symbol, side: t.side }))} />}
+      {/* Ongoing-trade chips come from bot_market_state, not bot_trades: the bot
+          only writes a trade row for orders it placed itself, so a position it
+          adopted from the broker is state='active' with no row. Deriving from
+          bot_trades hid live trades from the chart. */}
+      {tab === 'chart' && (
+        <MarketChart
+          markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))}
+          openTrades={markets
+            .filter((m) => m.state === 'active')
+            .map((m) => ({
+              symbol: m.symbol,
+              side: (m.latest_signal ?? '').toUpperCase().startsWith('SHORT') || (m.latest_signal ?? '').toUpperCase().startsWith('SELL')
+                ? 'sell'
+                : 'buy',
+            }))}
+        />
+      )}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
       {tab === 'positions' && <Positions markets={markets} openTrades={openTrades} floating={floating} onOpenChart={openChartFor} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
