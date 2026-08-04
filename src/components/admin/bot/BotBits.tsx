@@ -15,6 +15,31 @@ function since(iso: string | null | undefined): number | null {
   return Number.isFinite(t) ? Date.now() - t : null;
 }
 
+/**
+ * "as of 12s ago", turning amber once the data is stale.
+ *
+ * Its own ticker, so it keeps re-evaluating rather than freezing at whatever the
+ * last render computed — the whole point is to expose a page that has stopped
+ * refreshing, which is exactly when a parent's render-time check would be stuck
+ * too. Reads the clock in an effect, not during render.
+ */
+export function AsOfTag({ iso }: { iso: string | null | undefined }) {
+  const [stale, setStale] = useState(false);
+  useEffect(() => {
+    const check = () => setStale(!!iso && Date.now() - new Date(iso).getTime() > STALE_MS);
+    check();
+    const id = setInterval(check, 1000);
+    return () => clearInterval(id);
+  }, [iso]);
+
+  if (!iso) return null;
+  return (
+    <span className={`ml-2 font-normal ${stale ? 'font-semibold text-warning' : 'text-fg-subtle'}`}>
+      {stale && '⚠ '}as of <TimeAgo iso={iso} />{stale && ' — reload'}
+    </span>
+  );
+}
+
 /** Live "12s ago" that updates itself every second. */
 export function TimeAgo({ iso, className = '' }: { iso: string | null | undefined; className?: string }) {
   const [, tick] = useState(0);
@@ -102,7 +127,21 @@ export function BotStatus({ lastUpdate, intervalMs = 30_000, compact = false }: 
   useEffect(() => {
     const clock = setInterval(() => tick((n) => n + 1), 1000);
     const refresh = setInterval(() => router.refresh(), intervalMs);
-    return () => { clearInterval(clock); clearInterval(refresh); };
+
+    // Browsers throttle or suspend timers in a backgrounded tab, so the interval
+    // above stops firing while you are elsewhere. Coming back to a dashboard
+    // frozen minutes ago is actively misleading here — it can show a closed
+    // trade as still open. Refresh immediately on return to the tab.
+    const onVisible = () => { if (document.visibilityState === 'visible') router.refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    return () => {
+      clearInterval(clock);
+      clearInterval(refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [router, intervalMs]);
 
   const ms = since(lastUpdate);

@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { ClosePositionButton } from './ClosePositionButton';
 import { MarketEnableToggle } from './MarketEnableToggle';
@@ -68,6 +68,7 @@ export function TradingBotDashboard({
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
+  const liveCount = markets.filter((m) => m.state === 'active').length;
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayRealized = closedTrades
     .filter((t) => t.close_ts && t.close_ts.slice(0, 10) === todayKey)
@@ -77,7 +78,9 @@ export function TradingBotDashboard({
     { key: 'overview', label: 'Overview', icon: <LayoutGrid className="h-4 w-4" /> },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
     { key: 'markets', label: 'Markets', icon: <ListTree className="h-4 w-4" />, badge: markets.length },
-    { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: openTrades.length },
+    // Count live positions from market state, not bot_trades — a position adopted
+    // from the broker has no trade row, so this badge read 0 while a trade was open.
+    { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: liveCount },
     { key: 'transactions', label: 'Transactions', icon: <Receipt className="h-4 w-4" /> },
     { key: 'performance', label: 'Performance', icon: <BarChart3 className="h-4 w-4" /> },
   ];
@@ -106,7 +109,7 @@ export function TradingBotDashboard({
             </button>
           ))}
         </div>
-        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={openTrades.length} /></div>
+        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
       </div>
 
       {tab === 'overview' && (
@@ -309,6 +312,12 @@ function Positions({
   const pending = markets.filter((m) => m.state === 'ready');
   const tradeBySymbol = new Map(openTrades.map((t) => [t.symbol, t]));
 
+  // Newest write across all markets — how current this whole view is.
+  const asOf = markets.reduce<string | null>(
+    (max, m) => (!max || m.updated_at > max ? m.updated_at : max),
+    null,
+  );
+
   if (ongoing.length === 0 && pending.length === 0) {
     return <AdminCard><Empty>No ongoing trades or pending orders right now.</Empty></AdminCard>;
   }
@@ -317,9 +326,14 @@ function Positions({
     <div className="space-y-6">
       {/* ── Ongoing trades ─────────────────────────────────────────────── */}
       <AdminCard>
+        {/* "As of" is not decoration here. A browser throttles setInterval in a
+            backgrounded tab, so the 30s auto-refresh can silently stop and leave a
+            closed trade on screen as though it were still open — i.e. showing
+            exposure that no longer exists. Stamp the age so that is obvious. */}
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <span className="text-sm font-semibold text-fg">
             Ongoing trades <span className="font-normal text-fg-muted">· {ongoing.length} open</span>
+            <AsOfTag iso={asOf} />
           </span>
           <span className={`text-sm font-bold ${pnlTone(floating)}`}>Floating {signed(floating)}</span>
         </div>
@@ -355,7 +369,15 @@ function Positions({
                       <Td>{t ? <SideTag side={t.side} /> : <span className="tabular text-fg-muted">{m.latest_signal ?? '—'}</span>}</Td>
                       <Td className="text-right tabular">{t ? t.volume : '—'}</Td>
                       <Td className="text-right tabular">{px(t ? t.open_price : m.level)}</Td>
-                      <Td className="text-right tabular text-fg-muted">{t ? `${px(t.sl)} / ${px(t.tp)}` : '—'}</Td>
+                      {/* Prefer market_state: it carries what the broker holds right
+                          now, so it is present for adopted positions (which have no
+                          bot_trades row at all) and stays correct after the profit
+                          lock ratchets the stop. */}
+                      <Td className="text-right tabular text-fg-muted">
+                        {(m.sl ?? t?.sl) == null && (m.tp ?? t?.tp) == null
+                          ? '—'
+                          : `${px(m.sl ?? t?.sl)} / ${px(m.tp ?? t?.tp)}`}
+                      </Td>
                       <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
                       <Td className="text-right text-fg-subtle">{t ? <TimeAgo iso={t.open_ts} /> : '—'}</Td>
                       {/* stop the row click so closing a position doesn't also navigate */}
@@ -387,6 +409,7 @@ function Positions({
                 <tr>
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
                   <Th className="text-left">Reason</Th><Th className="text-right">Entry level</Th>
+                  <Th className="text-right">SL / TP</Th>
                   <Th className="text-right">Price now</Th><Th className="text-right pr-4">Updated</Th>
                 </tr>
               </thead>
@@ -407,6 +430,9 @@ function Positions({
                     <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
                     <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
                     <Td className="text-right tabular font-semibold">{px(m.level)}</Td>
+                    <Td className="text-right tabular text-fg-muted">
+                      {m.sl == null && m.tp == null ? '—' : `${px(m.sl)} / ${px(m.tp)}`}
+                    </Td>
                     <Td className="text-right tabular text-fg-muted">{px(m.price)}</Td>
                     <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
                   </tr>
