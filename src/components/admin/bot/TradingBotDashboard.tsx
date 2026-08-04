@@ -26,6 +26,67 @@ const px = (n: number | null | undefined) =>
 const signed = (n: number | null | undefined) => (n == null ? '—' : `${Number(n) >= 0 ? '+' : ''}${money(n)}`);
 const pnlTone = (n: number | null | undefined) => (n == null ? 'text-fg-muted' : Number(n) > 0 ? 'text-success' : Number(n) < 0 ? 'text-danger' : 'text-fg-muted');
 
+/**
+ * Which side a live position is on, from whichever source knows.
+ *
+ * bot_trades states it outright, but an adopted position may not have a row yet,
+ * so fall back to the signal string the bot publishes, and finally to the target's
+ * position relative to entry — a target above entry can only be a long.
+ */
+function positionSide(m: BotMarket, t: BotTrade | undefined): 'buy' | 'sell' | null {
+  if (t?.side === 'buy' || t?.side === 'sell') return t.side;
+  const sig = (m.latest_signal ?? '').toUpperCase();
+  if (sig.startsWith('SHORT') || sig.startsWith('SELL')) return 'sell';
+  if (sig.startsWith('LONG') || sig.startsWith('BUY')) return 'buy';
+  const entry = m.level, tp = m.tp;
+  if (entry != null && tp != null && tp !== entry) return tp > entry ? 'buy' : 'sell';
+  return null;
+}
+
+/** The single management action offered on a position — see manageStage. */
+export type ManageStage = 'breakeven' | 'partial' | 'trail' | 'exit-only';
+
+/**
+ * The one action worth taking on this position right now.
+ *
+ * Managing a winner runs in a fixed order — take the risk off, bank some, ride the
+ * rest — so showing all four buttons at once asks the reader to work out which
+ * stage the trade is at on every glance. This derives it instead, from state the
+ * broker already reports:
+ *
+ *   stop still short of entry   the trade can still lose  -> move to break even
+ *   stop at or beyond entry     risk is off, full size    -> partial close
+ *   ...and the size is reduced  already banked some       -> trail the stop
+ *
+ * `exit-only` is the honest answer when no stop move would be accepted: with the
+ * trade at or below water, a stop at entry sits on the wrong side of the market and
+ * the broker rejects it. Offering a button the bot must decline is worse than
+ * offering none, so that case shows only the exit.
+ */
+function manageStage({
+  side, entry, sl, pnl, lots, openedLots,
+}: {
+  side: 'buy' | 'sell' | null;
+  entry: number | null;
+  sl: number | null;
+  pnl: number | null;
+  lots: number | null;
+  openedLots: number | null;
+}): ManageStage {
+  // pnl comes from the broker's own position.profit, which excludes swap and
+  // commission — so pnl > 0 means price is genuinely beyond entry, which is
+  // exactly the condition a stop at entry needs.
+  if (side == null || entry == null || pnl == null || pnl <= 0) return 'exit-only';
+
+  const riskOff = sl != null && (side === 'buy' ? sl >= entry : sl <= entry);
+  if (!riskOff) return 'breakeven';
+
+  // Lots open now versus lots opened with. The engine leaves bot_trades.volume at
+  // the opening size precisely so this comparison is possible.
+  const reduced = lots != null && openedLots != null && lots < openedLots - 1e-9;
+  return reduced ? 'trail' : 'partial';
+}
+
 /** Lots, two decimals as traders write them — but never rounding away a third
  *  decimal on a broker whose volume step is 0.001. */
 const lotsLabel = (n: number) =>
@@ -376,7 +437,7 @@ function Positions({
           <Empty>No ongoing trades.</Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
                 <tr>
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
@@ -398,6 +459,10 @@ function Positions({
                   const tp = m.tp ?? t?.tp ?? null;
                   const atSL = moneyAtLevel(sl, entry, m.price, m.pnl);
                   const atTP = moneyAtLevel(tp, entry, m.price, m.pnl);
+                  const stage = manageStage({
+                    side: positionSide(m, t), entry, sl, pnl: m.pnl,
+                    lots, openedLots: t ? Number(t.volume) : null,
+                  });
                   return (
                     <tr
                       key={m.symbol}
@@ -444,7 +509,10 @@ function Positions({
                       </Td>
                       {/* stop the row click so managing a position doesn't also navigate */}
                       <Td className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
-                        <PositionActions symbol={m.symbol} ticket={t?.ticket ?? null} volume={lots} />
+                        <PositionActions
+                          symbol={m.symbol} ticket={t?.ticket ?? null}
+                          volume={lots} stage={stage}
+                        />
                       </Td>
                     </tr>
                   );

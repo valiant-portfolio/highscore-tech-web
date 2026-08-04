@@ -1,16 +1,17 @@
 'use client';
 
-// Per-position management controls for the Open positions table: take part of the
-// trade off, move the stop to break even, trail the stop, or close out.
+// Per-position management control for the Open positions table.
 //
-// Every one of these queues a row in bot_commands rather than touching the broker
-// — the bot executes on its next poll and writes the outcome back. So the honest
-// wording everywhere is "queued": the position stays exactly as it is until the
-// bot reports done, which is a cycle away, not instant.
+// ONE action is offered, not a menu of four: which of move-to-break-even, partial
+// close and trail-the-stop makes sense is decided by where the trade already is,
+// so the caller derives that (manageStage) and passes it in. The exit sits beside
+// it, always available. All the dialogs live here regardless of which button is
+// showing — the stage picks the trigger, not the capability.
 //
-// Laid out as a 2x2 grid of labelled buttons rather than a dropdown on purpose:
-// the table scrolls horizontally, and a menu panel would be clipped by that
-// scroll container.
+// Every action queues a row in bot_commands rather than touching the broker — the
+// bot executes on its next poll and writes the outcome back. So the honest wording
+// everywhere is "queued": the position stays exactly as it is until the bot
+// reports done, which is a cycle away, not instant.
 
 import { useState, useTransition } from 'react';
 import { Scissors, ShieldCheck, MoveDownRight } from 'lucide-react';
@@ -19,11 +20,23 @@ import { ClosePositionButton } from './ClosePositionButton';
 import {
   partialClosePositionAction, moveToBreakEvenAction, trailStopAction,
 } from '@/lib/admin/trading-bot-actions';
-
 type Dialog = 'partial' | 'breakeven' | 'trail' | null;
+
+/**
+ * Which single action this position is offered. Derived by the table from the
+ * trade's own state (see manageStage there); `exit-only` means no stop move would
+ * be accepted yet, so only the exit is shown.
+ */
+export type ManageStage = 'breakeven' | 'partial' | 'trail' | 'exit-only';
 
 const SHARES = [25, 50, 75] as const;
 const DEFAULT_TRAIL_PIPS = 20;
+
+// Why a row can show no management action at all — the broker will not hold a stop
+// at entry until the trade is in profit, so there is nothing to offer but the exit.
+const EXIT_ONLY_HINT =
+  'No stop move available yet — the trade has to be in profit before the broker will '
+  + 'accept a stop at entry.';
 
 /** Lots as traders write them, keeping a third decimal where the broker uses one. */
 const lots = (n: number) =>
@@ -33,11 +46,14 @@ export function PositionActions({
   symbol,
   ticket,
   volume,
+  stage,
 }: {
   symbol: string;
   ticket: number | null;
   /** Lots currently open, for the partial-close preview. Null when unknown. */
   volume: number | null;
+  /** Which action to offer. See ManageStage. */
+  stage: ManageStage;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [share, setShare] = useState<number>(50);
@@ -59,16 +75,25 @@ export function PositionActions({
   const partialLots = volume != null ? (volume * share) / 100 : null;
 
   return (
-    <div className="inline-grid grid-cols-2 gap-1.5">
-      <ActionButton onClick={() => setDialog('partial')} icon={<Scissors className="h-3.5 w-3.5" />}>
-        Partial close
-      </ActionButton>
-      <ActionButton onClick={() => setDialog('breakeven')} icon={<ShieldCheck className="h-3.5 w-3.5" />}>
-        Move to break even
-      </ActionButton>
-      <ActionButton onClick={() => setDialog('trail')} icon={<MoveDownRight className="h-3.5 w-3.5" />}>
-        Trail SL
-      </ActionButton>
+    <div
+      className="inline-flex items-center gap-1.5"
+      title={stage === 'exit-only' ? EXIT_ONLY_HINT : undefined}
+    >
+      {stage === 'breakeven' && (
+        <ActionButton onClick={() => setDialog('breakeven')} icon={<ShieldCheck className="h-3.5 w-3.5" />}>
+          Move to break even
+        </ActionButton>
+      )}
+      {stage === 'partial' && (
+        <ActionButton onClick={() => setDialog('partial')} icon={<Scissors className="h-3.5 w-3.5" />}>
+          Partial close
+        </ActionButton>
+      )}
+      {stage === 'trail' && (
+        <ActionButton onClick={() => setDialog('trail')} icon={<MoveDownRight className="h-3.5 w-3.5" />}>
+          Trail SL
+        </ActionButton>
+      )}
       <ClosePositionButton symbol={symbol} ticket={ticket} />
 
       {/* ── Partial close ─────────────────────────────────────────────── */}
