@@ -305,12 +305,16 @@ export function MarketChart({
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
-      const [barsRes, tradesRes, quoteRes] = await Promise.all([
+      const [barsRes, tradesRes, quoteRes, stateRes] = await Promise.all([
         supabase.from('bot_bars').select('ts,open,high,low,close')
           .eq('symbol', symbol).eq('timeframe', tf).order('ts', { ascending: true }).limit(1500),
         supabase.from('bot_trades').select('id,side,open_ts,open_price,close_ts,close_price,sl,tp,pnl,close_reason')
           .eq('symbol', symbol).order('open_ts', { ascending: true }).limit(300),
         supabase.from('bot_quotes').select('digits').eq('symbol', symbol).maybeSingle(),
+        // bot_trades only carries orders the bot placed itself. A position it
+        // adopted from the broker exists only here, as state='active'.
+        supabase.from('bot_market_state').select('state,level,latest_signal')
+          .eq('symbol', symbol).maybeSingle(),
       ]);
       if (!alive) return;
       const series = seriesRef.current;
@@ -340,8 +344,11 @@ export function MarketChart({
 
         const trades: Trade[] = (tradesRes.data ?? []) as Trade[];
 
-        // Markers for every trade (entry arrows) — updated in place, not stacked.
-        const markers = trades.map((t) => {
+        // ONLY the latest trade is marked. Plotting every trade in history buried
+        // the candles under BUY/SELL arrows — on an active market that is
+        // hundreds of them, and the older ones tell you nothing about now.
+        const latest = trades.length ? [trades[trades.length - 1]] : [];
+        const markers = latest.map((t) => {
           const buy = t.side === 'buy';
           return {
             time: Math.floor(new Date(t.open_ts).getTime() / 1000) as UTCTimestamp,
@@ -356,11 +363,19 @@ export function MarketChart({
 
         // Entry / SL / TP — ONLY for the active (open) trade on this market.
         const open = trades.find((t) => !t.close_ts);
+        const live = stateRes.data as { state?: string; level?: number; latest_signal?: string } | null;
         if (open) {
           activeSide.current = open.side === 'sell' ? 'sell' : 'buy';
           overlayLines.current.push(series.createPriceLine({ price: Number(open.open_price), color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
           if (open.sl != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
           if (open.tp != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+        } else if (live?.state === 'active' && live.level != null) {
+          // Adopted from the broker, so there is no bot_trades row — but the
+          // trade IS live. Draw its entry from market state; SL/TP are only
+          // known for orders the bot placed, so they stay off.
+          const sig = (live.latest_signal ?? '').toUpperCase();
+          activeSide.current = sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy';
+          overlayLines.current.push(series.createPriceLine({ price: Number(live.level), color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
         }
       }
 
