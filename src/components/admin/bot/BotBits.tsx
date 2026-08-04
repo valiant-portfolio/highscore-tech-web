@@ -54,6 +54,40 @@ export function TimeAgo({ iso, className = '' }: { iso: string | null | undefine
   return <span className={className}>{label}</span>;
 }
 
+/**
+ * How long something has been running, to the minute: `5h14m`.
+ *
+ * Distinct from TimeAgo on purpose. "5h ago" is fine for a timestamp, but a trade
+ * that has been open 5h59m is not the same trade as one open 5h01m — position age
+ * is read against the session and the timeframe, so the minutes matter.
+ */
+export function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (d > 0) return `${d}d ${h}h${pad(m)}m`;
+  if (h > 0) return `${h}h${pad(m)}m`;
+  if (m > 0) return `${m}m${pad(s)}s`;
+  return `${s}s`;
+}
+
+/** Live trade duration counted from `from`, ticking every second. */
+export function Duration({ from, className = '' }: { from: string | null | undefined; className?: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const ms = since(from);
+  // A negative age means the clock disagrees with the broker's, not a 0s trade;
+  // don't dress that up as a duration.
+  if (ms === null || ms < 0) return <span className={className}>—</span>;
+  return <span className={className}>{formatDuration(ms)}</span>;
+}
+
 // Five-tier trend. Dots per the dashboard spec: 🟢 strong up, 🟡 weak up,
 // ⚪ sideways, 🟠 weak down, 🔴 strong down. Keyed on the exact strings the bot
 // writes to bot_market_state.entry_trend / htf_trend.

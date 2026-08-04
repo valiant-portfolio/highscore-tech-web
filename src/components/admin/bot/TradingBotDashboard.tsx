@@ -8,9 +8,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, AsOfTag, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
-import { ClosePositionButton } from './ClosePositionButton';
+import { PositionActions } from './PositionActions';
 import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
 import { MarketChart } from './MarketChart';
@@ -25,6 +25,41 @@ const px = (n: number | null | undefined) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 5 });
 const signed = (n: number | null | undefined) => (n == null ? '—' : `${Number(n) >= 0 ? '+' : ''}${money(n)}`);
 const pnlTone = (n: number | null | undefined) => (n == null ? 'text-fg-muted' : Number(n) > 0 ? 'text-success' : Number(n) < 0 ? 'text-danger' : 'text-fg-muted');
+
+/** Lots, two decimals as traders write them — but never rounding away a third
+ *  decimal on a broker whose volume step is 0.001. */
+const lotsLabel = (n: number) =>
+  Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+
+/**
+ * What a stop or target is worth in money if it fills, at the position's current
+ * size — the number a trader actually reads a level for.
+ *
+ * We have no contract size or tick value on the frontend, but we do have this
+ * position's live P&L and how far price has travelled from entry. Their ratio is
+ * the money per unit of price for this exact position, sign included (a short
+ * gains as price falls, and the division carries that through). Multiply by the
+ * distance from entry to the level and you have the money at that level.
+ *
+ * Needs a meaningful move to divide by: right after entry, price ≈ entry and the
+ * ratio is noise, so return null and let the caller show the raw prices instead.
+ */
+function moneyAtLevel(
+  level: number | null | undefined,
+  entry: number | null | undefined,
+  price: number | null | undefined,
+  pnl: number | null | undefined,
+): number | null {
+  if (level == null || entry == null || price == null || pnl == null) return null;
+  const moved = Number(price) - Number(entry);
+  // Below a tick of movement the ratio is dominated by rounding; 1e-6 is smaller
+  // than any quoted point (5-digit FX = 1e-5) yet clear of float dust.
+  if (!Number.isFinite(moved) || Math.abs(moved) < 1e-6) return null;
+  const perUnit = Number(pnl) / moved;
+  if (!Number.isFinite(perUnit) || perUnit === 0) return null;
+  const at = perUnit * (Number(level) - Number(entry));
+  return Number.isFinite(at) ? at : null;
+}
 
 export function TradingBotDashboard({
   markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate,
@@ -341,18 +376,28 @@ function Positions({
           <Empty>No ongoing trades.</Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[1080px] text-sm">
               <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
                 <tr>
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
-                  <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th>
+                  <Th className="text-left">Trend</Th>
+                  <Th className="text-right">Lot size</Th><Th className="text-right">Entry</Th>
                   <Th className="text-right">SL / TP</Th><Th className="text-right">Live P&L</Th>
-                  <Th className="text-right">Opened</Th><Th className="text-right pr-4">Action</Th>
+                  <Th className="text-right">Trade duration</Th><Th className="text-right pr-4">Action</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {ongoing.map((m) => {
                   const t = tradeBySymbol.get(m.symbol);
+                  // Prefer market_state throughout: it is what the broker holds right
+                  // now, so it is present for adopted positions (no bot_trades row at
+                  // all) and correct after a partial close or a ratcheted stop.
+                  const lots = m.volume ?? (t ? Number(t.volume) : null);
+                  const entry = m.level ?? (t ? Number(t.open_price) : null);
+                  const sl = m.sl ?? t?.sl ?? null;
+                  const tp = m.tp ?? t?.tp ?? null;
+                  const atSL = moneyAtLevel(sl, entry, m.price, m.pnl);
+                  const atTP = moneyAtLevel(tp, entry, m.price, m.pnl);
                   return (
                     <tr
                       key={m.symbol}
@@ -367,22 +412,39 @@ function Positions({
                         </span>
                       </Td>
                       <Td>{t ? <SideTag side={t.side} /> : <span className="tabular text-fg-muted">{m.latest_signal ?? '—'}</span>}</Td>
-                      <Td className="text-right tabular">{t ? t.volume : '—'}</Td>
-                      <Td className="text-right tabular">{px(t ? t.open_price : m.level)}</Td>
-                      {/* Prefer market_state: it carries what the broker holds right
-                          now, so it is present for adopted positions (which have no
-                          bot_trades row at all) and stays correct after the profit
-                          lock ratchets the stop. */}
-                      <Td className="text-right tabular text-fg-muted">
-                        {(m.sl ?? t?.sl) == null && (m.tp ?? t?.tp) == null
-                          ? '—'
-                          : `${px(m.sl ?? t?.sl)} / ${px(m.tp ?? t?.tp)}`}
+                      <Td><TrendChip trend={m.entry_trend} /></Td>
+                      <Td className="text-right tabular">{lots == null ? '—' : lotsLabel(lots)}</Td>
+                      <Td className="text-right tabular">{px(entry)}</Td>
+                      {/* The levels as money, not just prices: what this position
+                          loses if the stop fills and makes if the target does. That
+                          is the question the column is actually asked. Prices stay
+                          underneath — the bot's stop moves, and you want to see it. */}
+                      <Td
+                        className="text-right tabular"
+                        title="What each level is worth if it fills, at the current position size. Prices below."
+                      >
+                        {atSL == null && atTP == null ? (
+                          <span className="text-fg-muted">
+                            {sl == null && tp == null ? '—' : `${px(sl)} / ${px(tp)}`}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="font-bold">
+                              <span className={pnlTone(atSL)}>{atSL == null ? '—' : signed(atSL)}</span>
+                              <span className="text-fg-subtle"> / </span>
+                              <span className={pnlTone(atTP)}>{atTP == null ? '—' : signed(atTP)}</span>
+                            </span>
+                            <p className="text-[10px] text-fg-subtle">{px(sl)} / {px(tp)}</p>
+                          </>
+                        )}
                       </Td>
                       <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
-                      <Td className="text-right text-fg-subtle">{t ? <TimeAgo iso={t.open_ts} /> : '—'}</Td>
-                      {/* stop the row click so closing a position doesn't also navigate */}
+                      <Td className="text-right tabular text-fg-subtle">
+                        <Duration from={m.opened_at ?? t?.open_ts} />
+                      </Td>
+                      {/* stop the row click so managing a position doesn't also navigate */}
                       <Td className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
-                        <ClosePositionButton symbol={m.symbol} ticket={t?.ticket ?? null} />
+                        <PositionActions symbol={m.symbol} ticket={t?.ticket ?? null} volume={lots} />
                       </Td>
                     </tr>
                   );
@@ -528,7 +590,7 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
             <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <Th className="text-left pl-4">Closed</Th><Th className="text-left">Market</Th><Th className="text-left">Side</Th>
-                <Th className="text-right">Vol</Th><Th className="text-right">Entry</Th><Th className="text-right">Exit</Th>
+                <Th className="text-right">Lot size</Th><Th className="text-right">Entry</Th><Th className="text-right">Exit</Th>
                 <Th className="text-right">P&L</Th><Th className="text-left pr-4">Reason</Th>
               </tr>
             </thead>

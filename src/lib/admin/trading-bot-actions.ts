@@ -86,22 +86,76 @@ async function issuer(): Promise<string> {
 }
 
 /**
- * Queue a close command. `ticket = null` closes ALL positions on the symbol.
- * The bot picks the row up within a poll cycle, executes, and writes the
- * outcome back to the same row (status done/failed, note).
+ * Queue one command for the bot. It picks the row up within a poll cycle,
+ * executes, and writes the outcome back to the same row (status done/failed,
+ * note). `payload` carries the per-command arguments — see the command table in
+ * db/schema.sql; the bot ignores keys it doesn't know.
  */
-export async function closePositionAction(symbol: string, ticket: number | null): Promise<Result> {
+async function queueCommand(
+  command: 'close' | 'partial_close' | 'breakeven' | 'trail_sl',
+  symbol: string,
+  ticket: number | null,
+  payload?: Record<string, number>,
+): Promise<Result> {
   await requireSection('trading-bot');
   const admin = botServiceClient();
   const createdBy = await issuer();
 
   const { error } = await admin.from('bot_commands').insert({
-    command: 'close', symbol, ticket, created_by: createdBy,
+    command, symbol, ticket, payload: payload ?? null, created_by: createdBy,
   });
   if (error) return { ok: false, error: error.message };
 
   revalidatePath('/admin/trading-bot');
   return { ok: true };
+}
+
+/** Close a position. `ticket = null` closes ALL positions on the symbol. */
+export async function closePositionAction(symbol: string, ticket: number | null): Promise<Result> {
+  return queueCommand('close', symbol, ticket);
+}
+
+/**
+ * Close part of a position and leave the rest running. `fraction` is a share of
+ * the position's current size (0.5 = half); the bot snaps it to the broker's lot
+ * step and closes outright rather than leaving a remainder too small to hold.
+ */
+export async function partialClosePositionAction(
+  symbol: string, ticket: number | null, fraction: number,
+): Promise<Result> {
+  if (!Number.isFinite(fraction) || fraction <= 0 || fraction > 1) {
+    return { ok: false, error: 'Choose a share between 1% and 100%.' };
+  }
+  return queueCommand('partial_close', symbol, ticket, { fraction });
+}
+
+/**
+ * Move the stop to the entry price so the trade can no longer lose. `bufferPips`
+ * puts it that far into profit instead — a pip or two covers the spread paid to
+ * exit. The bot declines (with a note on the command row) when the trade hasn't
+ * moved far enough for the broker to accept a stop there.
+ */
+export async function moveToBreakEvenAction(
+  symbol: string, ticket: number | null, bufferPips = 0,
+): Promise<Result> {
+  if (!Number.isFinite(bufferPips) || bufferPips < 0) {
+    return { ok: false, error: 'Buffer must be zero or more pips.' };
+  }
+  return queueCommand('breakeven', symbol, ticket, { buffer_pips: bufferPips });
+}
+
+/**
+ * Trail the stop `distancePips` behind price, ratcheted every bot cycle. The
+ * stop itself lives on the broker, so profit already locked survives anything;
+ * a bot restart stops the following, and it is re-armed from here.
+ */
+export async function trailStopAction(
+  symbol: string, ticket: number | null, distancePips: number,
+): Promise<Result> {
+  if (!Number.isFinite(distancePips) || distancePips <= 0) {
+    return { ok: false, error: 'Enter a trail distance in pips.' };
+  }
+  return queueCommand('trail_sl', symbol, ticket, { distance_pips: distancePips });
 }
 
 /**

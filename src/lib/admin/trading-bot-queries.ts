@@ -51,6 +51,12 @@ export interface BotMarket {
    *  positions and after the profit lock ratchets the stop. Null when unset. */
   sl: number | null;
   tp: number | null;
+  /** Lots the broker currently holds. Same reason as sl/tp: an adopted position
+   *  has no bot_trades row, and a partial close changes the size. Null when flat. */
+  volume: number | null;
+  /** When the broker opened the live position — the clock for trade duration.
+   *  Null when flat. */
+  opened_at: string | null;
   strategy: string | null;
   is_dry_run: boolean;
   updated_at: string;
