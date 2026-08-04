@@ -47,6 +47,10 @@ export interface BotMarket {
   price: number | null;
   level: number | null;
   pnl: number | null;
+  /** Stop/target as the broker currently holds them — correct for adopted
+   *  positions and after the profit lock ratchets the stop. Null when unset. */
+  sl: number | null;
+  tp: number | null;
   strategy: string | null;
   is_dry_run: boolean;
   updated_at: string;

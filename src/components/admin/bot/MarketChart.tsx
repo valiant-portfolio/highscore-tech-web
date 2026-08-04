@@ -313,7 +313,7 @@ export function MarketChart({
         supabase.from('bot_quotes').select('digits').eq('symbol', symbol).maybeSingle(),
         // bot_trades only carries orders the bot placed itself. A position it
         // adopted from the broker exists only here, as state='active'.
-        supabase.from('bot_market_state').select('state,level,latest_signal')
+        supabase.from('bot_market_state').select('state,level,latest_signal,sl,tp')
           .eq('symbol', symbol).maybeSingle(),
       ]);
       if (!alive) return;
@@ -362,20 +362,28 @@ export function MarketChart({
         else markersApi.current = createSeriesMarkers(series, markers);
 
         // Entry / SL / TP — ONLY for the active (open) trade on this market.
-        const open = trades.find((t) => !t.close_ts);
-        const live = stateRes.data as { state?: string; level?: number; latest_signal?: string } | null;
-        if (open) {
-          activeSide.current = open.side === 'sell' ? 'sell' : 'buy';
-          overlayLines.current.push(series.createPriceLine({ price: Number(open.open_price), color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
-          if (open.sl != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
-          if (open.tp != null) overlayLines.current.push(series.createPriceLine({ price: Number(open.tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
-        } else if (live?.state === 'active' && live.level != null) {
-          // Adopted from the broker, so there is no bot_trades row — but the
-          // trade IS live. Draw its entry from market state; SL/TP are only
-          // known for orders the bot placed, so they stay off.
-          const sig = (live.latest_signal ?? '').toUpperCase();
-          activeSide.current = sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy';
-          overlayLines.current.push(series.createPriceLine({ price: Number(live.level), color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
+        const openRow = trades.find((t) => !t.close_ts);
+        const live = stateRes.data as
+          { state?: string; level?: number; latest_signal?: string; sl?: number | null; tp?: number | null } | null;
+
+        // bot_market_state is the authority: it carries what the BROKER is
+        // holding right now, so it stays correct for positions the bot adopted
+        // and after the profit lock ratchets a stop. bot_trades is the fallback
+        // for anything it hasn't published yet.
+        const isLive = live?.state === 'active';
+        const entry = isLive && live?.level != null ? Number(live.level)
+          : openRow ? Number(openRow.open_price) : null;
+        const sl = (isLive ? live?.sl : null) ?? openRow?.sl ?? null;
+        const tp = (isLive ? live?.tp : null) ?? openRow?.tp ?? null;
+
+        if (entry != null && (isLive || openRow)) {
+          const sig = (live?.latest_signal ?? '').toUpperCase();
+          activeSide.current = openRow
+            ? (openRow.side === 'sell' ? 'sell' : 'buy')
+            : (sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy');
+          overlayLines.current.push(series.createPriceLine({ price: entry, color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
+          if (sl != null) overlayLines.current.push(series.createPriceLine({ price: Number(sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (tp != null) overlayLines.current.push(series.createPriceLine({ price: Number(tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
         }
       }
 
