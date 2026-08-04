@@ -355,7 +355,15 @@ function Positions({
                       <Td>{t ? <SideTag side={t.side} /> : <span className="tabular text-fg-muted">{m.latest_signal ?? '—'}</span>}</Td>
                       <Td className="text-right tabular">{t ? t.volume : '—'}</Td>
                       <Td className="text-right tabular">{px(t ? t.open_price : m.level)}</Td>
-                      <Td className="text-right tabular text-fg-muted">{t ? `${px(t.sl)} / ${px(t.tp)}` : '—'}</Td>
+                      {/* Prefer market_state: it carries what the broker holds right
+                          now, so it is present for adopted positions (which have no
+                          bot_trades row at all) and stays correct after the profit
+                          lock ratchets the stop. */}
+                      <Td className="text-right tabular text-fg-muted">
+                        {(m.sl ?? t?.sl) == null && (m.tp ?? t?.tp) == null
+                          ? '—'
+                          : `${px(m.sl ?? t?.sl)} / ${px(m.tp ?? t?.tp)}`}
+                      </Td>
                       <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
                       <Td className="text-right text-fg-subtle">{t ? <TimeAgo iso={t.open_ts} /> : '—'}</Td>
                       {/* stop the row click so closing a position doesn't also navigate */}
@@ -387,6 +395,7 @@ function Positions({
                 <tr>
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
                   <Th className="text-left">Reason</Th><Th className="text-right">Entry level</Th>
+                  <Th className="text-right">SL / TP</Th>
                   <Th className="text-right">Price now</Th><Th className="text-right pr-4">Updated</Th>
                 </tr>
               </thead>
@@ -407,6 +416,9 @@ function Positions({
                     <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
                     <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
                     <Td className="text-right tabular font-semibold">{px(m.level)}</Td>
+                    <Td className="text-right tabular text-fg-muted">
+                      {m.sl == null && m.tp == null ? '—' : `${px(m.sl)} / ${px(m.tp)}`}
+                    </Td>
                     <Td className="text-right tabular text-fg-muted">{px(m.price)}</Td>
                     <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
                   </tr>
