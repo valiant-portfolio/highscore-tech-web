@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { ClosePositionButton } from './ClosePositionButton';
 import { MarketEnableToggle } from './MarketEnableToggle';
@@ -68,6 +68,7 @@ export function TradingBotDashboard({
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
+  const liveCount = markets.filter((m) => m.state === 'active').length;
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayRealized = closedTrades
     .filter((t) => t.close_ts && t.close_ts.slice(0, 10) === todayKey)
@@ -77,7 +78,9 @@ export function TradingBotDashboard({
     { key: 'overview', label: 'Overview', icon: <LayoutGrid className="h-4 w-4" /> },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
     { key: 'markets', label: 'Markets', icon: <ListTree className="h-4 w-4" />, badge: markets.length },
-    { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: openTrades.length },
+    // Count live positions from market state, not bot_trades — a position adopted
+    // from the broker has no trade row, so this badge read 0 while a trade was open.
+    { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: liveCount },
     { key: 'transactions', label: 'Transactions', icon: <Receipt className="h-4 w-4" /> },
     { key: 'performance', label: 'Performance', icon: <BarChart3 className="h-4 w-4" /> },
   ];
@@ -106,7 +109,7 @@ export function TradingBotDashboard({
             </button>
           ))}
         </div>
-        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={openTrades.length} /></div>
+        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
       </div>
 
       {tab === 'overview' && (
@@ -309,6 +312,12 @@ function Positions({
   const pending = markets.filter((m) => m.state === 'ready');
   const tradeBySymbol = new Map(openTrades.map((t) => [t.symbol, t]));
 
+  // Newest write across all markets — how current this whole view is.
+  const asOf = markets.reduce<string | null>(
+    (max, m) => (!max || m.updated_at > max ? m.updated_at : max),
+    null,
+  );
+
   if (ongoing.length === 0 && pending.length === 0) {
     return <AdminCard><Empty>No ongoing trades or pending orders right now.</Empty></AdminCard>;
   }
@@ -317,9 +326,14 @@ function Positions({
     <div className="space-y-6">
       {/* ── Ongoing trades ─────────────────────────────────────────────── */}
       <AdminCard>
+        {/* "As of" is not decoration here. A browser throttles setInterval in a
+            backgrounded tab, so the 30s auto-refresh can silently stop and leave a
+            closed trade on screen as though it were still open — i.e. showing
+            exposure that no longer exists. Stamp the age so that is obvious. */}
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <span className="text-sm font-semibold text-fg">
             Ongoing trades <span className="font-normal text-fg-muted">· {ongoing.length} open</span>
+            <AsOfTag iso={asOf} />
           </span>
           <span className={`text-sm font-bold ${pnlTone(floating)}`}>Floating {signed(floating)}</span>
         </div>
