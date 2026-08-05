@@ -167,7 +167,6 @@ export function MarketChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const liveBar = useRef<Candle | null>(null);
-  const priceLine = useRef<IPriceLine | null>(null);     // live current-price line
   const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (active trade)
   const extraLines = useRef<IPriceLine[]>([]);          // SL/TP toggled on click
   const tradeSL = useRef<number | null>(null);
@@ -314,7 +313,6 @@ export function MarketChart({
     let alive = true;
     setLoading(true);
     liveBar.current = null;
-    priceLine.current = null;
     clearDrawings(); // manual annotations don't carry across markets/timeframes
 
     (async () => {
@@ -357,19 +355,16 @@ export function MarketChart({
       // other markets linger. This was the "so many SL/TP" bug.
       overlayLines.current.forEach((l) => series.removePriceLine(l));
       overlayLines.current = [];
-      if (priceLine.current) { series.removePriceLine(priceLine.current); priceLine.current = null; }
+      extraLines.current.forEach((l) => series.removePriceLine(l));
+      extraLines.current = [];
       activeSide.current = null;
 
       if (bars.length) {
         liveBar.current = bars[bars.length - 1];
         chartRef.current?.timeScale().fitContent();
 
-        if (priceLine.current) priceLine.current = null;
-        overlayLines.current = [];
-        extraLines.current = [];
-
         // If the timeframe is short enough, draw all historical trades as arrows on
-        // the candles. (On H4/D1, zooming way out to see years of history means thet that is
+        // the candles. (On H4/D1, zooming way out to see years of history means the
         const trades: Trade[] = (tradesRes.data ?? []) as Trade[];
 
         // ONLY the latest trade is marked. Plotting every trade in history buried
@@ -463,19 +458,6 @@ export function MarketChart({
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price };
         }
         series.update(liveBar.current);
-
-        // The live current-price line, carrying the position's P&L when one is
-        // open (green in profit, red in loss); plain blue otherwise.
-        if (priceLine.current) series.removePriceLine(priceLine.current);
-        const pl = activeSide.current && q.pnl != null ? Number(q.pnl) : null;
-        priceLine.current = series.createPriceLine({
-          price,
-          color: pl == null ? '#3b9de7' : pl >= 0 ? '#22c55e' : '#ef4444',
-          lineWidth: 2,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: '',
-        });
       }
     };
 
