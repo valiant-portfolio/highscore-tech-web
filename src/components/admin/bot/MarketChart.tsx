@@ -58,6 +58,11 @@ const TF_SECONDS: Record<string, number> = {
 const INTRADAY_MAX_SECS = 3600;
 
 type Candle = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
+
+function utcTz(dateStrOrMs: string | number): UTCTimestamp {
+  const ms = typeof dateStrOrMs === 'string' ? new Date(dateStrOrMs).getTime() : dateStrOrMs;
+  return (Math.floor(ms / 1000) + new Date().getTimezoneOffset() * 60) as UTCTimestamp;
+}
 interface Trade {
   id: string; side: string; open_ts: string; open_price: number;
   close_ts: string | null; close_price: number | null; sl: number | null; tp: number | null;
@@ -342,7 +347,7 @@ export function MarketChart({
         },
       });
       const bars: Candle[] = (barsRes.data ?? []).map((b) => ({
-        time: Math.floor(new Date(b.ts as string).getTime() / 1000) as UTCTimestamp,
+        time: utcTz(b.ts as string),
         open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
       }));
       barsRef.current = bars;
@@ -374,7 +379,7 @@ export function MarketChart({
         const markers = latest.map((t) => {
           const buy = t.side === 'buy';
           return {
-            time: Math.floor(new Date(t.open_ts).getTime() / 1000) as UTCTimestamp,
+            time: utcTz(t.open_ts),
             position: buy ? 'belowBar' : 'aboveBar',
             color: buy ? '#22c55e' : '#ef4444',
             shape: buy ? 'arrowUp' : 'arrowDown',
@@ -442,12 +447,12 @@ export function MarketChart({
       const price = q.bid;
       const series = seriesRef.current;
       // Only move the chart when the quote is genuinely fresh — a stale feed
-      // (bot's quote_feed not running) must not paint a lone candle/line.
-      const fresh = q.updated_at && Date.now() - new Date(q.updated_at).getTime() < 60_000;
+      const fresh = q.updated_at && Date.now() - new Date(q.updated_at).getTime() < 300_000;
       if (fresh && series && price != null && Number.isFinite(price)) {
         const secs = TF_SECONDS[tf] ?? 900;
         const lb = liveBar.current;
-        const bucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
+        const nowUtcSecs = Math.floor(Date.now() / 1000) + new Date().getTimezoneOffset() * 60;
+        const bucket = (Math.floor(nowUtcSecs / secs) * secs) as UTCTimestamp;
         // Intraday: roll into a fresh bucket when the clock crosses it. H4+ : just
         // extend the last historical bar (epoch buckets don't match broker weeks/months).
         if (!lb) {
@@ -466,7 +471,7 @@ export function MarketChart({
     return () => { alive = false; clearInterval(id); };
   }, [symbol, tf]);
 
-  const stale = quote?.updated_at ? Date.now() - new Date(quote.updated_at).getTime() > 60_000 : true;
+  const stale = quote?.updated_at ? Date.now() - new Date(quote.updated_at).getTime() > 300_000 : true;
   // Nothing to draw: no candle history AND no live feed to build one from.
   const showEmpty = hasHistory === false && stale && !loading;
 
