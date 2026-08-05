@@ -75,30 +75,30 @@ export function PositionActions({
   const partialLots = volume != null ? (volume * share) / 100 : null;
 
   return (
-    // Stacked, not inline: side by side the stage action and Close compete for
-    // the same glance, and Close is destructive. Vertical also keeps the column
-    // width stable as the stage label changes length ("Move to break even" is
-    // more than twice "Trail SL").
+    // ONE action per row: the stage action if the position has earned one,
+    // otherwise Close. Showing both put a destructive button next to a routine
+    // one at every glance, and made the row two lines tall for no gain.
+    // Closing is still available on every position — via the stage dialog's
+    // own Close, and via Close all in the header.
     <div
-      className="inline-flex flex-col items-stretch gap-1.5"
+      className="inline-flex items-center"
       title={stage === 'exit-only' ? EXIT_ONLY_HINT : undefined}
     >
-      {stage === 'breakeven' && (
+      {stage === 'breakeven' ? (
         <ActionButton onClick={() => setDialog('breakeven')} icon={<ShieldCheck className="h-3.5 w-3.5" />}>
           Move to break even
         </ActionButton>
-      )}
-      {stage === 'partial' && (
+      ) : stage === 'partial' ? (
         <ActionButton onClick={() => setDialog('partial')} icon={<Scissors className="h-3.5 w-3.5" />}>
           Partial close
         </ActionButton>
-      )}
-      {stage === 'trail' && (
+      ) : stage === 'trail' ? (
         <ActionButton onClick={() => setDialog('trail')} icon={<MoveDownRight className="h-3.5 w-3.5" />}>
           Trail SL
         </ActionButton>
+      ) : (
+        <ClosePositionButton symbol={symbol} ticket={ticket} />
       )}
-      <ClosePositionButton symbol={symbol} ticket={ticket} />
 
       {/* ── Partial close ─────────────────────────────────────────────── */}
       <ConfirmDialog
