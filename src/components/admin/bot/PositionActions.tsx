@@ -75,8 +75,12 @@ export function PositionActions({
   const partialLots = volume != null ? (volume * share) / 100 : null;
 
   return (
+    // Stacked, not inline: side by side the stage action and Close compete for
+    // the same glance, and Close is destructive. Vertical also keeps the column
+    // width stable as the stage label changes length ("Move to break even" is
+    // more than twice "Trail SL").
     <div
-      className="inline-flex items-center gap-1.5"
+      className="inline-flex flex-col items-stretch gap-1.5"
       title={stage === 'exit-only' ? EXIT_ONLY_HINT : undefined}
     >
       {stage === 'breakeven' && (
