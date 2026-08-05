@@ -443,7 +443,7 @@ function Positions({
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
                   <Th className="text-left">Trend</Th>
                   <Th className="text-right">Lot size</Th><Th className="text-right">Entry</Th>
-                  <Th className="text-right">SL / TP</Th><Th className="text-right">Live P&L</Th>
+                  <Th className="text-right">Live P&L</Th>
                   <Th className="text-right">Trade duration</Th><Th className="text-right pr-4">Action</Th>
                 </tr>
               </thead>
@@ -486,20 +486,6 @@ function Positions({
                       <Td><TrendChip trend={m.entry_trend} /></Td>
                       <Td className="text-right tabular">{lots == null ? '—' : lotsLabel(lots)}</Td>
                       <Td className="text-right tabular">{px(entry)}</Td>
-                      <Td
-                        className={`text-right tabular font-bold ${pnlTone(atLevel)}`}
-                        title={
-                          atRisk
-                            ? 'Losing — what the stop costs if it fills, at the current position size.'
-                            : 'Winning — what the target pays if it fills, at the current position size.'
-                        }
-                      >
-                        {/* Until price has moved off entry the money can't be derived,
-                            so fall back to the level itself rather than an empty cell. */}
-                        {atLevel == null
-                          ? <span className="font-normal text-fg-muted">{px(level)}</span>
-                          : signed(atLevel)}
-                      </Td>
                       <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
                       <Td className="text-right tabular text-fg-subtle">
                         <Duration from={m.opened_at ?? t?.open_ts} />
@@ -536,7 +522,6 @@ function Positions({
                 <tr>
                   <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
                   <Th className="text-left">Reason</Th><Th className="text-right">Entry level</Th>
-                  <Th className="text-right">SL / TP</Th>
                   <Th className="text-right">Price now</Th><Th className="text-right pr-4">Updated</Th>
                 </tr>
               </thead>
@@ -557,9 +542,6 @@ function Positions({
                     <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
                     <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
                     <Td className="text-right tabular font-semibold">{px(m.level)}</Td>
-                    <Td className="text-right tabular text-fg-muted">
-                      {m.sl == null && m.tp == null ? '—' : `${px(m.sl)} / ${px(m.tp)}`}
-                    </Td>
                     <Td className="text-right tabular text-fg-muted">{px(m.price)}</Td>
                     <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
                   </tr>

@@ -320,7 +320,15 @@ export function MarketChart({
       const series = seriesRef.current;
       if (!series) return;
 
-      setDigits((quoteRes.data?.digits as number) ?? 5);
+      const fetchedDigits = (quoteRes.data?.digits as number) ?? 5;
+      setDigits(fetchedDigits);
+      series.applyOptions({
+        priceFormat: {
+          type: 'price',
+          precision: fetchedDigits,
+          minMove: 1 / Math.pow(10, fetchedDigits),
+        },
+      });
       const bars: Candle[] = (barsRes.data ?? []).map((b) => ({
         time: Math.floor(new Date(b.ts as string).getTime() / 1000) as UTCTimestamp,
         open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
