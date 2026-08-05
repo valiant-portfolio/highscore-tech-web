@@ -169,6 +169,9 @@ export function MarketChart({
   const liveBar = useRef<Candle | null>(null);
   const priceLine = useRef<IPriceLine | null>(null);     // live current-price line
   const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (active trade)
+  const extraLines = useRef<IPriceLine[]>([]);          // SL/TP toggled on click
+  const tradeSL = useRef<number | null>(null);
+  const tradeTP = useRef<number | null>(null);
   const markersApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const activeSide = useRef<'buy' | 'sell' | null>(null); // side of the open trade, for the live P&L line
   // Drawings (manual annotations).
@@ -350,6 +353,12 @@ export function MarketChart({
         liveBar.current = bars[bars.length - 1];
         chartRef.current?.timeScale().fitContent();
 
+        if (priceLine.current) priceLine.current = null;
+        overlayLines.current = [];
+        extraLines.current = [];
+
+        // If the timeframe is short enough, draw all historical trades as arrows on
+        // the candles. (On H4/D1, zooming way out to see years of history means thet that is
         const trades: Trade[] = (tradesRes.data ?? []) as Trade[];
 
         // ONLY the latest trade is marked. Plotting every trade in history buried
@@ -383,17 +392,29 @@ export function MarketChart({
           : openRow ? Number(openRow.open_price) : null;
         const sl = (isLive ? live?.sl : null) ?? openRow?.sl ?? null;
         const tp = (isLive ? live?.tp : null) ?? openRow?.tp ?? null;
+        tradeSL.current = sl != null ? Number(sl) : null;
+        tradeTP.current = tp != null ? Number(tp) : null;
 
         if (entry != null && (isLive || openRow)) {
           const sig = (live?.latest_signal ?? '').toUpperCase();
           activeSide.current = openRow
             ? (openRow.side === 'sell' ? 'sell' : 'buy')
             : (sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy');
-          overlayLines.current.push(series.createPriceLine({ price: entry, color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY' }));
-          if (sl != null) overlayLines.current.push(series.createPriceLine({ price: Number(sl), color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
-          if (tp != null) overlayLines.current.push(series.createPriceLine({ price: Number(tp), color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+          const sideStr = activeSide.current === 'sell' ? 'SELL' : 'BUY';
+          overlayLines.current.push(series.createPriceLine({ price: entry, color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: sideStr }));
         }
       }
+
+      chartRef.current?.subscribeClick(() => {
+        if (!seriesRef.current) return;
+        if (extraLines.current.length > 0) {
+          extraLines.current.forEach(l => seriesRef.current?.removePriceLine(l));
+          extraLines.current = [];
+        } else {
+          if (tradeSL.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (tradeTP.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+        }
+      });
 
       setLoading(false);
     })();
@@ -453,7 +474,7 @@ export function MarketChart({
           lineWidth: 2,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: true,
-          title: pl == null ? 'PRICE' : `P/L ${pl >= 0 ? '+' : ''}${pl.toFixed(2)}`,
+          title: '',
         });
       }
     };
