@@ -73,18 +73,9 @@ function manageStage({
   lots: number | null;
   openedLots: number | null;
 }): ManageStage {
-  // pnl comes from the broker's own position.profit, which excludes swap and
-  // commission — so pnl > 0 means price is genuinely beyond entry, which is
-  // exactly the condition a stop at entry needs.
-  if (side == null || entry == null || pnl == null || pnl <= 0) return 'exit-only';
-
-  const riskOff = sl != null && (side === 'buy' ? sl >= entry : sl <= entry);
-  if (!riskOff) return 'breakeven';
-
-  // Lots open now versus lots opened with. The engine leaves bot_trades.volume at
-  // the opening size precisely so this comparison is possible.
-  const reduced = lots != null && openedLots != null && lots < openedLots - 1e-9;
-  return reduced ? 'trail' : 'partial';
+  // Manual overrides (breakeven, partial close, trail SL) have been disabled.
+  // The bot fully automates these actions, so only manual exit is offered.
+  return 'exit-only';
 }
 
 /** Lots, two decimals as traders write them — but never rounding away a third
