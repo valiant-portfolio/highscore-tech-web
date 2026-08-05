@@ -167,13 +167,12 @@ const TRADE_COLS =
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
 
-  const [markets, configs, specs, openTrades, closedTrades, closedCountRes, equity, equityCurve] = await Promise.all([
+  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
-    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
-    admin.from('bot_trades').select('id', { count: 'exact', head: true }).not('close_ts', 'is', null),
+    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
   ]);
@@ -184,13 +183,29 @@ export async function getBotOverview(): Promise<BotOverview> {
     null,
   );
 
+  // Trades are shown only for markets the bot still trades. bot_market_state is
+  // pruned to the enabled set each publish, so this needs no second list to
+  // maintain — disable a market in config and its history leaves the dashboard
+  // on the next cycle.
+  //
+  // FILTERED, NOT DELETED. Those trades really happened and are part of why the
+  // balance is what it is, so the rows stay in bot_trades. Two consequences to
+  // know about: Performance no longer reconciles with account equity (it now
+  // describes the markets still traded, not the account), and the equity curve
+  // still includes every market because it is account-level, not per-symbol.
+  const liveSymbols = new Set(marketRows.map((m) => m.symbol));
+  const onlyLive = (t: BotTrade) => liveSymbols.has(t.symbol);
+  const closedLive = ((closedTrades.data ?? []) as BotTrade[]).filter(onlyLive);
+
   return {
     markets: marketRows,
     configs: (configs.data ?? []) as BotConfig[],
     specs: (specs.data ?? []) as BotSymbolSpec[],
-    openTrades: (openTrades.data ?? []) as BotTrade[],
-    closedTrades: (closedTrades.data ?? []) as BotTrade[],
-    closedCount: closedCountRes.count ?? (closedTrades.data?.length ?? 0),
+    openTrades: ((openTrades.data ?? []) as BotTrade[]).filter(onlyLive),
+    closedTrades: closedLive,
+    // Count the filtered set, not the table: the header said "182 trades" while
+    // the list showed 105, which reads as a broken page.
+    closedCount: closedLive.length,
     equity: (equity.data?.[0] as BotEquity | undefined) ?? null,
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
