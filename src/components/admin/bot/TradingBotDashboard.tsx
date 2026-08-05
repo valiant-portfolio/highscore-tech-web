@@ -103,7 +103,7 @@ const lotsLabel = (n: number) =>
  * distance from entry to the level and you have the money at that level.
  *
  * Needs a meaningful move to divide by: right after entry, price ≈ entry and the
- * ratio is noise, so return null and let the caller show the raw prices instead.
+ * ratio is noise, so return null and let the caller show the raw price instead.
  */
 function moneyAtLevel(
   level: number | null | undefined,
@@ -457,8 +457,14 @@ function Positions({
                   const entry = m.level ?? (t ? Number(t.open_price) : null);
                   const sl = m.sl ?? t?.sl ?? null;
                   const tp = m.tp ?? t?.tp ?? null;
-                  const atSL = moneyAtLevel(sl, entry, m.price, m.pnl);
-                  const atTP = moneyAtLevel(tp, entry, m.price, m.pnl);
+                  // One figure, never two. A trade is either up or down, so show the
+                  // level it is heading for and what that level is worth: losing,
+                  // the stop and what it costs; winning, the target and what it
+                  // pays. Both at once puts a gain and a loss side by side and
+                  // leaves the reader to work out which is the trade's situation.
+                  const atRisk = m.pnl != null && m.pnl < 0;
+                  const level = atRisk ? sl : tp;
+                  const atLevel = moneyAtLevel(level, entry, m.price, m.pnl);
                   const stage = manageStage({
                     side: positionSide(m, t), entry, sl, pnl: m.pnl,
                     lots, openedLots: t ? Number(t.volume) : null,
@@ -480,28 +486,19 @@ function Positions({
                       <Td><TrendChip trend={m.entry_trend} /></Td>
                       <Td className="text-right tabular">{lots == null ? '—' : lotsLabel(lots)}</Td>
                       <Td className="text-right tabular">{px(entry)}</Td>
-                      {/* The levels as money, not just prices: what this position
-                          loses if the stop fills and makes if the target does. That
-                          is the question the column is actually asked. Prices stay
-                          underneath — the bot's stop moves, and you want to see it. */}
                       <Td
-                        className="text-right tabular"
-                        title="What each level is worth if it fills, at the current position size. Prices below."
+                        className={`text-right tabular font-bold ${pnlTone(atLevel)}`}
+                        title={
+                          atRisk
+                            ? 'Losing — what the stop costs if it fills, at the current position size.'
+                            : 'Winning — what the target pays if it fills, at the current position size.'
+                        }
                       >
-                        {atSL == null && atTP == null ? (
-                          <span className="text-fg-muted">
-                            {sl == null && tp == null ? '—' : `${px(sl)} / ${px(tp)}`}
-                          </span>
-                        ) : (
-                          <>
-                            <span className="font-bold">
-                              <span className={pnlTone(atSL)}>{atSL == null ? '—' : signed(atSL)}</span>
-                              <span className="text-fg-subtle"> / </span>
-                              <span className={pnlTone(atTP)}>{atTP == null ? '—' : signed(atTP)}</span>
-                            </span>
-                            <p className="text-[10px] text-fg-subtle">{px(sl)} / {px(tp)}</p>
-                          </>
-                        )}
+                        {/* Until price has moved off entry the money can't be derived,
+                            so fall back to the level itself rather than an empty cell. */}
+                        {atLevel == null
+                          ? <span className="font-normal text-fg-muted">{px(level)}</span>
+                          : signed(atLevel)}
                       </Td>
                       <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
                       <Td className="text-right tabular text-fg-subtle">
