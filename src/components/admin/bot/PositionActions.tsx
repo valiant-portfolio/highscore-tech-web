@@ -13,14 +13,15 @@
 // everywhere is "queued": the position stays exactly as it is until the bot
 // reports done, which is a cycle away, not instant.
 
-import { useState, useTransition } from 'react';
-import { Scissors, ShieldCheck, MoveDownRight } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
+import { Scissors, ShieldCheck, MoveDownRight, ChevronDown, XCircle } from 'lucide-react';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
-import { ClosePositionButton } from './ClosePositionButton';
 import {
   partialClosePositionAction, moveToBreakEvenAction, trailStopAction,
+  closePositionAction,
 } from '@/lib/admin/trading-bot-actions';
-type Dialog = 'partial' | 'breakeven' | 'trail' | null;
+type Dialog = 'partial' | 'breakeven' | 'trail' | 'close' | null;
 
 /**
  * Which single action this position is offered. Derived by the table from the
@@ -55,6 +56,40 @@ export function PositionActions({
   /** Which action to offer. See ManageStage. */
   stage: ManageStage;
 }) {
+  const [menu, setMenu] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const anchor = useRef<HTMLDivElement>(null);
+
+  // Measure on open. Fixed coordinates come from the button's own rect, and the
+  // menu flips above when there is not room below - the last rows of a long
+  // table would otherwise open off the bottom of the viewport.
+  const openMenu = () => {
+    const el = anchor.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const MENU_H = 96;
+    const below = window.innerHeight - r.bottom;
+    setPos({
+      top: below < MENU_H ? Math.max(8, r.top - MENU_H) : r.bottom + 4,
+      left: Math.max(8, Math.min(r.right - 180, window.innerWidth - 188)),
+    });
+    setMenu(true);
+  };
+  // The menu is fixed-positioned from coordinates measured when it opened, so
+  // scrolling or resizing would leave it floating away from its own button.
+  // Closing is better than re-measuring: it is one line, and a menu that chases
+  // the cursor around a scrolling table is worse than one that just shuts.
+  useEffect(() => {
+    if (!menu) return;
+    const shut = () => setMenu(false);
+    window.addEventListener('scroll', shut, true);   // capture: catches inner scrollers too
+    window.addEventListener('resize', shut);
+    return () => {
+      window.removeEventListener('scroll', shut, true);
+      window.removeEventListener('resize', shut);
+    };
+  }, [menu]);
+
   const [dialog, setDialog] = useState<Dialog>(null);
   const [share, setShare] = useState<number>(50);
   const [pips, setPips] = useState<string>(String(DEFAULT_TRAIL_PIPS));
@@ -74,31 +109,90 @@ export function PositionActions({
   const trailPips = Number(pips);
   const partialLots = volume != null ? (volume * share) / 100 : null;
 
+  // ONE button per row, opening a menu. Rendering the stage action and Close
+  // side by side put a destructive control next to a routine one at every
+  // glance; rendering only one of them meant a WINNING position could not be
+  // closed from its own row while a losing one could — backwards, since taking
+  // profit is the commoner reason to close by hand.
+  const STAGE_LABEL: Record<string, string> = {
+    breakeven: 'Move to break even',
+    partial: 'Partial close',
+    trail: 'Trail SL',
+    'exit-only': 'Manage',
+  };
+
   return (
-    // ONE action per row: the stage action if the position has earned one,
-    // otherwise Close. Showing both put a destructive button next to a routine
-    // one at every glance, and made the row two lines tall for no gain.
-    // Closing is still available on every position — via the stage dialog's
-    // own Close, and via Close all in the header.
     <div
-      className="inline-flex items-center"
+      ref={anchor}
+      className="relative inline-flex items-center"
       title={stage === 'exit-only' ? EXIT_ONLY_HINT : undefined}
     >
-      {stage === 'breakeven' ? (
-        <ActionButton onClick={() => setDialog('breakeven')} icon={<ShieldCheck className="h-3.5 w-3.5" />}>
-          Move to break even
-        </ActionButton>
-      ) : stage === 'partial' ? (
-        <ActionButton onClick={() => setDialog('partial')} icon={<Scissors className="h-3.5 w-3.5" />}>
-          Partial close
-        </ActionButton>
-      ) : stage === 'trail' ? (
-        <ActionButton onClick={() => setDialog('trail')} icon={<MoveDownRight className="h-3.5 w-3.5" />}>
-          Trail SL
-        </ActionButton>
-      ) : (
-        <ClosePositionButton symbol={symbol} ticket={ticket} />
+      <ActionButton onClick={() => (menu ? setMenu(false) : openMenu())} icon={<ChevronDown className="h-3.5 w-3.5" />}>
+        {STAGE_LABEL[stage] ?? 'Manage'}
+      </ActionButton>
+
+      {/* PORTALLED to <body>, and positioned with fixed coordinates taken from
+          the button. The row lives inside `overflow-x-auto` (the table) nested in
+          `overflow-hidden` (AdminCard) — an absolutely-positioned menu is clipped
+          by both, so it appeared cut off or not at all. Nothing rendered inside
+          the cell can escape those, hence the portal. */}
+      {menu && pos && createPortal(
+        <>
+          {/* Click-away. Sits under the menu so any outside click closes it
+              without also triggering whatever was clicked. */}
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="fixed inset-0 z-[90] cursor-default"
+            onClick={() => setMenu(false)}
+          />
+          <div
+            role="menu"
+            style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: 180 }}
+            className="z-[100] overflow-hidden rounded-md border border-border bg-bg-elevated shadow-lg"
+          >
+            {stage === 'breakeven' && (
+              <MenuItem onClick={() => { setMenu(false); setDialog('breakeven'); }}
+                        icon={<ShieldCheck className="h-3.5 w-3.5" />}>
+                Move to break even
+              </MenuItem>
+            )}
+            {stage === 'partial' && (
+              <MenuItem onClick={() => { setMenu(false); setDialog('partial'); }}
+                        icon={<Scissors className="h-3.5 w-3.5" />}>
+                Partial close
+              </MenuItem>
+            )}
+            {stage === 'trail' && (
+              <MenuItem onClick={() => { setMenu(false); setDialog('trail'); }}
+                        icon={<MoveDownRight className="h-3.5 w-3.5" />}>
+                Trail SL
+              </MenuItem>
+            )}
+            {/* Always present, and visually separated — closing is available on
+                every position regardless of which stage it has reached. */}
+            <div className="border-t border-border">
+              <MenuItem onClick={() => { setMenu(false); setDialog('close'); }}
+                        icon={<XCircle className="h-3.5 w-3.5" />} danger>
+                Close position
+              </MenuItem>
+            </div>
+          </div>
+        </>,
+        document.body,
       )}
+
+      <ConfirmDialog
+        open={dialog === 'close'}
+        onClose={() => setDialog(null)}
+        onConfirm={() => run(() => closePositionAction(symbol, ticket))}
+        title={`Close ${symbol}?`}
+        confirmLabel="Queue close"
+        destructive
+        description={
+          <p>Closes the whole position at market on the bot next poll. This cannot be undone.</p>
+        }
+      />
 
       {/* ── Partial close ─────────────────────────────────────────────── */}
       <ConfirmDialog
@@ -203,6 +297,26 @@ function ActionButton({
       type="button"
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-surface/60 px-2.5 py-1 text-xs font-semibold text-fg-muted hover:bg-surface-hover hover:text-fg"
+    >
+      {icon} {children}
+    </button>
+  );
+}
+
+/** One row of the actions menu. `danger` marks the destructive exit. */
+function MenuItem({
+  onClick, icon, children, danger = false,
+}: {
+  onClick: () => void; icon: React.ReactNode; children: React.ReactNode; danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold whitespace-nowrap hover:bg-surface-hover ${
+        danger ? 'text-danger' : 'text-fg-muted hover:text-fg'
+      }`}
     >
       {icon} {children}
     </button>
