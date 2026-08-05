@@ -277,7 +277,18 @@ export function MarketChart({
     // a trend line. Reads the current tool from a ref so we subscribe only once.
     const onClick = (param: MouseEventParams) => {
       const t = toolRef.current;
-      if (t === 'cursor' || !param.point || param.time === undefined) return;
+      if (t === 'cursor') {
+        if (!seriesRef.current) return;
+        if (extraLines.current.length > 0) {
+          extraLines.current.forEach(l => seriesRef.current?.removePriceLine(l));
+          extraLines.current = [];
+        } else {
+          if (tradeSL.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (tradeTP.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+        }
+        return;
+      }
+      if (!param.point || param.time === undefined) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
       if (t === 'hline') {
@@ -404,17 +415,6 @@ export function MarketChart({
           overlayLines.current.push(series.createPriceLine({ price: entry, color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: sideStr }));
         }
       }
-
-      chartRef.current?.subscribeClick(() => {
-        if (!seriesRef.current) return;
-        if (extraLines.current.length > 0) {
-          extraLines.current.forEach(l => seriesRef.current?.removePriceLine(l));
-          extraLines.current = [];
-        } else {
-          if (tradeSL.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
-          if (tradeTP.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
-        }
-      });
 
       setLoading(false);
     })();
