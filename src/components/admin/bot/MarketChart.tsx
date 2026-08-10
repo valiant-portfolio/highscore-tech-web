@@ -65,6 +65,25 @@ interface Trade {
   pnl: number | null; close_reason: string | null;
 }
 
+// A manual drawing, saved to localStorage so it survives a refresh. Horizontal
+// lines + trend lines are stored as raw price/time so they can be re-rendered and
+// dragged. Keyed per symbol+timeframe — a level drawn on VOL25 M15 is meaningless
+// on EURUSD.
+type Drawing =
+  | { id: string; kind: 'hline'; price: number }
+  | { id: string; kind: 'trend'; t1: number; v1: number; t2: number; v2: number };
+const DRAW_KEY = (sym: string, tf: string) => `bot-chart-draw:${sym}::${tf}`;
+const INDS_KEY = 'bot-chart-inds'; // active indicators persist globally (a user pref)
+const newDrawId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// Pixel distance from point (px,py) to segment (ax,ay)-(bx,by) — for grabbing a trend line.
+function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
 const fmt = (n: number | null | undefined, digits: number) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits);
 
@@ -161,7 +180,15 @@ export function MarketChart({
 
   const [tool, setTool] = useState<Tool>('cursor');
   const [fs, setFs] = useState(false);
-  const [inds, setInds] = useState<Set<IndId>>(new Set());
+  const [inds, setInds] = useState<Set<IndId>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(INDS_KEY);
+        if (raw) return new Set(JSON.parse(raw) as IndId[]);
+      } catch { /* ignore */ }
+    }
+    return new Set();
+  });
 
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -173,11 +200,15 @@ export function MarketChart({
   const tradeTP = useRef<number | null>(null);
   const markersApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const activeSide = useRef<'buy' | 'sell' | null>(null); // side of the open trade, for the live P&L line
-  // Drawings (manual annotations).
+  // Drawings (manual annotations) — data is the source of truth, chart objects are
+  // rebuilt from it and dragged in place.
   const toolRef = useRef<Tool>('cursor');
-  const drawHLines = useRef<IPriceLine[]>([]);
-  const drawTrends = useRef<ISeriesApi<'Line'>[]>([]);
+  const drawings = useRef<Drawing[]>([]);
+  const hlineObjs = useRef<Map<string, IPriceLine>>(new Map());
+  const trendObjs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
   const trendStart = useRef<{ time: Time; value: number } | null>(null);
+  const drawKeyRef = useRef<string>('');                 // current symbol+tf storage key (read inside once-bound handlers)
+  const drag = useRef<{ id: string; kind: 'hline' | 'trend'; lastX: number; lastY: number } | null>(null);
   // Indicators.
   const barsRef = useRef<Candle[]>([]);
   const indsRef = useRef<Set<IndId>>(inds);
@@ -187,12 +218,39 @@ export function MarketChart({
 
   const alias = markets.find((m) => m.symbol === symbol)?.alias ?? symbol;
 
+  // ── Manual drawings: persist / render / clear ─────────────────────────
+  // All of these use only refs, so the copies captured by the once-bound chart
+  // handlers stay correct across re-renders.
+  const persistDrawings = () => {
+    try { if (drawKeyRef.current) localStorage.setItem(drawKeyRef.current, JSON.stringify(drawings.current)); } catch { /* ignore */ }
+  };
+  const addDrawingObject = (d: Drawing) => {
+    const series = seriesRef.current, chart = chartRef.current;
+    if (!series || !chart) return;
+    if (d.kind === 'hline') {
+      hlineObjs.current.set(d.id, series.createPriceLine({ price: d.price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '' }));
+    } else {
+      const line = chart.addSeries(LineSeries, { color: '#eab308', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+      line.setData([{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }].sort((a, b) => (a.time as number) - (b.time as number)));
+      trendObjs.current.set(d.id, line);
+    }
+  };
+  const removeDrawingObjects = () => {
+    hlineObjs.current.forEach((l) => seriesRef.current?.removePriceLine(l));
+    hlineObjs.current.clear();
+    trendObjs.current.forEach((s) => chartRef.current?.removeSeries(s));
+    trendObjs.current.clear();
+  };
+  const renderDrawings = () => { removeDrawingObjects(); drawings.current.forEach(addDrawingObject); };
+  const loadDrawings = (sym: string, t: string): Drawing[] => {
+    try { const raw = localStorage.getItem(DRAW_KEY(sym, t)); if (raw) return JSON.parse(raw) as Drawing[]; } catch { /* ignore */ }
+    return [];
+  };
   const clearDrawings = () => {
-    drawHLines.current.forEach((l) => seriesRef.current?.removePriceLine(l));
-    drawHLines.current = [];
-    drawTrends.current.forEach((s) => chartRef.current?.removeSeries(s));
-    drawTrends.current = [];
+    removeDrawingObjects();
+    drawings.current = [];
     trendStart.current = null;
+    persistDrawings();
   };
 
   // Draw the active indicators from the currently-loaded candles. Clear-then-draw
@@ -234,7 +292,11 @@ export function MarketChart({
     if (n.has(id)) n.delete(id); else n.add(id);
     return n;
   });
-  useEffect(() => { indsRef.current = inds; redrawIndicators(); }, [inds]);
+  useEffect(() => {
+    indsRef.current = inds;
+    redrawIndicators();
+    try { localStorage.setItem(INDS_KEY, JSON.stringify([...inds])); } catch { /* ignore */ }
+  }, [inds]);
 
   // Fullscreen (native) on the chart card.
   const toggleFullscreen = () => {
@@ -282,20 +344,106 @@ export function MarketChart({
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
       if (t === 'hline') {
-        drawHLines.current.push(series.createPriceLine({ price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '' }));
+        const d: Drawing = { id: newDrawId(), kind: 'hline', price };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings();
       } else if (t === 'trend') {
-        const pt = { time: param.time as Time, value: price };
-        if (!trendStart.current) { trendStart.current = pt; return; }
-        const line = chart.addSeries(LineSeries, { color: '#eab308', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        const pts = [trendStart.current, pt].sort((a, b) => (a.time as number) - (b.time as number));
-        line.setData(pts);
-        drawTrends.current.push(line);
+        if (!trendStart.current) { trendStart.current = { time: param.time as Time, value: price }; return; }
+        const d: Drawing = {
+          id: newDrawId(), kind: 'trend',
+          t1: trendStart.current.time as number, v1: trendStart.current.value,
+          t2: param.time as number, v2: price,
+        };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings();
         trendStart.current = null;
       }
     };
     chart.subscribeClick(onClick);
 
-    return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
+    // ── Drag-to-move a drawing (cursor tool only) ─────────────────────────
+    // Grab a line by clicking within a few px of it, then drag. While dragging we
+    // freeze the chart's own pan/zoom so the move doesn't scroll the candles.
+    const el = wrapRef.current;
+    const HIT = 7; // px proximity to grab a line
+    const localXY = (e: PointerEvent) => {
+      const r = el!.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    const hitTest = (x: number, y: number): { id: string; kind: 'hline' | 'trend' } | null => {
+      const s = seriesRef.current, c = chartRef.current;
+      if (!s || !c) return null;
+      for (const d of drawings.current) {
+        if (d.kind !== 'hline') continue;
+        const cy = s.priceToCoordinate(d.price);
+        if (cy != null && Math.abs(cy - y) <= HIT) return { id: d.id, kind: 'hline' };
+      }
+      for (const d of drawings.current) {
+        if (d.kind !== 'trend') continue;
+        const x1 = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+        const x2 = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
+        const y1 = s.priceToCoordinate(d.v1), y2 = s.priceToCoordinate(d.v2);
+        if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
+        if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
+      }
+      return null;
+    };
+    const onDown = (e: PointerEvent) => {
+      if (toolRef.current !== 'cursor') return;
+      const { x, y } = localXY(e);
+      const hit = hitTest(x, y);
+      if (!hit) return;                       // nothing grabbed → let the chart pan
+      e.preventDefault();
+      drag.current = { id: hit.id, kind: hit.kind, lastX: x, lastY: y };
+      chart.applyOptions({ handleScroll: false, handleScale: false });
+      try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onMove = (e: PointerEvent) => {
+      const s = seriesRef.current, c = chartRef.current;
+      if (!s || !c) return;
+      const { x, y } = localXY(e);
+      const dg = drag.current;
+      if (!dg) {
+        if (toolRef.current === 'cursor') el!.style.cursor = hitTest(x, y) ? 'grab' : '';
+        return;
+      }
+      const d = drawings.current.find((k) => k.id === dg.id);
+      if (!d) return;
+      if (d.kind === 'hline') {
+        const p = s.coordinateToPrice(y);
+        if (p == null) return;
+        d.price = p;
+        hlineObjs.current.get(d.id)?.applyOptions({ price: p });
+      } else {
+        const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
+        if (pNow != null && pLast != null) { const dv = pNow - pLast; d.v1 += dv; d.v2 += dv; }
+        const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
+        if (tNow != null && tLast != null) { const dt = (tNow as number) - (tLast as number); d.t1 += dt; d.t2 += dt; }
+        trendObjs.current.get(d.id)?.setData(
+          [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }].sort((a, b) => (a.time as number) - (b.time as number)),
+        );
+      }
+      dg.lastX = x; dg.lastY = y;
+      el!.style.cursor = 'grabbing';
+    };
+    const endDrag = (e: PointerEvent) => {
+      if (!drag.current) return;
+      drag.current = null;
+      chart.applyOptions({ handleScroll: true, handleScale: true });
+      el!.style.cursor = '';
+      try { el!.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      persistDrawings();
+    };
+    el?.addEventListener('pointerdown', onDown);
+    el?.addEventListener('pointermove', onMove);
+    el?.addEventListener('pointerup', endDrag);
+    el?.addEventListener('pointercancel', endDrag);
+
+    return () => {
+      el?.removeEventListener('pointerdown', onDown);
+      el?.removeEventListener('pointermove', onMove);
+      el?.removeEventListener('pointerup', endDrag);
+      el?.removeEventListener('pointercancel', endDrag);
+      chart.remove(); chartRef.current = null; seriesRef.current = null;
+    };
   }, []);
 
   // ── Load history + trades when symbol/timeframe changes ───────────────
@@ -304,7 +452,12 @@ export function MarketChart({
     let alive = true;
     setLoading(true);
     liveBar.current = null;
-    clearDrawings(); // manual annotations don't carry across markets/timeframes
+    // Detach the previous market's drawing objects (keep them saved), then switch
+    // the storage key and load this market/timeframe's saved drawings. They are
+    // rendered after the candles load (trend lines need the time axis).
+    removeDrawingObjects();
+    drawKeyRef.current = DRAW_KEY(symbol, tf);
+    drawings.current = loadDrawings(symbol, tf);
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
@@ -345,6 +498,7 @@ export function MarketChart({
       setHasHistory(bars.length > 0);
       series.setData(bars);
       redrawIndicators(); // recompute active indicators for the new candles
+      renderDrawings();   // re-draw saved manual annotations for this market/timeframe
 
       // CLEAR every overlay from the previous market/timeframe first — otherwise
       // price lines (entry/SL/TP) and markers pile up on the axis and lines from
@@ -533,8 +687,26 @@ export function MarketChart({
         ref={cardRef}
         className={`relative flex flex-col rounded-lg border border-border bg-bg-elevated overflow-hidden ${fs ? 'h-screen rounded-none' : 'h-[560px] md:h-[680px]'}`}
       >
-        {/* Chart toolbar: drawing tools · indicators (left) + fullscreen (right). */}
+        {/* Chart toolbar: drawing tools · indicators (left) + fullscreen (right).
+            In fullscreen the outer controls are hidden, so the market picker,
+            timeframe toggle and live quote are mirrored into the toolbar here. */}
         <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+          {fs && (
+            <>
+              <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="rounded-md border border-border bg-bg px-2 py-1 text-xs font-semibold text-fg outline-none focus:border-brand">
+                {markets.map((m) => <option key={m.symbol} value={m.symbol}>{label(m.symbol)}</option>)}
+              </select>
+              <div className="ml-1 inline-flex rounded-md border border-border overflow-hidden">
+                {TIMEFRAMES.map((f) => (
+                  <button key={f.value} type="button" onClick={() => setTf(f.value)}
+                    className={`px-2 py-1 text-[11px] font-bold ${tf === f.value ? 'bg-brand text-brand-fg' : 'text-fg-muted hover:bg-surface-hover'}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <span className="mx-1 h-5 w-px bg-border" />
+            </>
+          )}
           <ToolBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Cursor"><MousePointer2 className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price"><Minus className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points"><PenLine className="h-4 w-4" /></ToolBtn>
@@ -551,11 +723,22 @@ export function MarketChart({
           ))}
 
           {tool === 'trend' && trendStart.current && <span className="ml-1 text-[11px] text-fg-subtle">click the second point…</span>}
+          {fs && quote && (
+            <span className="ml-auto mr-2 flex items-center gap-3 font-mono text-xs">
+              {quote.pnl != null && (
+                <span className={`font-bold ${Number(quote.pnl) >= 0 ? 'text-success' : 'text-danger'}`}>P/L {Number(quote.pnl) >= 0 ? '+' : ''}{Number(quote.pnl).toFixed(2)}</span>
+              )}
+              <span><span className="text-fg-subtle">BID </span><span className="font-bold text-fg">{fmt(quote.bid, digits)}</span></span>
+              <span className={`inline-flex items-center gap-1 font-semibold ${stale ? 'text-danger' : 'text-success'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-danger' : 'bg-success'}`} />{stale ? 'stale' : 'live'}
+              </span>
+            </span>
+          )}
           <button
             type="button"
             onClick={toggleFullscreen}
             title={fs ? 'Exit full screen' : 'Full screen'}
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-surface-hover"
+            className={`${fs ? '' : 'ml-auto'} inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-surface-hover`}
           >
             {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
