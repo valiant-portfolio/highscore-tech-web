@@ -4,7 +4,7 @@
 
 import { notFound } from 'next/navigation';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo } from '@/components/admin/bot/BotBits';
+import { BotStatus, TrendChip, StateBadge, TimeAgo } from '@/components/admin/bot/BotBits';
 import { getBotMarket } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
@@ -53,9 +53,8 @@ export default async function BotMarketPage({ params }: PageProps) {
         <div className="p-5 md:p-6">
           <div className="flex flex-wrap items-center gap-3">
             <StateBadge state={market.state} />
-            <TrendChip trend={market.entry_trend} label={`${market.timeframe ?? ''} `} />
-            <StrengthBadge strength={market.trend_strength} />
-            <TrendChip trend={market.htf_trend} label={`${market.htf ?? ''} `} />
+            <TrendChip trend={market.htf_trend} label={`${market.htf ?? 'H1'} `} />
+            <TrendChip trend={market.entry_trend} label={`${market.timeframe ?? 'M15'} `} />
             {market.is_dry_run && (
               <span className="rounded bg-surface-hover px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">Demo</span>
             )}

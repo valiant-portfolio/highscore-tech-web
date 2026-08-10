@@ -37,19 +37,14 @@ const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refre
 // v6: bot_bars now syncs 8 timeframes. The DB stores D1/W1 but Olivia's picker
 // labels them Day1/WK1 — so keep label + value separate. M1 is deliberately NOT
 // synced (Deriv caps its history); leaving it out avoids an empty chart.
+// v7: bot_bars syncs ONLY M15 and H1 now — every other timeframe returns empty.
 const TIMEFRAMES: { label: string; value: string }[] = [
-  { label: 'M5', value: 'M5' },
   { label: 'M15', value: 'M15' },
-  { label: 'M30', value: 'M30' },
   { label: 'H1', value: 'H1' },
-  { label: 'H4', value: 'H4' },
-  { label: 'Day1', value: 'D1' },
-  { label: 'WK1', value: 'W1' },
-  { label: 'MN', value: 'MN' },
 ];
 const TF_VALUES = TIMEFRAMES.map((t) => t.value);
 const TF_SECONDS: Record<string, number> = {
-  M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800, MN: 2592000,
+  M15: 900, H1: 3600,
 };
 // The live quote only rolls a brand-new forming candle for intraday buckets,
 // where UTC-epoch alignment matches the broker's bars. For H4 and higher we just
@@ -467,7 +462,7 @@ export function MarketChart({
     };
 
     tick();
-    const id = setInterval(tick, 1500);
+    const id = setInterval(tick, 3000); // v7: 3s (was 1.5s) to stay under the free-tier request budget
     return () => { alive = false; clearInterval(id); };
   }, [symbol, tf]);
 

@@ -10,25 +10,17 @@ import 'server-only';
 import { botServiceClient } from '@/lib/supabase/bot';
 
 /** Five-tier trend, graded by close vs SMA20. `Sideways` = no trend. */
-export type BotTrend =
-  | 'Strong Uptrend'
-  | 'Weak Uptrend'
-  | 'Sideways'
-  | 'Weak Downtrend'
-  | 'Strong Downtrend'
-  | string;
-
-/** Strength of `entry_trend`. `None` is the string, not null. */
-export type BotStrength = 'High' | 'Low' | 'None' | string;
+/** v7: three trend states only. htf_trend (H1) decides trades; entry_trend (M15)
+ *  is context. `Sideways` = no trend. */
+export type BotTrend = 'Uptrend' | 'Downtrend' | 'Sideways' | string;
 
 export type BotState = 'monitoring' | 'ready' | 'active' | string;
 
-/** Why the bot is in its current state — one of five fixed tags. */
+/** Why the bot is in its current state — one of four fixed tags (v7). */
 export type BotReason =
   | 'Awaiting Trend'
   | 'Pullback'
   | 'Entry ready'
-  | 'Weak momentum'
   | 'Trend Confirmed'
   | string;
 
@@ -39,7 +31,6 @@ export interface BotMarket {
   htf: string | null;
   entry_trend: BotTrend | null;
   htf_trend: BotTrend | null;
-  trend_strength: BotStrength | null;
   state: BotState | null;
   reason: BotReason | null;
   /** Latest signal, e.g. `BUY @ 1.15250`. Null when there is none. */
@@ -172,7 +163,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
-    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
+    admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
   ]);

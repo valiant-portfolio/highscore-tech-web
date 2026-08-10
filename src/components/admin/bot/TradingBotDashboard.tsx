@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StrengthBadge, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { PositionActions } from './PositionActions';
 import { MarketEnableToggle } from './MarketEnableToggle';
@@ -322,7 +322,7 @@ function Markets({
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
             <tr>
-              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th><Th className="text-left">Strength</Th><Th className="text-left">Bias (H1)</Th>
+              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend (H1)</Th><Th className="text-left">M15</Th>
               <Th className="text-left">State</Th><Th className="text-left">Reason</Th><Th className="text-left">Latest signal</Th>
               <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
               <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th>
@@ -337,9 +337,8 @@ function Markets({
               return (
                 <tr key={m.symbol} className="hover:bg-surface-hover/40">
                   <Td className="pl-4"><span className="font-semibold text-fg">{m.alias}</span><p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p></Td>
-                  <Td><TrendChip trend={m.entry_trend} /></Td>
-                  <Td><StrengthBadge strength={m.trend_strength} /></Td>
                   <Td><TrendChip trend={m.htf_trend} /></Td>
+                  <Td><TrendChip trend={m.entry_trend} /></Td>
                   <Td><StateBadge state={m.state} /></Td>
                   <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
                   <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>

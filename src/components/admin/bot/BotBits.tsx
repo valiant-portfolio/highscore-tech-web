@@ -88,15 +88,13 @@ export function Duration({ from, className = '' }: { from: string | null | undef
   return <span className={className}>{formatDuration(ms)}</span>;
 }
 
-// Five-tier trend. Dots per the dashboard spec: 🟢 strong up, 🟡 weak up,
-// ⚪ sideways, 🟠 weak down, 🔴 strong down. Keyed on the exact strings the bot
-// writes to bot_market_state.entry_trend / htf_trend.
+// v7: three trend states only — 🟢 Uptrend, ⚪ Sideways, 🔴 Downtrend. Strength
+// tiers were dropped. Keyed on the exact strings the bot writes to
+// bot_market_state.entry_trend / htf_trend.
 const TREND_STYLE: Record<string, { cls: string; dot: string }> = {
-  'strong uptrend':   { cls: 'bg-success/20 text-success',      dot: '🟢' },
-  'weak uptrend':     { cls: 'bg-success/10 text-success/80',   dot: '🟡' },
-  'sideways':         { cls: 'bg-surface-hover text-fg-muted',  dot: '⚪' },
-  'weak downtrend':   { cls: 'bg-warning/15 text-warning',      dot: '🟠' },
-  'strong downtrend': { cls: 'bg-danger/20 text-danger',        dot: '🔴' },
+  'uptrend':   { cls: 'bg-success/20 text-success',     dot: '🟢' },
+  'sideways':  { cls: 'bg-surface-hover text-fg-muted', dot: '⚪' },
+  'downtrend': { cls: 'bg-danger/20 text-danger',       dot: '🔴' },
 };
 
 /** Trend pill carrying the full tier name. */
@@ -114,25 +112,6 @@ export function TrendChip({ trend, label }: { trend: string | null; label?: stri
       <span aria-hidden>{s.dot}</span>
       {label ? <span className="opacity-70">{label}</span> : null}
       {trend}
-    </span>
-  );
-}
-
-// `None` is the literal string the bot writes when entry_trend is Sideways —
-// it is NOT null, so don't test for nullishness here.
-const STRENGTH_STYLE: Record<string, string> = {
-  high: 'bg-brand/15 text-brand',
-  low:  'bg-surface-hover text-fg-muted',
-  none: 'bg-transparent text-fg-subtle',
-};
-
-/** Strength of the entry trend — sits beside the trend chip. */
-export function StrengthBadge({ strength }: { strength: string | null }) {
-  const key = (strength ?? '').toLowerCase();
-  const cls = STRENGTH_STYLE[key] ?? 'bg-surface-hover text-fg-muted';
-  return (
-    <span className={`inline-flex h-6 items-center rounded-md px-2 text-[11px] font-bold ${cls}`}>
-      {strength ?? '—'}
     </span>
   );
 }
