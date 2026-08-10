@@ -309,10 +309,13 @@ export function MarketChart({
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
       const [barsRes, tradesRes, quoteRes, stateRes] = await Promise.all([
+        // Order DESCENDING then flip to ascending below: `.limit()` keeps the rows
+        // the DB returns FIRST, so ascending+limit would hand back the OLDEST 1500
+        // bars and cut off everything recent (the chart froze days in the past).
         supabase.from('bot_bars').select('ts,open,high,low,close')
-          .eq('symbol', symbol).eq('timeframe', tf).order('ts', { ascending: true }).limit(1500),
+          .eq('symbol', symbol).eq('timeframe', tf).order('ts', { ascending: false }).limit(1500),
         supabase.from('bot_trades').select('id,side,open_ts,open_price,close_ts,close_price,sl,tp,pnl,close_reason')
-          .eq('symbol', symbol).order('open_ts', { ascending: true }).limit(300),
+          .eq('symbol', symbol).order('open_ts', { ascending: false }).limit(300),
         supabase.from('bot_quotes').select('digits').eq('symbol', symbol).maybeSingle(),
         // bot_trades only carries orders the bot placed itself. A position it
         // adopted from the broker exists only here, as state='active'.
@@ -332,10 +335,12 @@ export function MarketChart({
           minMove: 1 / Math.pow(10, fetchedDigits),
         },
       });
+      // Fetched newest-first; flip to oldest-first — lightweight-charts requires
+      // ascending time order.
       const bars: Candle[] = (barsRes.data ?? []).map((b) => ({
         time: utcTz(b.ts as string),
         open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
-      }));
+      })).reverse();
       barsRef.current = bars;
       setHasHistory(bars.length > 0);
       series.setData(bars);
@@ -354,7 +359,8 @@ export function MarketChart({
 
         // If the timeframe is short enough, draw all historical trades as arrows on
         // the candles. (On H4/D1, zooming way out to see years of history means the
-        const trades: Trade[] = (tradesRes.data ?? []) as Trade[];
+        // Also fetched newest-first; flip to oldest-first so trades[last] is the latest.
+        const trades: Trade[] = ((tradesRes.data ?? []) as Trade[]).slice().reverse();
 
         // ONLY the latest trade is marked. Plotting every trade in history buried
         // the candles under BUY/SELL arrows — on an active market that is
