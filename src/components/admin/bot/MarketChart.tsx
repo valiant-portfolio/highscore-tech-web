@@ -7,12 +7,13 @@
 // (trading-bot-db/frontend_admin_read_policies.sql): only a logged-in admin or
 // trading-bot staff can SELECT these tables; the anon key alone reads nothing.
 //   • history  → bot_bars (OHLCV) + this market's bot_trades
-//   • live     → bot_quotes (bid/ask) + bot_market_state (floating P&L), ~1.5s
+//   • live     → bot_quotes (bid/ask) + bot_market_state (floating P&L), ~3s
 //
-// Overlays for the ACTIVE (open) trade only: a blue ENTRY line, dashed SL/TP,
-// and a live current-price line carrying the position's P&L. The selected market
-// + timeframe persist across a refresh (localStorage). Client-side indicators
-// (MA/EMA/Bollinger) and manual drawings (h-line/trend) are drawn on top.
+// Overlays for an open position OR a resting PENDING order: a blue ENTRY line
+// (solid once filled, dashed while the order is still pending) plus dashed SL/TP,
+// all drawn by default. The selected market + timeframe persist across a refresh
+// (localStorage). Client-side indicators (MA/EMA/Bollinger) and manual drawings
+// (h-line/trend) are drawn on top.
 
 import { useEffect, useRef, useState } from 'react';
 import { createBotClient } from '@/lib/supabase/bot-client';
@@ -167,8 +168,7 @@ export function MarketChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const liveBar = useRef<Candle | null>(null);
-  const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (active trade)
-  const extraLines = useRef<IPriceLine[]>([]);          // SL/TP toggled on click
+  const overlayLines = useRef<IPriceLine[]>([]);          // entry / SL / TP (open or pending)
   const tradeSL = useRef<number | null>(null);
   const tradeTP = useRef<number | null>(null);
   const markersApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
@@ -276,17 +276,8 @@ export function MarketChart({
     // a trend line. Reads the current tool from a ref so we subscribe only once.
     const onClick = (param: MouseEventParams) => {
       const t = toolRef.current;
-      if (t === 'cursor') {
-        if (!seriesRef.current) return;
-        if (extraLines.current.length > 0) {
-          extraLines.current.forEach(l => seriesRef.current?.removePriceLine(l));
-          extraLines.current = [];
-        } else {
-          if (tradeSL.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
-          if (tradeTP.current != null) extraLines.current.push(seriesRef.current.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
-        }
-        return;
-      }
+      // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
+      if (t === 'cursor') return;
       if (!param.point || param.time === undefined) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
@@ -355,8 +346,6 @@ export function MarketChart({
       // other markets linger. This was the "so many SL/TP" bug.
       overlayLines.current.forEach((l) => series.removePriceLine(l));
       overlayLines.current = [];
-      extraLines.current.forEach((l) => series.removePriceLine(l));
-      extraLines.current = [];
       activeSide.current = null;
 
       if (bars.length) {
@@ -370,11 +359,20 @@ export function MarketChart({
         // ONLY the latest trade is marked. Plotting every trade in history buried
         // the candles under BUY/SELL arrows — on an active market that is
         // hundreds of them, and the older ones tell you nothing about now.
+        // Snap the trade's open time onto the candle it falls in, so the arrow
+        // sits exactly on that bar. open_ts is the precise fill moment, not a bar
+        // boundary, so without this the marker floats between candles.
+        const snapToBar = (iso: string): UTCTimestamp => {
+          const t = utcTz(iso) as number;
+          let chosen = bars[0].time;
+          for (const b of bars) { if ((b.time as number) <= t) chosen = b.time; else break; }
+          return chosen;
+        };
         const latest = trades.length ? [trades[trades.length - 1]] : [];
         const markers = latest.map((t) => {
           const buy = t.side === 'buy';
           return {
-            time: utcTz(t.open_ts),
+            time: snapToBar(t.open_ts),
             position: buy ? 'belowBar' : 'aboveBar',
             color: buy ? '#22c55e' : '#ef4444',
             shape: buy ? 'arrowUp' : 'arrowDown',
@@ -384,30 +382,39 @@ export function MarketChart({
         if (markersApi.current) markersApi.current.setMarkers(markers);
         else markersApi.current = createSeriesMarkers(series, markers);
 
-        // Entry / SL / TP — ONLY for the active (open) trade on this market.
+        // Entry / SL / TP overlay — for an OPEN position AND for a resting PENDING
+        // order. bot_market_state is the authority: `level` is the entry (pending
+        // or filled), and it stays correct for positions the bot adopted and after
+        // the profit lock ratchets the stop. bot_trades is the fallback.
         const openRow = trades.find((t) => !t.close_ts);
         const live = stateRes.data as
           { state?: string; level?: number; latest_signal?: string; sl?: number | null; tp?: number | null } | null;
 
-        // bot_market_state is the authority: it carries what the BROKER is
-        // holding right now, so it stays correct for positions the bot adopted
-        // and after the profit lock ratchets a stop. bot_trades is the fallback
-        // for anything it hasn't published yet.
-        const isLive = live?.state === 'active';
-        const entry = isLive && live?.level != null ? Number(live.level)
+        const hasPosition = live?.state === 'active' || !!openRow;   // a trade is open
+        const hasPending = live?.level != null && !hasPosition;      // limit order resting, not yet filled
+
+        const entry = live?.level != null ? Number(live.level)
           : openRow ? Number(openRow.open_price) : null;
-        const sl = (isLive ? live?.sl : null) ?? openRow?.sl ?? null;
-        const tp = (isLive ? live?.tp : null) ?? openRow?.tp ?? null;
+        const sl = live?.sl ?? openRow?.sl ?? null;
+        const tp = live?.tp ?? openRow?.tp ?? null;
         tradeSL.current = sl != null ? Number(sl) : null;
         tradeTP.current = tp != null ? Number(tp) : null;
 
-        if (entry != null && (isLive || openRow)) {
+        if (entry != null && (hasPosition || hasPending)) {
           const sig = (live?.latest_signal ?? '').toUpperCase();
           activeSide.current = openRow
             ? (openRow.side === 'sell' ? 'sell' : 'buy')
             : (sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy');
           const sideStr = activeSide.current === 'sell' ? 'SELL' : 'BUY';
-          overlayLines.current.push(series.createPriceLine({ price: entry, color: '#3b9de7', lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: sideStr }));
+          // Entry line: solid once filled, dashed while the order is still pending.
+          overlayLines.current.push(series.createPriceLine({
+            price: entry, color: '#3b9de7', lineWidth: 2,
+            lineStyle: hasPending ? LineStyle.Dashed : LineStyle.Solid,
+            axisLabelVisible: true, title: hasPending ? `${sideStr} · pending` : sideStr,
+          }));
+          // SL / TP are now drawn by default (pending and open alike) — no click needed.
+          if (tradeSL.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (tradeTP.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
         }
       }
 
