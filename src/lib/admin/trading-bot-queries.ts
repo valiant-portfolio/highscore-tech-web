@@ -9,7 +9,6 @@
 import 'server-only';
 import { botServiceClient } from '@/lib/supabase/bot';
 
-/** Five-tier trend, graded by close vs SMA20. `Sideways` = no trend. */
 /** v7: three trend states only. htf_trend (H1) decides trades; entry_trend (M15)
  *  is context. `Sideways` = no trend. */
 export type BotTrend = 'Uptrend' | 'Downtrend' | 'Sideways' | string;
