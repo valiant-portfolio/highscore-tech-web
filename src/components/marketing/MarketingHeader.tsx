@@ -24,7 +24,6 @@ interface HeaderUser {
 const PRIMARY_NAV: { href: string; label: string }[] = [
   { href: '/services',  label: 'Services' },
   { href: '/portfolio', label: 'Portfolio' },
-  { href: '/academy',   label: 'Academy' },
   { href: '/about',     label: 'About' },
   { href: '/contact',   label: 'Contact' },
 ];

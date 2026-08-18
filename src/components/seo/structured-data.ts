@@ -12,7 +12,7 @@ export function organizationSchema(siteUrl: string, name: string) {
     url: siteUrl,
     logo: `${siteUrl}/full-logo.png`,
     description:
-      'Highscore Tech is an AI development studio building AI systems for clients, shipping software products globally, and running an in-house academy that hires its best students.',
+      'Highscore Tech is an AI & software development studio building AI systems, integrating models like Claude and Groq into new and existing products, and shipping web and mobile software for clients worldwide.',
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer support',
@@ -33,56 +33,6 @@ export function websiteSchema(siteUrl: string, name: string) {
     url: siteUrl,
     inLanguage: 'en-US',
     publisher: { '@type': 'Organization', name },
-  };
-}
-
-// ── EducationalOrganization (for the academy arm) ────────────────────────
-export function academySchema(siteUrl: string) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'EducationalOrganization',
-    name: 'Highscore Tech Academy',
-    url: `${siteUrl}/academy`,
-    parentOrganization: { '@type': 'Organization', name: 'Highscore Tech', url: siteUrl },
-    description:
-      'In-person and online software training in Frontend, Backend, Full stack, Python, React Native, and Python ML/AI. Top graduates are hired into Highscore Tech.',
-  };
-}
-
-// ── Course schema — one per course on /academy/[slug] ───────────────────
-export function courseSchema(opts: {
-  siteUrl: string;
-  slug: string;
-  title: string;
-  description: string;
-  priceNgn: number;
-  durationWeeks?: number;
-}) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Course',
-    name: opts.title,
-    description: opts.description,
-    url: `${opts.siteUrl}/academy/${opts.slug}`,
-    provider: {
-      '@type': 'EducationalOrganization',
-      name: 'Highscore Tech Academy',
-      url: `${opts.siteUrl}/academy`,
-    },
-    offers: {
-      '@type': 'Offer',
-      price: opts.priceNgn,
-      priceCurrency: 'NGN',
-      availability: 'https://schema.org/InStock',
-      url: `${opts.siteUrl}/academy/${opts.slug}`,
-    },
-    ...(opts.durationWeeks && {
-      hasCourseInstance: {
-        '@type': 'CourseInstance',
-        courseMode: ['Online', 'Onsite'],
-        courseWorkload: `PT${opts.durationWeeks}W`,
-      },
-    }),
   };
 }
 

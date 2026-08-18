@@ -45,6 +45,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // Teaching is retired from the public site. 301 (308 permanent) every old
+  // academy URL so we keep the search authority instead of throwing 404s:
+  // course browsing goes home, an enrolment attempt goes to contact.
+  async redirects() {
+    return [
+      { source: '/academy', destination: '/', permanent: true },
+      { source: '/academy/:slug*', destination: '/', permanent: true },
+      { source: '/enrol/:slug*', destination: '/contact', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -187,10 +187,6 @@ const FAQS = [
     q: "What happens if we're not happy?",
     a: "Either side can walk after any milestone. If you cancel mid-milestone, you owe pro-rata for work already shipped. Code shipped is code you keep. We don't hold codebases hostage.",
   },
-  {
-    q: 'Can your academy graduates work on our project?',
-    a: "Top academy graduates sometimes join engagements as junior engineers, supervised by a senior. We're transparent about who's on your team and at what level — and the senior owns the outcome regardless.",
-  },
 ];
 
 export default function ServicesPage() {

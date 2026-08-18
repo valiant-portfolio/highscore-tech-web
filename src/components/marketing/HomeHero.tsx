@@ -7,7 +7,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { ArrowRight, ChevronDown, GraduationCap, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronDown, Layers, Sparkles } from 'lucide-react';
 import { LinkButton } from '@/components/ui';
 
 const stagger = {
@@ -70,7 +70,7 @@ export function HomeHero() {
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-tint/40 border border-brand/20 text-[11px] uppercase tracking-[0.18em] font-semibold text-brand backdrop-blur-sm"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            AI development studio · Academy
+            AI &amp; software development studio
           </motion.p>
 
           <motion.h1
@@ -82,7 +82,7 @@ export function HomeHero() {
               className="bg-clip-text text-transparent"
               style={{ backgroundImage: 'linear-gradient(135deg, #6CE8FA 0%, #18C2DC 60%, #0A8EA8 100%)' }}
             >
-              We train builders.
+              We ship software.
             </span>
           </motion.h1>
 
@@ -91,8 +91,8 @@ export function HomeHero() {
             className="mx-auto mt-6 md:mt-8 max-w-2xl text-base sm:text-lg md:text-xl text-graphite-200 leading-relaxed"
           >
             Highscore Tech designs AI systems and ships software for organisations
-            worldwide. Our academy trains the next generation of engineers — and we
-            hire the best of them.
+            worldwide — from AI integrations and custom models to full web and mobile
+            builds. Products like MyPoker, built end to end.
           </motion.p>
 
           <motion.div
@@ -103,12 +103,12 @@ export function HomeHero() {
               Hire us
             </LinkButton>
             <LinkButton
-              href="/academy"
+              href="/portfolio"
               size="lg"
               variant="secondary"
-              leftIcon={<GraduationCap className="h-4 w-4" />}
+              leftIcon={<Layers className="h-4 w-4" />}
             >
-              Browse the academy
+              See our work
             </LinkButton>
           </motion.div>
 

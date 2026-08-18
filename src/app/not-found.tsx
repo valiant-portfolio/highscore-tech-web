@@ -44,7 +44,7 @@ export default function NotFound() {
               <LinkButton href="/" leftIcon={<Compass className="h-4 w-4" />}>
                 Home
               </LinkButton>
-              <LinkButton href="/academy" variant="secondary">Browse the academy</LinkButton>
+              <LinkButton href="/portfolio" variant="secondary">See our work</LinkButton>
               <LinkButton href="/contact" variant="secondary">Get in touch</LinkButton>
             </div>
           </div>

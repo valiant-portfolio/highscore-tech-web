@@ -116,7 +116,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
           <p className="mt-2 text-fg-muted">
             {activeCount > 0
               ? `${activeCount} active enrolment${activeCount === 1 ? '' : 's'}. Track your progress below.`
-              : "You haven't enrolled in a course yet — browse the academy when you're ready."}
+              : 'Your payment history and records live here.'}
           </p>
           {user.role === 'admin' && (
             <div className="mt-5 flex items-start gap-3 rounded-xl border border-brand/30 bg-brand-tint/40 p-4">
@@ -218,15 +218,10 @@ export default async function ProfilePage({ searchParams }: PageProps) {
                 <PremiumCard noLift>
                   <div className="p-10 text-center">
                     <GraduationCap className="h-10 w-10 mx-auto text-fg-subtle" />
-                    <h3 className="mt-5 font-display text-xl font-bold text-fg">No enrolments yet.</h3>
+                    <h3 className="mt-5 font-display text-xl font-bold text-fg">Nothing here yet.</h3>
                     <p className="mt-2 text-fg-muted max-w-md mx-auto">
-                      When you enrol in a course, it'll show up here with your progress and modules.
+                      Your enrolments and their payment records show up here.
                     </p>
-                    <div className="mt-6">
-                      <LinkButton href="/academy" rightIcon={<ArrowRight className="h-4 w-4" />}>
-                        Browse courses
-                      </LinkButton>
-                    </div>
                   </div>
                 </PremiumCard>
               ) : (
@@ -248,14 +243,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
                         <ProgressBar paid={e.paid_ngn} total={e.total_ngn} />
 
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <Link
-                            href={`/academy/${e.course_slug}`}
-                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
-                          >
-                            Course details <ArrowRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </div>
                       </div>
                     </PremiumCard>
                   ))}

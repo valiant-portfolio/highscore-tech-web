@@ -11,7 +11,7 @@ import { listPublicTeam } from '@/lib/stats/team';
 export const metadata: Metadata = {
   title: 'About — Highscore Tech',
   description:
-    'Highscore Tech is a fully remote Nigerian AI development studio and in-house academy (CAC RC No. 7223102), working with clients worldwide.',
+    'Highscore Tech is a fully remote Nigerian AI & software development studio (CAC RC No. 7223102), building AI systems and software for clients worldwide.',
   alternates: { canonical: '/about' },
 };
 
@@ -25,13 +25,13 @@ const VALUES = [
   },
   {
     icon: <Lightbulb className="h-5 w-5" />,
-    title: 'Build, then teach',
-    description: 'We teach the stack we ship on — every academy module is grounded in production code.',
+    title: 'Ship production code',
+    description: 'We build things that go live and get used — real products for real clients, not demos.',
   },
   {
     icon: <Users className="h-5 w-5" />,
-    title: 'Hire from within',
-    description: "Our top students don't graduate into the void. They graduate into Highscore Tech.",
+    title: 'Small, senior team',
+    description: 'We stay deliberately small — every person owns real work and the outcome that comes with it.',
   },
   {
     icon: <Heart className="h-5 w-5" />,
@@ -49,14 +49,13 @@ export default async function AboutPage() {
         <div className="mx-auto max-w-[920px] space-y-5">
           <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">About Highscore Tech</p>
           <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-[-0.03em] leading-[1.05] text-fg">
-            A studio that builds, <br />and a school that hires.
+            A studio that builds — <br />and ships.
           </h1>
           <p className="text-lg md:text-xl text-fg-muted leading-relaxed max-w-3xl">
-            Highscore Tech is a fully remote Nigerian AI development studio based in Lagos,
-            registered with the Corporate Affairs Commission (CAC RC No. 7223102). We ship AI
-            systems and software for organisations across Africa, Europe, and beyond — and we
-            run an in-house academy that trains the next generation of engineers in the same
-            stack we use to build.
+            Highscore Tech is a fully remote Nigerian AI &amp; software development studio based
+            in Lagos, registered with the Corporate Affairs Commission (CAC RC No. 7223102). We
+            build AI systems and ship software for organisations across Africa, Europe, and
+            beyond — from AI integrations and custom models to full web and mobile products.
           </p>
         </div>
       </section>
@@ -70,19 +69,17 @@ export default async function AboutPage() {
           />
           <div className="space-y-5 text-base md:text-[17px] text-fg-muted leading-relaxed">
             <p>
-              We started Highscore Tech with a simple observation: there is no shortage of
-              talented engineers in Africa — only a shortage of places that train them in
-              what production work actually looks like, and then trust them to ship it.
+              We started Highscore Tech with a simple belief: Africa has no shortage of
+              talent — only a shortage of teams trusted to build and ship serious software
+              for the rest of the world.
             </p>
             <p>
-              So we built a studio that delivers real work to real clients, and an academy
-              that teaches against that same body of work. Graduates don't enter a job
-              market — they enter our team.
+              So we built a studio that delivers real work to real clients — AI systems,
+              web and mobile products — and treats every build as production, not a demo.
             </p>
             <p>
-              Today we serve clients across the continent and beyond, while continuing to
-              grow a pipeline of engineers who learned on production code, not on
-              textbook problems.
+              Today we serve clients across the continent and beyond, shipping AI-powered
+              products end to end. MyPoker is one of them.
             </p>
           </div>
         </div>
@@ -156,18 +153,18 @@ export default async function AboutPage() {
             Have a project in mind?
           </h2>
           <p className="mt-4 text-base md:text-lg text-fg-muted leading-relaxed">
-            We'd love to hear about it. Or if you'd rather study with us first,
-            our academy is open for the next cohort.
+            We'd love to hear about it — tell us what you're building and we'll come
+            back with a clear path forward.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <LinkButton href="/contact" size="lg" rightIcon={<ArrowRight className="h-4 w-4" />}>
               Get in touch
             </LinkButton>
             <Link
-              href="/academy"
+              href="/portfolio"
               className="inline-flex items-center text-sm font-semibold text-fg-muted hover:text-fg"
             >
-              See the academy →
+              See our work →
             </Link>
           </div>
         </div>

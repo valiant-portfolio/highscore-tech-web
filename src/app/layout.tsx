@@ -22,12 +22,12 @@ const jetbrainsMono = JetBrains_Mono({
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Highscore Tech';
 const DESCRIPTION =
-  'Highscore Tech is an AI development studio building AI systems for clients, shipping software for organisations worldwide, and running an in-house academy that hires its best graduates.';
+  'Highscore Tech is an AI & software development studio building AI systems, integrating models like Claude and Groq, and shipping web and mobile software for organisations worldwide.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — AI development studio + Academy`,
+    default: `${SITE_NAME} — AI & software development studio`,
     template: `%s · ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -40,18 +40,17 @@ export const metadata: Metadata = {
     'AI development',
     'AI consulting',
     'AI systems integration',
+    'AI integration Claude Groq',
+    'custom AI models',
     'software development Nigeria',
+    'web app development',
+    'mobile app development',
+    'Next.js development',
+    'React Native development',
     'Highscore Tech',
-    'Highscore Tech Academy',
-    'coding bootcamp Nigeria',
-    'React Native course',
-    'Python machine learning course',
-    'full stack training',
-    'frontend training',
-    'backend training',
   ],
   category: 'business',
-  classification: 'AI development and training',
+  classification: 'AI and software development',
   referrer: 'origin-when-cross-origin',
   formatDetection: {
     email: false,
@@ -75,7 +74,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: SITE_URL,
-    title: `${SITE_NAME} — AI development studio + Academy`,
+    title: `${SITE_NAME} — AI & software development studio`,
     description: DESCRIPTION,
     siteName: SITE_NAME,
     images: [
@@ -89,7 +88,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} — AI development studio + Academy`,
+    title: `${SITE_NAME} — AI & software development studio`,
     description: DESCRIPTION,
     images: ['/full-logo.png'],
   },

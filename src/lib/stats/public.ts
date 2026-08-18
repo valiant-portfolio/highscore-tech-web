@@ -12,27 +12,23 @@ function anonClient() {
 }
 
 export interface PublicStats {
-  courseCount: number;
-  studentCount: number;
   projectCount: number;
 }
 
-// Display floor for the student count. Shows "100+" until we have more
-// than 100 real active enrolments — a blank "0+" on a freshly-launched
-// site scares prospective students away. Once real numbers cross the
-// floor, the actual count shows.
-const STUDENT_FLOOR = 100;
+// Display floor for shipped projects. A freshly-seeded portfolio showing "0+"
+// reads as a company that has never delivered anything; hold the floor until
+// the real count passes it.
+const PROJECT_FLOOR = 10;
 
+// Teaching is retired from the public site, so the student/course counts that
+// used to sit beside this one are gone — the strip now leads with shipped work.
 export async function getPublicStats(): Promise<PublicStats> {
   const supabase = anonClient();
-  const [c, s, p] = await Promise.all([
-    supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', true),
-    supabase.from('enrollments').select('id', { count: 'exact', head: true }).in('status', ['active', 'completed']),
-    supabase.from('portfolio_projects').select('id', { count: 'exact', head: true }).eq('published', true),
-  ]);
+  const p = await supabase
+    .from('portfolio_projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('published', true);
   return {
-    courseCount:  c.count ?? 0,
-    studentCount: Math.max(STUDENT_FLOOR, s.count ?? 0),
-    projectCount: p.count ?? 0,
+    projectCount: Math.max(PROJECT_FLOOR, p.count ?? 0),
   };
 }

@@ -6,7 +6,7 @@ import { SignupForm } from '@/components/auth/SignupForm';
 
 export const metadata: Metadata = {
   title: 'Sign up — Highscore Tech',
-  description: 'Create your Highscore Tech account to enrol in the academy.',
+  description: 'Create your Highscore Tech account.',
   robots: { index: false, follow: false },
 };
 
@@ -14,7 +14,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Create your account"
-      subtitle="Join Highscore Tech Academy and reserve your seat in the next cohort."
+      subtitle="Track your projects and payments with Highscore Tech."
       footer={
         <>
           Already have an account?{' '}

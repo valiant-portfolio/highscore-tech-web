@@ -1,6 +1,6 @@
-// Marketing footer for Highscore Tech — links across services, academy
-// and company. Staff portal is intentionally not linked here; staff
-// log in via /login with their work email.
+// Marketing footer for Highscore Tech — links across services and company.
+// Staff portal is intentionally not linked here; staff log in via /login
+// with their work email.
 
 import Link from 'next/link';
 import Logo from '@/components/brand/Logo';
@@ -22,15 +22,6 @@ const COLUMNS: Column[] = [
     ],
   },
   {
-    title: 'Academy',
-    links: [
-      { href: '/academy', label: 'All courses' },
-      { href: '/academy', label: 'Why study with us' },
-      { href: '/academy', label: 'Hiring pipeline' },
-      { href: '/signup',  label: 'Enrol' },
-    ],
-  },
-  {
     title: 'Company',
     links: [
       { href: '/about',   label: 'About' },
@@ -48,8 +39,8 @@ export function MarketingFooter() {
           <div className="space-y-4">
             <Logo size="md" />
             <p className="text-sm text-fg-muted leading-relaxed max-w-xs">
-              AI systems, software, and a training academy that hires its best students.
-              Remote-first across Nigeria, working with clients worldwide.
+              AI systems and software, built to ship. Remote-first across Nigeria,
+              working with clients worldwide.
             </p>
             <p className="text-xs text-fg-subtle">
               <a href="mailto:admin@highzcore.tech" className="hover:text-fg">admin@highzcore.tech</a>

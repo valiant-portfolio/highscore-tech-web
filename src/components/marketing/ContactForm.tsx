@@ -13,7 +13,7 @@ import { submitContactForm, type ContactFormState } from '@/lib/contact/actions'
 const SUBJECT_OPTIONS = [
   { value: 'project',     label: 'Project enquiry' },
   { value: 'partnership', label: 'Partnership' },
-  { value: 'academy',     label: 'Academy enrolment' },
+  { value: 'ai',          label: 'AI integration' },
   { value: 'press',       label: 'Press / media' },
   { value: 'other',       label: 'Something else' },
 ];

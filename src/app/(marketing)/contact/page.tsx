@@ -9,7 +9,7 @@ import { PremiumCard } from '@/components/marketing/PremiumCard';
 export const metadata: Metadata = {
   title: 'Contact — Highscore Tech',
   description:
-    'Project enquiries, partnerships, academy questions — get in touch with the Highscore Tech team.',
+    'Project enquiries, AI integrations, partnerships — get in touch with the Highscore Tech team.',
   alternates: { canonical: '/contact' },
 };
 
@@ -24,7 +24,7 @@ export default function ContactPage() {
             Tell us what you're building.
           </h1>
           <p className="text-lg md:text-xl text-fg-muted leading-relaxed max-w-2xl">
-            Project enquiries, partnerships, academy enrolment, press — all welcome.
+            Project enquiries, AI integrations, partnerships, press — all welcome.
             We reply within one working day.
           </p>
         </div>
