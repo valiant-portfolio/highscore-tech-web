@@ -9,13 +9,13 @@ import { registerPdfFonts } from '@/lib/pdf-fonts';
 
 registerPdfFonts();
 
-const GOLD  = '#B37A12';
+const BRAND = '#0A8EA8';
 const INK   = '#050E14';
 const INK_2 = '#3B4651';
 const MUTED = '#7C8893';
 const PAPER = '#FFFFFF';
 const LINE  = '#E2E8EE';
-const SOFT  = '#FAF6EE';
+const SOFT  = '#F4F8FA';
 
 const styles = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 11, color: INK, paddingBottom: 44 },
@@ -25,14 +25,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
   },
   brandName: { color: PAPER, fontSize: 18, fontWeight: 800, letterSpacing: -0.2 },
-  brandSub:  { color: GOLD, fontSize: 9, marginTop: 3, letterSpacing: 2, fontWeight: 600 },
+  brandSub:  { color: BRAND, fontSize: 9, marginTop: 3, letterSpacing: 2, fontWeight: 600 },
   docMeta:      { marginLeft: 'auto', textAlign: 'right', fontSize: 9, color: PAPER, opacity: 0.8 },
   docMetaTitle: { color: PAPER, fontSize: 10, fontWeight: 600, marginBottom: 3, opacity: 1 },
 
   body: { paddingHorizontal: 40, paddingTop: 26 },
   docTitle: {
     fontSize: 22, fontWeight: 800, color: INK,
-    borderBottomWidth: 2, borderBottomColor: GOLD,
+    borderBottomWidth: 2, borderBottomColor: BRAND,
     paddingBottom: 8, marginBottom: 18,
   },
   paidChip: {
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: SOFT, borderRadius: 4, padding: 14, marginTop: 14,
   },
   totalLabel: { fontSize: 10, color: MUTED, letterSpacing: 1, fontWeight: 700 },
-  totalValue: { fontSize: 20, color: GOLD, fontWeight: 800 },
+  totalValue: { fontSize: 20, color: BRAND, fontWeight: 800 },
   ngnNote:    { fontSize: 9, color: MUTED, marginTop: 6, textAlign: 'right' },
 
   briefBox:   { marginTop: 22, borderWidth: 1, borderColor: LINE, borderRadius: 4, padding: 14 },

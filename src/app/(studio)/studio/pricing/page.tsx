@@ -40,7 +40,7 @@ export default function StudioPricingPage() {
     <>
       <section className="px-4 md:px-8 pt-16 md:pt-24 pb-10 text-center">
         <div className="mx-auto max-w-[760px]">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">Pricing</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Pricing</p>
           <h1 className="mt-4 font-display text-4xl md:text-6xl font-extrabold tracking-[-0.03em] leading-[1.05] text-fg">
             The full menu.
           </h1>
@@ -57,7 +57,7 @@ export default function StudioPricingPage() {
           <section key={g.id} className="px-4 md:px-8 py-12 md:py-16 border-t border-border first-of-type:border-t-0">
             <div className="mx-auto max-w-[1180px]">
               <div className="max-w-2xl">
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">{g.eyebrow}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{g.eyebrow}</p>
                 <h2 className="mt-3 font-display text-2xl md:text-4xl font-bold tracking-[-0.02em] text-fg">{g.title}</h2>
                 <p className="mt-3 text-fg-muted leading-relaxed">{g.body}</p>
               </div>

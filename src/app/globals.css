@@ -199,6 +199,22 @@ a, button {
   border-radius: var(--r-sm);
 }
 
+/* Native dropdown options.
+   The popup list is drawn by the OS, and on Windows it keeps a white background
+   while inheriting the <select>'s light `color` in dark mode — white text on
+   white, unreadable. `color-scheme` alone doesn't fix it once the select sets an
+   explicit colour, so paint the options from our own tokens. Applies to every
+   <select> in the app, not just the styled primitive. */
+select option,
+select optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--fg);
+}
+/* The placeholder ("Pick one") should read as placeholder, not a real choice. */
+select option[value=''] {
+  color: var(--fg-subtle);
+}
+
 /* Skeleton shimmer — keyframe consumed by the <Skeleton> primitive. */
 @keyframes skeleton-sweep {
   0%   { transform: translateX(-100%); }

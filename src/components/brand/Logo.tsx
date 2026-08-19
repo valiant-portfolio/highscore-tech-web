@@ -1,19 +1,31 @@
 // THE canonical Highscore Tech logo. Use this — and only this — everywhere a
 // logo is shown.
 //
-// Renders the `public/full-logo.png` lockup. `iconOnly` falls back to a
-// circular cyan H mark for tight spots (favicons, mobile nav rails, etc.)
-// since the wordmark isn't legible below ~120px wide.
+// Renders the `public/full-logo.png` lockup, or the Studio lockup
+// (`public/studio-logo.png`) when `variant="studio"` — the Studio subdomain
+// carries its own logo. `iconOnly` falls back to a circular cyan H mark for
+// tight spots (favicons, mobile nav rails, etc.) since the wordmark isn't
+// legible below ~120px wide.
 
 import Image from 'next/image';
 import Link from 'next/link';
 
 type Size = 'sm' | 'md' | 'lg';
 
+// Sized per lockup, because the artworks have different proportions:
+// full-logo is 444×124 (~3.6:1) and the Studio lockup is 480×161 (~3:1).
+// Both source files are pre-trimmed of transparent padding, so these CSS
+// heights are the real visible height of the mark.
 const FULL_DIMENSIONS: Record<Size, { w: number; h: number; className: string }> = {
   sm: { w: 140, h: 40, className: 'h-8 w-auto' },
   md: { w: 180, h: 52, className: 'h-10 w-auto' },
   lg: { w: 240, h: 70, className: 'h-14 w-auto' },
+};
+
+const STUDIO_DIMENSIONS: Record<Size, { w: number; h: number; className: string }> = {
+  sm: { w: 108, h: 36, className: 'h-8 w-auto' },
+  md: { w: 143, h: 48, className: 'h-11 w-auto' },
+  lg: { w: 197, h: 66, className: 'h-16 w-auto' },
 };
 
 const ICON_DIMENSIONS: Record<Size, string> = {
@@ -27,7 +39,14 @@ interface LogoProps {
   iconOnly?: boolean;
   href?: string | null;
   className?: string;
+  /** `studio` swaps in the Highscore Studio lockup. */
+  variant?: 'default' | 'studio';
 }
+
+const LOCKUP: Record<'default' | 'studio', { src: string; alt: string; mark: string }> = {
+  default: { src: '/full-logo.png',     alt: 'Highscore Tech',        mark: '' },
+  studio:  { src: '/studio-lockup.png', alt: 'Highscore Tech Studio', mark: '/studio-mark.png' },
+};
 
 function IconMark({ size }: { size: Size }) {
   return (
@@ -48,23 +67,40 @@ export default function Logo({
   iconOnly = false,
   href = '/',
   className = '',
+  variant = 'default',
 }: LogoProps) {
+  const lockup = LOCKUP[variant];
+  const dims = (variant === 'studio' ? STUDIO_DIMENSIONS : FULL_DIMENSIONS)[size];
+
+  // Studio has a real badge artwork for tight spots; the main brand falls back
+  // to the drawn cyan H.
+  const iconSizes: Record<Size, number> = { sm: 32, md: 40, lg: 56 };
   const content = iconOnly ? (
-    <IconMark size={size} />
+    lockup.mark ? (
+      <Image
+        src={lockup.mark}
+        alt={lockup.alt}
+        width={iconSizes[size]}
+        height={iconSizes[size]}
+        className={`${ICON_DIMENSIONS[size].split(' ').slice(0, 2).join(' ')} ${className}`}
+      />
+    ) : (
+      <IconMark size={size} />
+    )
   ) : (
     <Image
-      src="/full-logo.png"
-      alt="Highscore Tech"
-      width={FULL_DIMENSIONS[size].w}
-      height={FULL_DIMENSIONS[size].h}
-      className={`${FULL_DIMENSIONS[size].className} ${className}`}
+      src={lockup.src}
+      alt={lockup.alt}
+      width={dims.w}
+      height={dims.h}
+      className={`${dims.className} ${className}`}
       priority={size === 'lg'}
     />
   );
 
   if (href === null) return content;
   return (
-    <Link href={href} aria-label="Highscore Tech home" className="inline-flex shrink-0">
+    <Link href={href} aria-label={`${lockup.alt} home`} className="inline-flex shrink-0">
       {content}
     </Link>
   );

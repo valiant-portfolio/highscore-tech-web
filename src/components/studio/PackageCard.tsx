@@ -12,12 +12,12 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
     <div
       className={cn(
         'relative flex flex-col rounded-2xl border bg-surface p-6 transition-colors',
-        pkg.featured ? 'border-warning/50 shadow-[0_0_0_1px_var(--color-warning)]' : 'border-border hover:border-border-strong',
+        pkg.featured ? 'border-brand/50 shadow-[0_0_0_1px_var(--color-brand)]' : 'border-border hover:border-border-strong',
         className,
       )}
     >
       {pkg.featured && (
-        <span className="absolute -top-2.5 left-6 inline-flex h-5 items-center rounded-full bg-warning px-2.5 text-[10px] font-bold uppercase tracking-wider text-ink">
+        <span className="absolute -top-2.5 left-6 inline-flex h-5 items-center rounded-full bg-brand px-2.5 text-[10px] font-bold uppercase tracking-wider text-brand-fg">
           Most popular
         </span>
       )}
@@ -26,7 +26,7 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
 
       <p className="mt-3 flex items-baseline gap-1.5">
         {pkg.from && <span className="text-sm font-semibold text-fg-subtle">from</span>}
-        <span className="font-display text-4xl font-extrabold tabular-nums text-warning">
+        <span className="font-display text-4xl font-extrabold tabular-nums text-brand">
           ${pkg.priceUsd}
         </span>
         {pkg.monthly && <span className="text-sm font-semibold text-fg-muted">/month</span>}
@@ -48,7 +48,7 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
         className={cn(
           'mt-6 inline-flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-colors',
           pkg.featured
-            ? 'bg-warning text-ink hover:opacity-90'
+            ? 'bg-brand text-brand-fg hover:opacity-90'
             : 'border border-border text-fg hover:bg-surface-hover',
         )}
       >

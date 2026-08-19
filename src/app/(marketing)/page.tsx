@@ -180,13 +180,13 @@ export default async function HomePage() {
       <Reveal ambient="brand-soft" id="studio" className="!py-16 md:!py-28">
         <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-16 items-center">
           <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-warning">
+            <p className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
               <Music className="h-3.5 w-3.5" />
               Highscore Tech Studio
             </p>
             <h2 className="mt-5 font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.025em] leading-[1.08] text-fg">
               We also make businesses<br />
-              <span className="text-warning">impossible to ignore.</span>
+              <span className="text-brand">impossible to ignore.</span>
             </h2>
             <p className="mt-4 max-w-xl text-base md:text-lg text-fg-muted leading-relaxed">
               Our creative branch writes custom songs and jingles, produces promo videos —
@@ -195,12 +195,12 @@ export default async function HomePage() {
             </p>
             <p className="mt-3 max-w-xl text-sm text-fg-muted">
               Songs for businesses, churches, weddings, birthdays and events — from{' '}
-              <span className="font-bold text-warning">$8</span> up to full monthly campaigns.
+              <span className="font-bold text-brand">$8</span> up to full monthly campaigns.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href={STUDIO_URL}
-                className="inline-flex h-12 items-center gap-2 rounded-lg bg-warning px-6 text-sm font-bold text-ink transition-opacity hover:opacity-90"
+                className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-6 text-sm font-bold text-brand-fg transition-opacity hover:opacity-90"
               >
                 Visit Highscore Studio <ArrowRight className="h-4 w-4" />
               </a>
@@ -215,7 +215,7 @@ export default async function HomePage() {
 
           <PremiumCard className="h-full" highlight>
             <div className="p-6 md:p-8">
-              <p className="text-xs uppercase tracking-[0.18em] font-semibold text-warning">
+              <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">
                 What the Studio does
               </p>
               <ul className="mt-5 space-y-4 text-sm md:text-[15px] text-fg-muted">
@@ -226,7 +226,7 @@ export default async function HomePage() {
                   ['Google ranking & ads', 'get found, then get in front of buyers'],
                 ].map(([title, rest]) => (
                   <li key={title} className="flex gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand shrink-0" />
                     <span><b className="text-fg">{title}</b> — {rest}</span>
                   </li>
                 ))}

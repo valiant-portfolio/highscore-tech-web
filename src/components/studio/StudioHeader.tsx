@@ -28,11 +28,18 @@ export function StudioHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur-md">
-      <div className="mx-auto max-w-[1280px] flex items-center gap-3 px-4 md:px-8 h-16">
-        <Link href="/studio" className="flex items-center gap-2.5 shrink-0" aria-label="Highscore Studio">
-          <Logo size="sm" href={null} />
-          <span className="hidden sm:inline text-[11px] font-bold uppercase tracking-[0.18em] text-warning border-l border-border pl-2.5">
-            Studio
+      {/* Taller than the agency header: the Studio lockup is near-square, so it
+          needs vertical room to stay legible. */}
+      <div className="mx-auto max-w-[1280px] flex items-center gap-3 px-4 md:px-8 h-[72px]">
+        {/* The Studio lockup already says "Studio", so no extra wordmark here.
+            The badge alone on the narrowest screens, where the full lockup would
+            crowd out the nav. */}
+        <Link href="/studio" className="flex items-center shrink-0" aria-label="Highscore Studio">
+          <span className="hidden sm:inline-flex">
+            <Logo size="md" href={null} variant="studio" />
+          </span>
+          <span className="sm:hidden inline-flex">
+            <Logo size="sm" href={null} variant="studio" iconOnly />
           </span>
         </Link>
 

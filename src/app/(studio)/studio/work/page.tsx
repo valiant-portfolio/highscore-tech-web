@@ -26,7 +26,7 @@ export default async function StudioWorkPage() {
     <section className="px-4 md:px-8 py-12 md:py-16">
       <div className="mx-auto max-w-[1180px]">
         <header className="max-w-2xl">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">Our work</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Our work</p>
           <h1 className="mt-3 font-display text-3xl md:text-5xl font-extrabold tracking-[-0.03em] text-fg">
             Hear it for yourself.
           </h1>
@@ -38,7 +38,7 @@ export default async function StudioWorkPage() {
 
         {works.length === 0 ? (
           <div className="mt-12 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-warning/15 text-warning">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand">
               <Sparkles className="h-6 w-6" />
             </span>
             <h2 className="mt-5 font-display text-xl font-bold text-fg">Our first pieces are being uploaded.</h2>
@@ -77,7 +77,7 @@ export default async function StudioWorkPage() {
 
                 <figcaption className="flex flex-1 flex-col p-5">
                   {w.project_type && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-warning">{w.project_type}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand">{w.project_type}</span>
                   )}
                   <h3 className="mt-1.5 font-semibold text-fg leading-tight">{w.title}</h3>
                   {w.client && <p className="mt-0.5 text-xs text-fg-subtle">{w.client}</p>}

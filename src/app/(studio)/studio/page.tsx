@@ -37,16 +37,16 @@ export default function StudioHomePage() {
           className="absolute inset-0 -z-10"
           style={{
             background:
-              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-warning) 16%, transparent) 0%, transparent 70%)',
+              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 70%)',
           }}
         />
         <div className="mx-auto max-w-[900px] text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-warning">
+          <p className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
             Highscore Tech Studio
           </p>
           <h1 className="mt-6 font-display text-[40px] sm:text-6xl md:text-7xl font-extrabold tracking-[-0.035em] leading-[1.03] text-fg">
             We make your business{' '}
-            <span className="text-warning">impossible to ignore.</span>
+            <span className="text-brand">impossible to ignore.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg md:text-xl text-fg-muted leading-relaxed">
             Custom songs, jingles and videos that people actually remember — then we put
@@ -61,7 +61,7 @@ export default function StudioHomePage() {
             </LinkButton>
           </div>
           <p className="mt-6 text-sm text-fg-subtle">
-            Songs from <span className="font-bold text-warning">$8</span> · full campaigns up to $800 · we deliver to WhatsApp, Telegram or email
+            Songs from <span className="font-bold text-brand">$8</span> · full campaigns up to $800 · we deliver to WhatsApp, Telegram or email
           </p>
         </div>
       </section>
@@ -75,7 +75,7 @@ export default function StudioHomePage() {
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
             {WHAT_WE_DO.map((w) => (
               <div key={w.title} className="rounded-xl border border-border bg-surface p-5">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-warning/15 text-warning">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand/15 text-brand">
                   {w.icon}
                 </span>
                 <h3 className="mt-4 font-semibold text-fg">{w.title}</h3>
@@ -89,7 +89,7 @@ export default function StudioHomePage() {
       {/* ── Why us ───────────────────────────────────────────────── */}
       <section className="px-4 md:px-8 py-16 md:py-20">
         <div className="mx-auto max-w-[820px] rounded-2xl border border-border bg-surface p-7 md:p-10">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">Why us</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Why us</p>
           <h2 className="mt-3 font-display text-2xl md:text-3xl font-bold tracking-[-0.02em] text-fg">
             Anyone can hold the tools. Not everyone can do this.
           </h2>
@@ -107,7 +107,7 @@ export default function StudioHomePage() {
       <section id="pricing" className="px-4 md:px-8 py-16 md:py-20 border-t border-border">
         <div className="mx-auto max-w-[1180px]">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">Start here</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Start here</p>
             <h2 className="mt-3 font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
               No business is too small.
             </h2>
@@ -121,7 +121,7 @@ export default function StudioHomePage() {
           </div>
 
           <div className="mt-16 text-center max-w-2xl mx-auto">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-warning">Pay more, get more</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Pay more, get more</p>
             <h2 className="mt-3 font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
               Every step up is a bigger deliverable.
             </h2>
@@ -152,7 +152,7 @@ export default function StudioHomePage() {
               { n: '4', t: 'We send it over', b: 'Finished work arrives on WhatsApp, Telegram or email — whichever you chose.' },
             ].map((s) => (
               <li key={s.n} className="rounded-xl border border-border bg-surface p-5">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-warning text-ink font-display font-extrabold">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-brand-fg font-display font-extrabold">
                   {s.n}
                 </span>
                 <h3 className="mt-3.5 font-semibold text-fg">{s.t}</h3>
@@ -179,7 +179,7 @@ export default function StudioHomePage() {
             </LinkButton>
           </div>
           <p className="mt-5 text-sm text-fg-subtle">
-            Questions first? <Link href="/contact" className="font-semibold text-warning hover:underline">Talk to us</Link>.
+            Questions first? <Link href="/contact" className="font-semibold text-brand hover:underline">Talk to us</Link>.
           </p>
         </div>
       </section>

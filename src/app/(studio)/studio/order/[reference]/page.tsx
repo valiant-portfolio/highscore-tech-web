@@ -49,11 +49,11 @@ export default async function StudioOrderStatusPage({
       <div className="mx-auto max-w-[760px]">
 
         {/* ── Status header ─────────────────────────────────────── */}
-        <div className={`rounded-2xl border p-6 md:p-8 ${paid ? 'border-success/40 bg-success/5' : 'border-warning/40 bg-warning/5'}`}>
+        <div className={`rounded-2xl border p-6 md:p-8 ${paid ? 'border-success/40 bg-success/5' : 'border-brand/40 bg-brand/5'}`}>
           <div className="flex items-start gap-4">
             {paid
               ? <CheckCircle2 className="h-8 w-8 shrink-0 text-success" />
-              : <Clock className="h-8 w-8 shrink-0 text-warning" />}
+              : <Clock className="h-8 w-8 shrink-0 text-brand" />}
             <div className="min-w-0">
               <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
                 {paid ? 'Payment received — we’re on it.' : 'Almost there. One payment to go.'}
@@ -77,7 +77,7 @@ export default async function StudioOrderStatusPage({
 
             <div className="mt-4 flex items-baseline justify-between gap-4 rounded-xl bg-bg-elevated px-4 py-3">
               <span className="text-sm text-fg-muted">{order.package_name}</span>
-              <span className="font-display text-2xl font-extrabold tabular-nums text-warning">
+              <span className="font-display text-2xl font-extrabold tabular-nums text-brand">
                 ${Number(order.amount_usd).toFixed(2)}
               </span>
             </div>
@@ -110,7 +110,7 @@ export default async function StudioOrderStatusPage({
               </>
             ) : (
               <div className="mt-4 flex items-start gap-3 rounded-xl border border-border bg-bg-elevated p-4">
-                <AlertCircle className="h-5 w-5 shrink-0 text-warning mt-0.5" />
+                <AlertCircle className="h-5 w-5 shrink-0 text-brand mt-0.5" />
                 <div className="text-sm text-fg-muted leading-relaxed">
                   <p className="font-semibold text-fg">Paying from {COUNTRY_NAME[order.country] ?? 'outside Nigeria'}</p>
                   <p className="mt-1">
@@ -119,7 +119,7 @@ export default async function StudioOrderStatusPage({
                   </p>
                   <p className="mt-2">
                     Need it faster? Message us on{' '}
-                    <a href={`mailto:${CONTACT_LINKS.email}`} className="font-semibold text-warning hover:underline">
+                    <a href={`mailto:${CONTACT_LINKS.email}`} className="font-semibold text-brand hover:underline">
                       {CONTACT_LINKS.email}
                     </a>{' '}
                     with your reference.
@@ -152,7 +152,7 @@ export default async function StudioOrderStatusPage({
               </p>
               <a
                 href={`/api/studio/${order.reference}/invoice.pdf`}
-                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-warning px-5 text-sm font-bold text-ink hover:opacity-90"
+                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-bold text-brand-fg hover:opacity-90"
               >
                 <Download className="h-4 w-4" /> Download invoice
               </a>
@@ -175,7 +175,7 @@ export default async function StudioOrderStatusPage({
 
         <p className="mt-8 text-center text-sm text-fg-subtle">
           Questions about this order?{' '}
-          <Link href="/contact" className="font-semibold text-warning hover:underline">Talk to us</Link>{' '}
+          <Link href="/contact" className="font-semibold text-brand hover:underline">Talk to us</Link>{' '}
           — quote <span className="font-mono text-fg">{order.reference}</span>.
         </p>
       </div>
