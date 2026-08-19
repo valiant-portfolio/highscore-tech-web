@@ -41,13 +41,10 @@ export default function StudioPricingPage() {
       {/* No hero. Someone on the pricing page came to see prices, so the first
           thing on screen is the first package, not a headline about them. */}
       <section className="px-4 md:px-8 pt-10 md:pt-12 pb-2">
-        <div className="mx-auto max-w-[1180px] flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <div className="mx-auto max-w-[1180px]">
           <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
             Pricing
           </h1>
-          <p className="text-sm text-fg-muted">
-            All prices in US dollars. Nigerian cards settle through ALAT by Wema at checkout.
-          </p>
         </div>
       </section>
 
