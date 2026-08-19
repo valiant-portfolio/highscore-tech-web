@@ -35,12 +35,23 @@ export default function StudioHomePage() {
       {/* Deep bottom padding is deliberate: it reserves a clear band for the
           spectrum below the copy, instead of the bars running through it. */}
       <section className="relative isolate overflow-hidden px-4 md:px-8 pt-20 md:pt-28 pb-40 md:pb-48">
+        {/* Photo backdrop. A CSS background rather than next/image on purpose:
+            if the file is missing it simply doesn't paint, and the gradients
+            below still carry the hero — no broken-image box on a live page. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-30 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/studio-hero.jpg)' }}
+        />
+        {/* Darkening + brand tint over the photo, so the copy stays readable
+            whatever the image is. Mirrors the treatment on the main site. */}
         <div
           aria-hidden="true"
           className="absolute inset-0 -z-20"
           style={{
             background:
-              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 70%)',
+              'linear-gradient(180deg, color-mix(in srgb, var(--color-ink) 82%, transparent) 0%, color-mix(in srgb, var(--color-ink) 88%, transparent) 55%, var(--color-bg) 100%), ' +
+              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 18%, transparent) 0%, transparent 70%)',
           }}
         />
         {/* Live spectrum analyser — the thing that says "music studio" before
