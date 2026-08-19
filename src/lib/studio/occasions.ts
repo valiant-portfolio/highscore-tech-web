@@ -33,16 +33,16 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom birthday songs, made for one person',
     title: 'Custom birthday song — written and produced for them',
     description:
-      'Order a custom birthday song with their name in it, from $8. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
+      'Order a custom birthday song with their name in it, from ₦15,000. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
     intro:
       'A birthday message they will replay for years. We write the song around the person — their name, what they love, the way you talk about them — and produce it properly so it sounds like something off the radio.',
     projectType: 'birthday',
-    packages: ['starter_song', 'song_video', 'social_pack'],
+    packages: ['music_only', 'ai_video', 'video_edit'],
     gets: [
       'Their name sung in the song',
       'Written from the details you give us — inside jokes, memories, the lot',
       'Clean, studio-quality audio you can play anywhere',
-      'Optional video to post or play at the party',
+      'Optional video — AI-made, or edited from your own photos',
     ],
     faqs: [
       { q: 'How fast can I get a birthday song?', a: 'A song on its own is usually ready in about three days. If the birthday is sooner than that, message us before you order and we will tell you honestly whether we can make it.' },
@@ -57,21 +57,21 @@ export const OCCASIONS: Occasion[] = [
     heading: 'A custom wedding song written for the two of you',
     title: 'Custom wedding song — written for your day',
     description:
-      'A custom song for your wedding: your story, your names, your first dance. Produced by Highscore Studio with optional video and social cut-downs.',
+      'A custom song for your wedding: your story, your names, your first dance. Produced by Highscore Studio, with the video filmed, AI-made or cut from your own photos.',
     intro:
       'Your first dance should not be somebody else’s love song. We write one about you — how you met, what you call each other, the bit of the story only your friends know — and produce it ready for the day.',
     projectType: 'event',
-    packages: ['song_video', 'event_package', 'social_pack'],
+    packages: ['ai_video', 'video_edit', 'on_location'],
     gets: [
       'A song about your actual story, not a template',
       'Ready for the first dance, the entrance or the montage',
-      'Optional video and social cut-downs for the highlights',
+      'Video from your own photos, made with AI, or filmed by us',
       'Delivery locked to your wedding date',
     ],
     faqs: [
       { q: 'How far ahead should I order a wedding song?', a: 'Give us at least two weeks so there is room for a revision and nothing is rushed. Tell us the date when you order and we lock delivery to it.' },
       { q: 'Can we hear it before the day?', a: 'Yes. You get the finished song well before the wedding, and we would rather fix something early than have you hear it for the first time on the day.' },
-      { q: 'Can you make a video too?', a: 'Yes — either from your photos, turned into moving video, or as a filmed piece. The Event Package covers a song plus multiple videos and a highlight edit.' },
+      { q: 'Can you make a video too?', a: 'Yes — from your own photos and clips, generated with AI, or filmed by us on the day. Pick whichever suits at the order form.' },
     ],
   },
   {
@@ -80,11 +80,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs and jingles for churches and church programmes',
     title: 'Custom church song — anniversaries, conventions and programmes',
     description:
-      'Custom songs for church anniversaries, conventions, harvests and programmes. Themed around your scripture and produced for the service, from Highscore Studio.',
+      'Custom songs for church anniversaries, conventions, harvests and programmes, from ₦15,000. Themed around your scripture and produced for the service.',
     intro:
       'For the anniversary, the convention, the harvest — a song written around your theme and your scripture, that the congregation can actually sing along to. We produce it for the room it will be played in.',
     projectType: 'church',
-    packages: ['song_video', 'event_package', 'business_promo'],
+    packages: ['music_only', 'ai_video', 'on_location'],
     gets: [
       'Written around your theme or scripture',
       'Gospel, afro-gospel, worship, choir or praise — your call',
@@ -103,20 +103,20 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom jingles that make your business impossible to ignore',
     title: 'Business jingle — custom advert songs for your brand',
     description:
-      'Custom jingles and advert songs for businesses, from $8. Radio-ready, TV-ready and built for social, with promo video, outdoor branding and ads from Highscore Studio.',
+      'Custom jingles and advert songs for businesses, from ₦15,000. Radio-ready, TV-ready and built for social, with promo video, outdoor branding and ads from Highscore Studio.',
     intro:
       'The jingle people hum back at you in the market. We write it around what you actually sell, what you charge and why you are better — then produce it for wherever it needs to run: social, radio, live TV, or a billboard.',
     projectType: 'business',
-    packages: ['song_video', 'business_promo', 'radio_campaign'],
+    packages: ['ai_video', 'on_location', 'video_edit'],
     gets: [
       'A jingle written around your offer, not a generic tune',
       'Your prices, location and phone number said clearly',
-      'Cut for social, and in broadcast format for radio or TV',
+      'Cut for social, with radio and live TV available as add-ons',
       'Optional promo video, billboards, Google ranking and paid ads',
     ],
     faqs: [
-      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. We deliver broadcast-format masters and 15/30/60 second cuts. Airtime itself is paid to the station and quoted per campaign.' },
-      { q: 'Do you make the video as well?', a: 'Yes — filmed, or made with AI from photos of your business. The Business Promo covers the jingle, the promo video and a broadcast-ready cut.' },
+      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. Add radio (₦30,000) or live TV (₦70,000) at the order form and we produce the broadcast master and arrange the placement. The station’s airtime is quoted separately, per campaign.' },
+      { q: 'Do you make the video as well?', a: 'Yes, three ways: we edit footage you send us, we generate the video with AI, or we come to your place and film it. Pick whichever suits at the order form.' },
       { q: 'Can you keep making content every month?', a: 'That is the Brand Engine: a set number of videos each month, ongoing jingles and seasonal campaigns, so you stay on people’s screens instead of appearing once.' },
     ],
   },
@@ -126,11 +126,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs for parties, clubs and events',
     title: 'Custom party song — for parties, clubs and events',
     description:
-      'Custom songs and hype tracks for parties, club nights, launches and events. Produced by Highscore Studio and delivered before your date.',
+      'Custom songs and hype tracks for parties, club nights, launches and events, from ₦15,000. Produced by Highscore Studio and delivered before your date.',
     intro:
       'A track made for your night — the name of the event, the host, the crowd it is for. Something to open with, to hype the room, or to post in the run-up so people actually turn up.',
     projectType: 'event',
-    packages: ['song_video', 'social_pack', 'event_package'],
+    packages: ['music_only', 'ai_video', 'video_edit'],
     gets: [
       'A track built around your event and its name',
       'Shout-outs for hosts, sponsors or the guest list',
@@ -139,7 +139,7 @@ export const OCCASIONS: Occasion[] = [
     ],
     faqs: [
       { q: 'Can you shout out our sponsors?', a: 'Yes. Tell us who needs naming and where, and we work them in.' },
-      { q: 'Can I get short clips for promotion?', a: 'Yes — the Social Starter Pack gives you a few videos cut for every platform, which is what you want in the week before an event.' },
+      { q: 'Can I get short clips for promotion?', a: 'Yes — any package with video is cut for every platform, which is what you want in the week before an event.' },
     ],
   },
 ];

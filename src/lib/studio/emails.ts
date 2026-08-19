@@ -9,8 +9,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { sendEmail, emailConfig } from '@/lib/email/client';
 import { serviceClient } from '@/lib/supabase/service';
 import { StudioInvoicePdf } from '@/lib/studio/InvoicePdf';
-import { COUNTRY_NAME } from '@/lib/studio/countries';
-import { PROJECT_TYPE_BY_KEY } from '@/lib/studio/catalog';
+import { PROJECT_TYPE_BY_KEY, formatNgn } from '@/lib/studio/catalog';
 import type { StudioOrder } from '@/lib/studio/queries';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
@@ -63,8 +62,7 @@ export async function sendStudioOrderEmails(orderId: string): Promise<void> {
   if (!order) return;
 
   const projectLabel = PROJECT_TYPE_BY_KEY[order.project_type]?.label ?? order.project_type;
-  const country = COUNTRY_NAME[order.country] ?? order.country;
-  const amount = `$${Number(order.amount_usd).toFixed(2)}`;
+  const amount = formatNgn(Number(order.amount_ngn));
   const statusUrl = `${SITE_URL}/studio/order/${order.reference}`;
 
   // Attach the invoice. If the render fails the email still goes out — the
@@ -79,12 +77,10 @@ export async function sendStudioOrderEmails(orderId: string): Promise<void> {
           paidOn: fmtDate(order.paid_at),
           customerName: order.customer_name,
           customerEmail: order.customer_email,
-          country,
           packageName: order.package_name,
           projectType: projectLabel,
-          amountUsd: Number(order.amount_usd),
-          amountNgn: order.amount_ngn == null ? null : Number(order.amount_ngn),
-          usdNgnRate: order.usd_ngn_rate == null ? null : Number(order.usd_ngn_rate),
+          amountNgn: Number(order.amount_ngn),
+          addons: order.addons ?? [],
           paymentMethod: order.payment_method,
           deliveryDue: fmtDate(order.delivery_due),
           deliveryChannel: order.delivery_channel,
@@ -140,8 +136,7 @@ export async function sendStudioOrderEmails(orderId: string): Promise<void> {
       `New paid order: ${esc(order.package_name)}`,
       `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:12px;margin:0 0 14px">
          <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Customer</td><td style="padding:5px 0">${esc(order.customer_name)} · ${esc(order.customer_email)}</td></tr>
-         <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Country</td><td style="padding:5px 0">${esc(country)}</td></tr>
-         <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Paid</td><td style="padding:5px 0"><b>${amount}</b>${order.amount_ngn ? ` (₦${Number(order.amount_ngn).toLocaleString('en-NG')})` : ''}</td></tr>
+         <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Paid</td><td style="padding:5px 0"><b>${amount}</b>${order.addons?.length ? ` — incl. ${esc(order.addons.map((a) => a.name).join(' + '))}` : ''}</td></tr>
          <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Deliver by</td><td style="padding:5px 0"><b>${fmtDate(order.delivery_due)}</b></td></tr>
          <tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Send to</td><td style="padding:5px 0">${esc(order.delivery_channel)} — ${esc(order.delivery_handle)}</td></tr>
          ${order.needed_by ? `<tr><td style="padding:5px 12px 5px 0;color:#7C8893;white-space:nowrap">Wanted by</td><td style="padding:5px 0">${fmtDate(order.needed_by)}</td></tr>` : ''}

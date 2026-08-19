@@ -2,172 +2,146 @@
 //
 // One source of truth, shared by the public pricing page, the order form, and
 // the server action that prices an order. NEVER trust a price sent from the
-// browser: the client posts a `packageKey`, and the server looks the amount up
-// here (see priceOf()).
+// browser: the client posts a `packageKey` plus add-on keys, and the server
+// totals it up from here (see totalNgn()).
 //
-// Money is held in whole USD. We sell worldwide, so USD is the display and
-// charge currency; Nigerian cards settle through ALAT/Wema at checkout.
+// We sell to the Nigerian market, so everything is priced and charged in Naira
+// and settled through ALAT by Wema. Amounts are whole Naira as integers.
 
 export type ProjectType = 'church' | 'business' | 'birthday' | 'event';
+
+/** ₦1,234,567 — used everywhere a price is shown. */
+export function formatNgn(n: number): string {
+  return `₦${n.toLocaleString('en-NG')}`;
+}
 
 export interface StudioPackage {
   key: string;
   name: string;
-  /** Whole US dollars. `null` = quoted per campaign, not self-serve. */
-  priceUsd: number | null;
+  /** Whole Naira. */
+  priceNgn: number;
   /** Shown under the price on the card. */
   blurb: string;
   /** Itemised deliverables — what the client actually gets. */
   includes: string[];
-  /** Grouping on the pricing page. */
-  group: 'start' | 'ladder' | 'reach';
+  group: 'core' | 'brand';
   /** Recurring monthly rather than one-off. */
   monthly?: boolean;
-  /** Price is a floor ("from $199"), the rest scoped per job. */
+  /** Price is a floor; the rest is scoped per job. */
   from?: boolean;
   /** Highlighted as the popular pick. */
   featured?: boolean;
+  /** Extra condition the customer should know before ordering. */
+  note?: string;
 }
 
 export const PACKAGES: StudioPackage[] = [
   {
-    key: 'starter_song',
-    name: 'Starter Song',
-    priceUsd: 8,
-    group: 'start',
-    blurb: 'The entry point. Fast, and yours to use anywhere.',
+    key: 'music_only',
+    name: 'Music only',
+    priceNgn: 15_000,
+    group: 'core',
+    blurb: 'The song itself. Fast, and yours to use anywhere.',
     includes: [
       'One custom song written about you, your business or your occasion',
       'Clean, studio-quality audio',
-      'Fast turnaround',
+      'Yours to post, play or broadcast',
     ],
   },
   {
-    key: 'song_video',
-    name: 'Song + Video',
-    priceUsd: 15,
-    group: 'start',
+    key: 'video_edit',
+    name: 'Music + your footage edited',
+    priceNgn: 28_000,
+    group: 'core',
+    blurb: 'You send the photos and clips, we cut them to the song.',
+    includes: [
+      'Everything in Music only',
+      'You send your own videos and pictures',
+      'We edit them into a finished video around the song',
+      'Cut for social — WhatsApp status, Instagram, TikTok',
+    ],
+  },
+  {
+    key: 'ai_video',
+    name: 'Music + AI video',
+    priceNgn: 45_000,
+    group: 'core',
     featured: true,
-    blurb: 'The everyday offer — a song and a video to go with it.',
+    blurb: 'No footage needed — we generate the video with AI.',
     includes: [
-      'Everything in Starter Song',
-      'One branded video (AI or live footage)',
-      'Ready for WhatsApp status, Instagram, TikTok — anywhere',
-    ],
-  },
-  {
-    key: 'social_pack',
-    name: 'Social Starter Pack',
-    priceUsd: 49,
-    group: 'ladder',
-    blurb: 'Enough content to actually run a week of posting.',
-    includes: [
-      'Everything in Song + Video',
-      '2–3 videos from one concept',
-      'Cut for every platform — vertical, square and wide',
-      'Ready-to-post captions',
-    ],
-  },
-  {
-    key: 'event_package',
-    name: 'Event Package',
-    priceUsd: 99,
-    group: 'ladder',
-    blurb: 'For weddings, church programmes, birthdays and launches.',
-    includes: [
-      'Custom themed song for the day',
-      'Multiple videos plus a highlight edit',
-      'Social cut-downs from across the event',
-      'Priority delivery locked to your date',
-    ],
-  },
-  {
-    key: 'business_promo',
-    name: 'Business Promo',
-    priceUsd: 299,
-    group: 'ladder',
-    blurb: 'The full promotional kit for a business that wants to be seen.',
-    includes: [
-      'Full custom jingle',
-      'Professional promo video (live or AI)',
+      'Everything in Music only',
+      'A full video created with AI',
       'Your photos turned into moving video',
-      'Platform-ready edits plus a broadcast-ready cut for TV or radio',
+      'Ready for every platform',
     ],
   },
   {
-    key: 'radio_campaign',
-    name: 'Radio Campaign',
-    priceUsd: 199,
-    from: true,
-    group: 'reach',
-    blurb: 'Built for air — the jingle people hum back to you.',
+    key: 'on_location',
+    name: 'Music + we come and shoot',
+    priceNgn: 70_000,
+    group: 'core',
+    blurb: 'We come to your place and film the real thing.',
     includes: [
-      'Jingle written and mixed for radio',
-      '15s / 30s / 60s spots',
-      'Broadcast-format delivery and station guidance',
+      'Everything in Music only',
+      'We come to your location and shoot',
+      'Professionally filmed and edited video of your business',
+      'Platform-ready cuts plus a broadcast-ready master',
     ],
+    note: 'Locations outside Lagos may carry a travel cost — we confirm before we start.',
   },
-  {
-    key: 'tv_campaign',
-    name: 'TV Campaign',
-    priceUsd: 499,
-    from: true,
-    group: 'reach',
-    blurb: 'A commercial your customers see on live television.',
-    includes: [
-      'TV commercial produced (live footage or AI)',
-      'Broadcast-format masters for any station',
-      'Live TV station promotion arranged',
-    ],
-  },
+
+  // ── Bigger brands ─────────────────────────────────────────────────────
   {
     key: 'outdoor_branding',
-    name: 'Outdoor Branding',
-    priceUsd: 149,
+    name: 'Outdoor branding',
+    priceNgn: 120_000,
     from: true,
-    group: 'reach',
+    group: 'brand',
     blurb: 'Billboards, banners and signage that match the campaign.',
     includes: [
-      'Billboard, banner and street-signage creative',
+      'Billboard, banner and street-signage artwork',
       'Vehicle and shop-front branding',
-      'Print-ready artwork at any size',
+      'Print-ready at any size',
     ],
+    note: 'Board rental and printing are quoted separately, per site.',
   },
   {
     key: 'google_ranking',
-    name: 'Google Ranking (SEO)',
-    priceUsd: 199,
+    name: 'Google ranking (SEO)',
+    priceNgn: 150_000,
     from: true,
     monthly: true,
-    group: 'reach',
+    group: 'brand',
     blurb: 'Get found when your customers search.',
     includes: [
       'Get your website or brand ranking on Google',
       'On-page fixes, content and keyword targeting',
+      'Google Business Profile set up properly',
       'Monthly ranking report',
     ],
   },
   {
     key: 'ads_management',
-    name: 'Ads Management',
-    priceUsd: 149,
+    name: 'Ads management',
+    priceNgn: 100_000,
     from: true,
     monthly: true,
-    group: 'reach',
+    group: 'brand',
     blurb: 'We run the ads. You take the calls.',
     includes: [
       'We run your paid ads — Google, Meta and TikTok',
       'Creatives built from your song and video',
       'Targeting, tracking and optimisation',
     ],
+    note: 'Ad spend is your budget and is paid to the platforms.',
   },
   {
     key: 'brand_engine',
     name: 'Brand Engine',
-    priceUsd: 300,
+    priceNgn: 300_000,
     from: true,
     monthly: true,
-    group: 'reach',
+    group: 'brand',
     blurb: 'Always-on. We keep you on people’s screens, month after month.',
     includes: [
       'A set number of videos every month',
@@ -182,16 +156,52 @@ export const PACKAGE_BY_KEY: Record<string, StudioPackage> = Object.fromEntries(
   PACKAGES.map((p) => [p.key, p]),
 );
 
-/** Server-side price lookup. Returns null for an unknown key — never guess. */
-export function priceOf(packageKey: string): number | null {
-  return PACKAGE_BY_KEY[packageKey]?.priceUsd ?? null;
+/* ── Add-ons ─────────────────────────────────────────────────────────────
+   Bolted on top of any package: getting the finished piece onto air. Our fee
+   covers producing the broadcast master and arranging the placement; the
+   station's airtime is quoted per campaign.                                */
+
+export interface StudioAddon {
+  key: string;
+  name: string;
+  priceNgn: number;
+  blurb: string;
+}
+
+export const ADDONS: StudioAddon[] = [
+  {
+    key: 'live_tv',
+    name: 'Live TV broadcast',
+    priceNgn: 70_000,
+    blurb: 'Broadcast-ready master and your advert placed on live television.',
+  },
+  {
+    key: 'radio',
+    name: 'Radio',
+    priceNgn: 30_000,
+    blurb: 'Jingle mixed for air, with 15s / 30s / 60s spots for the station.',
+  },
+];
+
+export const ADDON_BY_KEY: Record<string, StudioAddon> = Object.fromEntries(
+  ADDONS.map((a) => [a.key, a]),
+);
+
+/**
+ * Server-side total. Unknown keys are ignored rather than trusted, and an
+ * unknown package returns null so the caller can reject the order outright.
+ */
+export function totalNgn(packageKey: string, addonKeys: string[] = []): number | null {
+  const pkg = PACKAGE_BY_KEY[packageKey];
+  if (!pkg) return null;
+  return addonKeys.reduce((sum, k) => sum + (ADDON_BY_KEY[k]?.priceNgn ?? 0), pkg.priceNgn);
 }
 
 /* ── The brief ───────────────────────────────────────────────────────────
    A church job asks for different things than a birthday, so the form
-   branches on project type. Common fields (name, email, country, delivery
-   channel, deadline) are asked once by the form itself; only the
-   type-specific questions live here.                                      */
+   branches on project type. Common fields (name, email, delivery channel,
+   deadline) are asked once by the form itself; only the type-specific
+   questions live here.                                                     */
 
 export interface BriefField {
   name: string;
@@ -200,7 +210,6 @@ export interface BriefField {
   placeholder?: string;
   options?: string[];
   required?: boolean;
-  /** Helper text under the input. */
   hint?: string;
 }
 
@@ -235,10 +244,10 @@ export const PROJECT_TYPES: ProjectTypeDef[] = [
     fields: [
       { name: 'business_name', label: 'Business name', type: 'text', required: true, placeholder: 'e.g. Mama Nkechi Foods' },
       { name: 'what_you_do', label: 'What does the business do or sell?', type: 'textarea', required: true, placeholder: 'Say it plainly — what you sell and who buys it.' },
+      { name: 'location', label: 'Where are you based?', type: 'text', placeholder: 'e.g. Ikeja, Lagos', hint: 'Say it in the advert, and it decides travel if we come to shoot.' },
       { name: 'target_customer', label: 'Who is your customer?', type: 'text', placeholder: 'e.g. young families in Lagos' },
       { name: 'slogan', label: 'Slogan or tagline', type: 'text', placeholder: 'If you have one.' },
-      { name: 'selling_points', label: 'What must the advert say?', type: 'textarea', required: true, placeholder: 'Your prices, your location, what makes you better — the things a customer must hear.' },
-      { name: 'where_it_runs', label: 'Where will it run?', type: 'select', options: ['Social media', 'Radio', 'TV', 'Billboard / outdoor', 'Everywhere'] },
+      { name: 'selling_points', label: 'What must the advert say?', type: 'textarea', required: true, placeholder: 'Your prices, your location, your phone number — the things a customer must hear.' },
       { name: 'mood', label: 'Tone', type: 'select', options: MOOD_OPTIONS },
     ],
   },
@@ -279,7 +288,7 @@ export const PROJECT_TYPE_BY_KEY: Record<string, ProjectTypeDef> = Object.fromEn
 
 /** How the finished work gets to the client. */
 export const DELIVERY_CHANNELS = [
-  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'WhatsApp number, with country code' },
+  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'e.g. 0801 234 5678' },
   { key: 'telegram', label: 'Telegram', placeholder: '@username or phone number' },
   { key: 'email',    label: 'Email',    placeholder: 'you@example.com' },
 ] as const;

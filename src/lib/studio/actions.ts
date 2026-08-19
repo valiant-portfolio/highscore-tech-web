@@ -3,8 +3,11 @@
 // Studio order lifecycle: create → pay → confirm.
 //
 // Pricing is ALWAYS resolved server-side from the catalogue. The browser posts
-// a packageKey; if it posted an amount we would be letting the customer name
-// their own price.
+// a packageKey and add-on keys; if it posted an amount we would be letting the
+// customer name their own price.
+//
+// We serve Nigeria, so orders are priced and charged in Naira through ALAT by
+// Wema — no currency conversion anywhere.
 
 import { randomUUID } from 'node:crypto';
 import { redirect } from 'next/navigation';
@@ -12,9 +15,8 @@ import { revalidatePath } from 'next/cache';
 import { serviceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import {
-  PACKAGE_BY_KEY, PROJECT_TYPE_BY_KEY, DELIVERY_CHANNELS,
+  PACKAGE_BY_KEY, ADDON_BY_KEY, PROJECT_TYPE_BY_KEY, DELIVERY_CHANNELS, totalNgn,
 } from '@/lib/studio/catalog';
-import { COUNTRY_NAME, paymentMethodFor } from '@/lib/studio/countries';
 
 export interface OrderFormState {
   status: 'idle' | 'error';
@@ -22,17 +24,10 @@ export interface OrderFormState {
   fieldErrors?: Record<string, string>;
 }
 
-/** USD→NGN for the ALAT charge. Configurable: the rate moves. */
-function usdNgnRate(): number {
-  const raw = Number(process.env.STUDIO_USD_NGN_RATE);
-  return Number.isFinite(raw) && raw > 0 ? raw : 1600;
-}
-
-/** How long we commit to, by package tier. Kept deliberately conservative. */
-function turnaroundDays(group: string): number {
-  if (group === 'start') return 3;
-  if (group === 'ladder') return 7;
-  return 14; // broadcast / outdoor / always-on campaigns
+/** How long we commit to, by tier. Kept deliberately conservative. */
+function turnaroundDays(pkgKey: string, group: string): number {
+  if (group === 'brand') return 14;
+  return pkgKey === 'music_only' ? 3 : 7;
 }
 
 function addDays(days: number): string {
@@ -59,10 +54,14 @@ export async function createStudioOrder(
   const projectType = get('projectType');
   const customerName = get('customerName');
   const customerEmail = get('customerEmail');
-  const country = get('country');
   const deliveryChannel = get('deliveryChannel');
   const deliveryHandle = get('deliveryHandle');
   const neededBy = get('neededBy');
+
+  // Only add-ons we actually sell — anything else in the payload is dropped.
+  const addonKeys = formData.getAll('addons')
+    .map((a) => String(a))
+    .filter((k) => !!ADDON_BY_KEY[k]);
 
   const fieldErrors: Record<string, string> = {};
 
@@ -71,7 +70,6 @@ export async function createStudioOrder(
   if (!PROJECT_TYPE_BY_KEY[projectType]) fieldErrors.projectType = 'Tell us what it is for.';
   if (!customerName) fieldErrors.customerName = 'We need a name.';
   if (!isEmail(customerEmail)) fieldErrors.customerEmail = 'Enter a valid email — your invoice goes here.';
-  if (!COUNTRY_NAME[country]) fieldErrors.country = 'Pick your country.';
   if (!DELIVERY_CHANNELS.some((c) => c.key === deliveryChannel)) {
     fieldErrors.deliveryChannel = 'Pick how we should send your work.';
   }
@@ -90,13 +88,11 @@ export async function createStudioOrder(
     if (v) brief[f.label] = v;
   }
 
-  const priceUsd = pkg!.priceUsd;
-  if (priceUsd == null) {
-    return { status: 'error', message: 'That package is quoted per campaign — please contact us directly.' };
+  const amountNgn = totalNgn(packageKey, addonKeys);
+  if (amountNgn == null) {
+    return { status: 'error', message: 'That package is no longer available. Please pick another.' };
   }
 
-  const method = paymentMethodFor(country);
-  const rate = usdNgnRate();
   const reference = buildReference();
 
   // Link the order to a signed-in account when there is one, but never require
@@ -113,20 +109,19 @@ export async function createStudioOrder(
     reference,
     package_key: pkg!.key,
     package_name: pkg!.name,
-    amount_usd: priceUsd,
-    amount_ngn: Math.round(priceUsd * rate),
-    usd_ngn_rate: rate,
+    amount_ngn: amountNgn,
+    addons: addonKeys.map((k) => ({ key: k, name: ADDON_BY_KEY[k].name, price_ngn: ADDON_BY_KEY[k].priceNgn })),
     project_type: projectType,
     brief,
     customer_name: customerName,
     customer_email: customerEmail.toLowerCase(),
-    country,
+    country: 'NG',
     user_id: userId,
     delivery_channel: deliveryChannel,
     delivery_handle: deliveryHandle,
     needed_by: neededBy || null,
-    delivery_due: addDays(turnaroundDays(pkg!.group)),
-    payment_method: method,
+    delivery_due: addDays(turnaroundDays(pkg!.key, pkg!.group)),
+    payment_method: 'alatpay',
     payment_reference: reference, // one payment per order — same key both sides
     payment_status: 'pending',
     status: 'awaiting_payment',
@@ -203,7 +198,7 @@ export async function sweepStudioOrder(reference: string): Promise<void> {
 
   if (!order?.payment_reference) return;
   if (order.payment_status !== 'pending') return;
-  if (order.payment_method !== 'alatpay') return; // nothing to poll for manual/card
+  if (order.payment_method !== 'alatpay') return; // nothing to poll for manual
 
   const { verifyAlatPayTransaction } = await import('@/lib/alatpay/server');
   const result = await verifyAlatPayTransaction(order.payment_reference);

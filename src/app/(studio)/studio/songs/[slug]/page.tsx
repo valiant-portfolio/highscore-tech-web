@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, Check } from 'lucide-react';
 import { OCCASIONS, OCCASION_BY_SLUG } from '@/lib/studio/occasions';
-import { PACKAGE_BY_KEY } from '@/lib/studio/catalog';
+import { PACKAGE_BY_KEY, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
 import JsonLd from '@/components/seo/JsonLd';
@@ -39,7 +39,7 @@ export default async function OccasionPage({ params }: { params: Promise<{ slug:
 
   const packages = o.packages.map((k) => PACKAGE_BY_KEY[k]).filter(Boolean);
   const cheapest = packages.reduce<number | null>(
-    (min, p) => (p.priceUsd != null && (min == null || p.priceUsd < min) ? p.priceUsd : min),
+    (min, p) => (min == null || p.priceNgn < min ? p.priceNgn : min),
     null,
   );
   // Land people on the order form with their branch already chosen.
@@ -70,7 +70,7 @@ export default async function OccasionPage({ params }: { params: Promise<{ slug:
             </LinkButton>
             {cheapest != null && (
               <span className="text-sm text-fg-subtle">
-                from <span className="font-bold text-brand">${cheapest}</span>
+                from <span className="font-bold text-brand">{formatNgn(cheapest)}</span>
               </span>
             )}
           </div>
@@ -100,7 +100,7 @@ export default async function OccasionPage({ params }: { params: Promise<{ slug:
             <Link href="/studio/pricing" className="font-semibold text-brand hover:underline">
               See the full menu
             </Link>
-            {' '}— radio, TV, outdoor branding, Google ranking and ads.
+            {' '}— live TV, radio, outdoor branding, Google ranking and ads.
           </p>
         </div>
       </section>

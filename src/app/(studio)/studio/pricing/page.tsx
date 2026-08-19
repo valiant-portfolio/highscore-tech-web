@@ -1,37 +1,31 @@
-// The full Studio menu — every package, itemised, from the $8 song to
+// The full Studio menu — every package, itemised, from the ₦15,000 song to
 // always-on brand campaigns.
 
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
-import { PACKAGES } from '@/lib/studio/catalog';
+import { PACKAGES, ADDONS, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'Studio pricing — songs from $8 to full brand campaigns',
+  title: 'Studio pricing — songs from ₦15,000 to full brand campaigns',
   description:
-    'Highscore Studio pricing: custom songs from $8, song + video from $15, event and business packages, radio and TV campaigns, outdoor branding, Google ranking and ads management, and always-on monthly brand contracts.',
+    'Highscore Studio pricing: custom songs from ₦15,000, AI video from ₦45,000, filmed on location from ₦70,000, plus live TV and radio, outdoor branding, Google ranking and ads management.',
   alternates: { canonical: '/studio/pricing' },
 };
 
 const GROUPS = [
   {
-    id: 'start',
-    eyebrow: 'Start here',
+    id: 'core',
+    eyebrow: 'Songs & video',
     title: 'No business is too small.',
-    body: 'Priced so anyone can afford to show up looking like the big brands.',
+    body: 'Start with the song alone, or add the video — however you want it made.',
   },
   {
-    id: 'ladder',
-    eyebrow: 'Pay more, get more',
-    title: 'Every step up is a bigger deliverable.',
-    body: 'You can see exactly what the extra money buys — no vague “premium” tiers.',
-  },
-  {
-    id: 'reach',
-    eyebrow: 'Reach further',
-    title: 'Put your brand everywhere.',
-    body: 'Where we stop making content and start running your whole presence — broadcast, outdoor, Google and paid ads.',
+    id: 'brand',
+    eyebrow: 'For bigger brands',
+    title: 'Run your whole presence.',
+    body: 'Where we stop making content and start running everything — outdoor, Google and paid ads.',
   },
 ] as const;
 
@@ -69,15 +63,43 @@ export default function StudioPricingPage() {
         );
       })}
 
+      {/* Broadcast add-ons — priced on top of any package. */}
+      <section className="px-4 md:px-8 py-10 md:py-12 border-t border-border">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Add broadcast</p>
+            <h2 className="mt-2 font-display text-xl md:text-2xl font-bold tracking-[-0.02em] text-fg">
+              Put it on air.
+            </h2>
+            <p className="mt-2 text-sm text-fg-muted leading-relaxed">
+              Added on top of any package above, at the order form.
+            </p>
+          </div>
+          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:max-w-3xl">
+            {ADDONS.map((a) => (
+              <div key={a.key} className="rounded-2xl border border-border bg-surface p-6">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-lg font-bold text-fg">{a.name}</h3>
+                  <p className="font-display text-2xl font-extrabold tabular-nums text-brand whitespace-nowrap">
+                    +{formatNgn(a.priceNgn)}
+                  </p>
+                </div>
+                <p className="mt-2 text-sm text-fg-muted leading-relaxed">{a.blurb}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* What the price covers — set expectations before they pay. */}
-      <section className="px-4 md:px-8 py-12 md:py-16 border-t border-border">
+      <section className="px-4 md:px-8 py-12 border-t border-border">
         <div className="mx-auto max-w-[820px] rounded-2xl border border-border bg-surface p-6 md:p-8">
           <h2 className="font-semibold text-fg">What the price covers</h2>
           <p className="mt-3 text-sm text-fg-muted leading-relaxed">
-            The prices above are our creative and management fees. Broadcast airtime for TV
-            and radio, billboard placement, and paid ad spend are your budget and are paid to
-            the stations and platforms — we quote those per campaign so you always know what
-            goes where. Larger or longer campaigns beyond $800 are custom-quoted.
+            The prices above are our creative and management fees. Broadcast airtime for TV and
+            radio, billboard rental and printing, and paid ad spend are your budget and are paid
+            to the stations and platforms — we quote those per campaign so you always know what
+            goes where. Bigger or longer campaigns are custom-quoted.
           </p>
         </div>
       </section>

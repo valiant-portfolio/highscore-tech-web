@@ -1,13 +1,14 @@
 // React-PDF document for a Studio invoice. Rendered by
 // /api/studio/[reference]/invoice.pdf and attached to the confirmation email.
 //
-// Priced in USD with the NGN actually charged shown underneath, so the customer
-// can reconcile against their bank statement.
+// Priced in Naira, the currency we charge in.
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { registerPdfFonts } from '@/lib/pdf-fonts';
 
 registerPdfFonts();
+
+const fmtNgn = (n: number) => `NGN ${n.toLocaleString('en-NG')}`;
 
 const BRAND = '#0A8EA8';
 const INK   = '#050E14';
@@ -80,12 +81,10 @@ export interface StudioInvoiceData {
   paidOn: string;
   customerName: string;
   customerEmail: string;
-  country: string;
   packageName: string;
   projectType: string;
-  amountUsd: number;
-  amountNgn: number | null;
-  usdNgnRate: number | null;
+  amountNgn: number;
+  addons: { key: string; name: string; price_ngn: number }[];
   paymentMethod: string;
   deliveryDue: string;
   deliveryChannel: string;
@@ -123,13 +122,12 @@ export function StudioInvoicePdf({ invoice, siteUrl }: { invoice: StudioInvoiceD
               <Text style={styles.label}>BILLED TO</Text>
               <Text style={styles.strong}>{invoice.customerName}</Text>
               <Text style={styles.value}>{invoice.customerEmail}</Text>
-              <Text style={styles.value}>{invoice.country}</Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>PAYMENT</Text>
               <Text style={styles.value}>Paid on {invoice.paidOn}</Text>
               <Text style={styles.value}>
-                Method: {invoice.paymentMethod === 'alatpay' ? 'ALAT by Wema' : invoice.paymentMethod === 'card' ? 'Card' : 'Manual'}
+                Method: {invoice.paymentMethod === 'alatpay' ? 'ALAT by Wema' : 'Manual'}
               </Text>
               <Text style={styles.value}>Ref: {invoice.reference}</Text>
             </View>
@@ -148,21 +146,21 @@ export function StudioInvoicePdf({ invoice, siteUrl }: { invoice: StudioInvoiceD
                 </Text>
               </View>
               <Text style={[styles.tCell, { width: 90, textAlign: 'right' }]}>
-                ${invoice.amountUsd.toFixed(2)}
+                {fmtNgn(invoice.amountNgn - invoice.addons.reduce((s, a) => s + Number(a.price_ngn), 0))}
               </Text>
             </View>
+            {invoice.addons.map((a) => (
+              <View style={styles.tRow} key={a.key}>
+                <View style={{ flex: 1 }}><Text style={styles.tCell}>{a.name}</Text></View>
+                <Text style={[styles.tCell, { width: 90, textAlign: 'right' }]}>{fmtNgn(Number(a.price_ngn))}</Text>
+              </View>
+            ))}
           </View>
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>TOTAL PAID</Text>
-            <Text style={styles.totalValue}>${invoice.amountUsd.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>{fmtNgn(invoice.amountNgn)}</Text>
           </View>
-          {invoice.amountNgn != null && (
-            <Text style={styles.ngnNote}>
-              Charged as ₦{invoice.amountNgn.toLocaleString('en-NG')}
-              {invoice.usdNgnRate ? ` at ₦${invoice.usdNgnRate.toLocaleString('en-NG')} to $1` : ''}
-            </Text>
-          )}
 
           {briefEntries.length > 0 && (
             <View style={styles.briefBox}>

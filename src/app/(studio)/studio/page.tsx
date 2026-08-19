@@ -1,5 +1,6 @@
-// Highscore Studio — landing page. Sells the whole ladder: an $8 song for the
-// smallest business, up to always-on brand campaigns on TV, radio and outdoor.
+// Highscore Studio — landing page. Sells the whole ladder: a ₦15,000 song for
+// the smallest business, up to always-on brand campaigns on TV, radio and
+// outdoor.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,7 +14,7 @@ import { LinkButton } from '@/components/ui';
 export const metadata: Metadata = {
   title: 'Highscore Studio — custom songs, jingles & promo videos',
   description:
-    'We make businesses famous. Custom songs and jingles from $8, promo videos, radio and TV campaigns, outdoor branding, Google ranking and paid ads. Songs for birthdays, weddings, churches, parties and events.',
+    'We make businesses famous. Custom songs from ₦15,000, AI and filmed promo videos, radio and live TV, outdoor branding, Google ranking and paid ads. Songs for birthdays, weddings, churches, parties and events across Nigeria.',
   alternates: { canonical: '/studio' },
 };
 
@@ -27,8 +28,8 @@ const WHAT_WE_DO = [
 ];
 
 export default function StudioHomePage() {
-  const start = PACKAGES.filter((p) => p.group === 'start');
-  const ladder = PACKAGES.filter((p) => p.group === 'ladder');
+  const core = PACKAGES.filter((p) => p.group === 'core');
+  const brand = PACKAGES.filter((p) => p.group === 'brand');
 
   return (
     <>
@@ -82,7 +83,7 @@ export default function StudioHomePage() {
             </LinkButton>
           </div>
           <p className="mt-6 text-sm text-fg-subtle">
-            Songs from <span className="font-bold text-brand">$8</span> · full campaigns up to $800 · we deliver to WhatsApp, Telegram or email
+            Songs from <span className="font-bold text-brand">₦15,000</span> · we deliver to WhatsApp, Telegram or email
           </p>
         </div>
       </section>
@@ -133,27 +134,27 @@ export default function StudioHomePage() {
               No business is too small.
             </h2>
             <p className="mt-3 text-fg-muted leading-relaxed">
-              We priced the first step so a struggling business can still show up looking
+              We priced the first step so a small business can still show up looking
               like the big brands.
             </p>
           </div>
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
-            {start.map((p) => <PackageCard key={p.key} pkg={p} />)}
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {core.map((p) => <PackageCard key={p.key} pkg={p} />)}
           </div>
 
           <div className="mt-16 text-center max-w-2xl mx-auto">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Pay more, get more</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">For bigger brands</p>
             <h2 className="mt-3 font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
-              Every step up is a bigger deliverable.
+              Run your whole presence.
             </h2>
           </div>
           <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {ladder.map((p) => <PackageCard key={p.key} pkg={p} />)}
+            {brand.map((p) => <PackageCard key={p.key} pkg={p} />)}
           </div>
 
           <div className="mt-12 text-center">
             <LinkButton href="/studio/pricing" variant="secondary" rightIcon={<TrendingUp className="h-4 w-4" />}>
-              See the full menu — radio, TV, outdoor, Google &amp; ads
+              See the full menu — TV, radio, outdoor, Google &amp; ads
             </LinkButton>
           </div>
         </div>
@@ -197,7 +198,7 @@ export default function StudioHomePage() {
           <ol className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { n: '1', t: 'Tell us what you want', b: 'Pick your package and fill a short brief — we ask different questions for a church, a business, a birthday or an event.' },
-              { n: '2', t: 'Pay securely', b: 'Nigerian cards pay through ALAT by Wema. Everyone else pays by card. All prices in USD.' },
+              { n: '2', t: 'Pay securely', b: 'Pay with your card or bank through ALAT by Wema. All prices in Naira.' },
               { n: '3', t: 'We get to work', b: 'You get a delivery date straight away, and your invoice to download.' },
               { n: '4', t: 'We send it over', b: 'Finished work arrives on WhatsApp, Telegram or email — whichever you chose.' },
             ].map((s) => (
@@ -220,8 +221,8 @@ export default function StudioHomePage() {
             Let’s make them hear you.
           </h2>
           <p className="mt-4 text-fg-muted leading-relaxed">
-            Start with an $8 song, or go all the way to a campaign on live TV. Either way,
-            it starts with one form.
+            Start with a ₦15,000 song, or go all the way to a campaign on live TV.
+            Either way, it starts with one form.
           </p>
           <div className="mt-8">
             <LinkButton href="/studio/order" size="lg" rightIcon={<ArrowRight className="h-4 w-4" />}>

@@ -11,9 +11,8 @@ export interface StudioOrder {
   reference: string;
   package_key: string;
   package_name: string;
-  amount_usd: number;
-  amount_ngn: number | null;
-  usd_ngn_rate: number | null;
+  amount_ngn: number;
+  addons: { key: string; name: string; price_ngn: number }[];
   project_type: string;
   brief: Record<string, string>;
   customer_name: string;
@@ -33,7 +32,7 @@ export interface StudioOrder {
 }
 
 const COLS =
-  'id, reference, package_key, package_name, amount_usd, amount_ngn, usd_ngn_rate, project_type, brief, ' +
+  'id, reference, package_key, package_name, amount_ngn, addons, project_type, brief, ' +
   'customer_name, customer_email, country, delivery_channel, delivery_handle, needed_by, delivery_due, ' +
   'payment_method, payment_reference, payment_status, paid_at, status, delivered_at, created_at';
 

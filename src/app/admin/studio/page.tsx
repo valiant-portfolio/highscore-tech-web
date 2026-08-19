@@ -4,8 +4,7 @@
 import { Music, Download } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { listStudioOrders } from '@/lib/studio/queries';
-import { PROJECT_TYPE_BY_KEY } from '@/lib/studio/catalog';
-import { COUNTRY_NAME } from '@/lib/studio/countries';
+import { PROJECT_TYPE_BY_KEY, formatNgn } from '@/lib/studio/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +29,7 @@ function daysLeft(due: string | null): number | null {
 export default async function AdminStudioPage() {
   const orders = await listStudioOrders();
   const paid = orders.filter((o) => o.payment_status === 'succeeded');
-  const revenueUsd = paid.reduce((s, o) => s + Number(o.amount_usd), 0);
+  const revenueNgn = paid.reduce((s, o) => s + Number(o.amount_ngn), 0);
   const toStart = orders.filter((o) => o.status === 'paid').length;
 
   return (
@@ -44,7 +43,7 @@ export default async function AdminStudioPage() {
         <Stat label="Orders" value={String(orders.length)} />
         <Stat label="Paid" value={String(paid.length)} tone="text-success" />
         <Stat label="To start" value={String(toStart)} tone="text-warning" />
-        <Stat label="Revenue" value={`$${revenueUsd.toFixed(2)}`} tone="text-success" />
+        <Stat label="Revenue" value={formatNgn(revenueNgn)} tone="text-success" />
       </div>
 
       {orders.length === 0 ? (
@@ -79,17 +78,17 @@ export default async function AdminStudioPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-fg-muted">
-                        {o.customer_name} · {o.customer_email} · {COUNTRY_NAME[o.country] ?? o.country}
+                        {o.customer_name} · {o.customer_email}
                       </p>
                       <p className="mt-0.5 font-mono text-xs text-fg-subtle">{o.reference}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-display text-2xl font-extrabold tabular text-fg">
-                        ${Number(o.amount_usd).toFixed(2)}
+                        {formatNgn(Number(o.amount_ngn))}
                       </p>
-                      {o.amount_ngn != null && (
-                        <p className="text-xs text-fg-subtle tabular">
-                          ₦{Number(o.amount_ngn).toLocaleString('en-NG')}
+                      {o.addons?.length > 0 && (
+                        <p className="text-xs text-fg-subtle">
+                          incl. {o.addons.map((a) => a.name).join(' + ')}
                         </p>
                       )}
                     </div>

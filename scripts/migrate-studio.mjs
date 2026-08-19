@@ -87,6 +87,12 @@ CREATE TABLE IF NOT EXISTS studio_orders (
     CHECK (payment_method IN ('alatpay','card','manual'))
 );
 
+-- We sell to Nigeria only, so orders are priced and charged in Naira. The USD
+-- columns stay for the orders taken while the site was priced in dollars, but
+-- new orders don't populate them.
+ALTER TABLE studio_orders ALTER COLUMN amount_usd DROP NOT NULL;
+ALTER TABLE studio_orders ADD COLUMN IF NOT EXISTS addons JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE INDEX IF NOT EXISTS studio_orders_status_idx     ON studio_orders (status);
 CREATE INDEX IF NOT EXISTS studio_orders_created_idx    ON studio_orders (created_at DESC);
 CREATE INDEX IF NOT EXISTS studio_orders_email_idx      ON studio_orders (customer_email);

@@ -15,36 +15,40 @@
 //     would have made the button appear dead. Each step is validated on its
 //     way past instead, and the server re-checks everything regardless.
 //
-// The client never sends a price — it posts a packageKey and the server prices
-// it from the catalogue (see createStudioOrder).
+// The client never sends a price — it posts a packageKey plus add-on keys and
+// the server totals it from the catalogue (see createStudioOrder).
 
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { AlertCircle, ArrowRight, ArrowLeft, Check, Lock, Pencil } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowLeft, Check, Lock, Pencil, Radio, Tv } from 'lucide-react';
 import { Button, Input, Textarea, Select } from '@/components/ui';
 import {
   PACKAGES, PACKAGE_BY_KEY, PROJECT_TYPES, PROJECT_TYPE_BY_KEY, DELIVERY_CHANNELS,
+  ADDONS, ADDON_BY_KEY, totalNgn, formatNgn,
   type ProjectType,
 } from '@/lib/studio/catalog';
-import { COUNTRIES, COUNTRY_NAME, NIGERIA } from '@/lib/studio/countries';
 import { createStudioOrder, type OrderFormState } from '@/lib/studio/actions';
 import { cn } from '@/lib/utils';
 
 const INITIAL: OrderFormState = { status: 'idle' };
-const LAST_STEP = 5;
+const LAST_STEP = 6;
 
-const GROUPS: { id: 'start' | 'ladder' | 'reach'; label: string }[] = [
-  { id: 'start',  label: 'Start here' },
-  { id: 'ladder', label: 'Bigger packages' },
-  { id: 'reach',  label: 'Reach further — broadcast, outdoor, Google & ads' },
+const GROUPS: { id: 'core' | 'brand'; label: string }[] = [
+  { id: 'core',  label: 'Songs & video' },
+  { id: 'brand', label: 'For bigger brands' },
 ];
+
+const ADDON_ICON: Record<string, React.ReactNode> = {
+  live_tv: <Tv className="h-5 w-5" />,
+  radio: <Radio className="h-5 w-5" />,
+};
 
 function SubmitButton({ amount }: { amount: number | null }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="lg" fullWidth loading={pending}
       rightIcon={pending ? undefined : <ArrowRight className="h-4 w-4" />}>
-      {pending ? 'Creating your order…' : amount != null ? `Continue to payment — $${amount}` : 'Continue to payment'}
+      {pending ? 'Creating your order…' : amount != null ? `Continue to payment — ${formatNgn(amount)}` : 'Continue to payment'}
     </Button>
   );
 }
@@ -54,8 +58,8 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
 
   const preset = initialPackage && PACKAGE_BY_KEY[initialPackage] ? initialPackage : '';
   const [packageKey, setPackageKey] = useState(preset);
+  const [addons, setAddons] = useState<string[]>([]);
   const [projectType, setProjectType] = useState<ProjectType | ''>('');
-  const [country, setCountry] = useState(NIGERIA);
   const [channel, setChannel] = useState<string>('whatsapp');
   // Controlled so the collapsed summaries can show what was actually entered.
   const [customerName, setCustomerName] = useState('');
@@ -71,13 +75,14 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
     () => DELIVERY_CHANNELS.find((c) => c.key === channel) ?? DELIVERY_CHANNELS[0],
     [channel],
   );
+  // Mirrors the server's sum, so what they see is what they are charged.
+  const total = packageKey ? totalNgn(packageKey, addons) : null;
 
   const stepRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const topRef = useRef<HTMLDivElement>(null);
 
   const go = (n: number) => {
     setCurrent(n);
-    // Keep the newly opened step in view without yanking the whole window.
     requestAnimationFrame(() => {
       topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -97,16 +102,20 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
     go(n + 1);
   };
 
+  const toggleAddon = (key: string) =>
+    setAddons((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
   useEffect(() => {
     if (state.status === 'error') window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [state]);
 
   const summaries: Record<number, string> = {
-    1: pkg ? `${pkg.name} · $${pkg.priceUsd}${pkg.monthly ? '/mo' : ''}` : '',
-    2: typeDef?.label ?? '',
-    3: typeDef ? 'Brief filled in' : '',
-    4: [customerName, COUNTRY_NAME[country]].filter(Boolean).join(' · '),
-    5: `${channelDef.label}${deliveryHandle ? ` · ${deliveryHandle}` : ''}`,
+    1: pkg ? `${pkg.name} · ${formatNgn(pkg.priceNgn)}${pkg.monthly ? '/mo' : ''}` : '',
+    2: addons.length ? addons.map((k) => ADDON_BY_KEY[k]?.name).filter(Boolean).join(' + ') : 'No broadcast add-ons',
+    3: typeDef?.label ?? '',
+    4: typeDef ? 'Brief filled in' : '',
+    5: [customerName, customerEmail].filter(Boolean).join(' · '),
+    6: `${channelDef.label}${deliveryHandle ? ` · ${deliveryHandle}` : ''}`,
   };
 
   return (
@@ -141,8 +150,9 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
           </div>
 
           <div className="space-y-3">
+            {/* 1 — package */}
             <Step n={1} current={current} title="What do you want made?"
-              hint="Pick one. You can always add more later."
+              hint="Pick one. You can add broadcast next."
               summary={summaries[1]} onEdit={() => go(1)}
               innerRef={(el) => { stepRefs.current[1] = el; }}>
               <input type="hidden" name="packageKey" value={packageKey} />
@@ -155,15 +165,13 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                         <Choice
                           key={p.key}
                           active={p.key === packageKey}
-                          // Answering advances — that is what makes it feel
-                          // like a sequence rather than a page of fields.
                           onClick={() => { setPackageKey(p.key); go(2); }}
                           title={p.name}
                           note={p.blurb}
                           right={
                             <span className="font-display font-extrabold tabular-nums text-brand whitespace-nowrap text-sm">
                               {p.from && <span className="text-[10px] font-semibold text-fg-subtle mr-0.5">from</span>}
-                              ${p.priceUsd}{p.monthly && <span className="text-[11px] font-semibold text-fg-muted">/mo</span>}
+                              {formatNgn(p.priceNgn)}{p.monthly && <span className="text-[11px] font-semibold text-fg-muted">/mo</span>}
                             </span>
                           }
                         />
@@ -177,17 +185,64 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
               )}
             </Step>
 
-            <Step n={2} current={current} title="What is it for?"
-              hint="We ask different questions depending on the job."
+            {/* 2 — broadcast add-ons */}
+            <Step n={2} current={current} title="Want it on TV or radio?"
+              hint="Optional. Skip it if you only need the song and video."
               summary={summaries[2]} onEdit={() => go(2)}
               innerRef={(el) => { stepRefs.current[2] = el; }}>
+              {/* One hidden input per selected add-on, so they arrive as a list. */}
+              {addons.map((k) => <input key={k} type="hidden" name="addons" value={k} />)}
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {ADDONS.map((a) => {
+                  const on = addons.includes(a.key);
+                  return (
+                    <button
+                      type="button"
+                      key={a.key}
+                      onClick={() => toggleAddon(a.key)}
+                      aria-pressed={on}
+                      className={cn(
+                        'text-left rounded-xl border p-4 transition-colors',
+                        on ? 'border-brand bg-brand-tint' : 'border-border bg-bg-elevated hover:border-border-strong',
+                      )}
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="flex items-center gap-2.5">
+                          <span className={cn('inline-flex h-9 w-9 items-center justify-center rounded-lg',
+                            on ? 'bg-brand text-brand-fg' : 'bg-surface-hover text-fg-muted')}>
+                            {ADDON_ICON[a.key]}
+                          </span>
+                          <span className="font-semibold text-fg text-sm">{a.name}</span>
+                        </span>
+                        <span className="font-display font-extrabold tabular-nums text-brand whitespace-nowrap text-sm">
+                          +{formatNgn(a.priceNgn)}
+                        </span>
+                      </span>
+                      <span className="mt-2 block text-xs text-fg-muted leading-relaxed">{a.blurb}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-xs text-fg-subtle leading-relaxed">
+                This covers producing the broadcast master and arranging placement. The station’s
+                airtime is quoted separately, per campaign.
+              </p>
+              <StepNav onBack={() => go(1)} onNext={() => go(3)}
+                nextLabel={addons.length ? 'Continue' : 'Skip for now'} />
+            </Step>
+
+            {/* 3 — project type */}
+            <Step n={3} current={current} title="What is it for?"
+              hint="We ask different questions depending on the job."
+              summary={summaries[3]} onEdit={() => go(3)}
+              innerRef={(el) => { stepRefs.current[3] = el; }}>
               <input type="hidden" name="projectType" value={projectType} />
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {PROJECT_TYPES.map((t) => (
                   <Choice
                     key={t.key}
                     active={t.key === projectType}
-                    onClick={() => { setProjectType(t.key); go(3); }}
+                    onClick={() => { setProjectType(t.key); go(4); }}
                     title={t.label}
                     note={t.tagline}
                   />
@@ -196,14 +251,15 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
               {state.fieldErrors?.projectType && (
                 <p className="mt-3 text-xs text-danger">{state.fieldErrors.projectType}</p>
               )}
-              <StepNav onBack={() => go(1)} />
+              <StepNav onBack={() => go(2)} />
             </Step>
 
-            <Step n={3} current={current}
+            {/* 4 — the branching brief */}
+            <Step n={4} current={current}
               title={typeDef ? `Tell us about your ${typeDef.label.toLowerCase()} job` : 'Tell us about the job'}
               hint="The details are what make it feel written for you."
-              summary={summaries[3]} onEdit={() => go(3)}
-              innerRef={(el) => { stepRefs.current[3] = el; }}>
+              summary={summaries[4]} onEdit={() => go(4)}
+              innerRef={(el) => { stepRefs.current[4] = el; }}>
               {typeDef ? (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -233,16 +289,17 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                       );
                     })}
                   </div>
-                  <StepNav onBack={() => go(2)} onNext={() => advanceFrom(3)} />
+                  <StepNav onBack={() => go(3)} onNext={() => advanceFrom(4)} />
                 </>
               ) : (
                 <p className="text-sm text-fg-muted">Pick what it’s for first.</p>
               )}
             </Step>
 
-            <Step n={4} current={current} title="Your details"
-              summary={summaries[4]} onEdit={() => go(4)}
-              innerRef={(el) => { stepRefs.current[4] = el; }}>
+            {/* 5 — who they are */}
+            <Step n={5} current={current} title="Your details"
+              summary={summaries[5]} onEdit={() => go(5)}
+              innerRef={(el) => { stepRefs.current[5] = el; }}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input name="customerName" label="Your name" required autoComplete="name"
                   placeholder="Jane Doe" value={customerName}
@@ -252,20 +309,16 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                   placeholder="jane@example.com" helper="Your receipt and invoice go here."
                   value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)}
                   error={state.fieldErrors?.customerEmail} />
-                <Select name="country" label="Country" required value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
-                  helper={country === NIGERIA ? 'You’ll pay with ALAT by Wema.' : 'You’ll pay by card.'}
-                  error={state.fieldErrors?.country} />
                 <Input name="neededBy" type="date" label="When do you need it?"
                   helper="Leave blank if it isn’t urgent." error={state.fieldErrors?.neededBy} />
               </div>
-              <StepNav onBack={() => go(typeDef ? 3 : 2)} onNext={() => advanceFrom(4)} />
+              <StepNav onBack={() => go(4)} onNext={() => advanceFrom(5)} />
             </Step>
 
-            <Step n={5} current={current} title="Where should we send the finished work?"
-              summary={summaries[5]} onEdit={() => go(5)}
-              innerRef={(el) => { stepRefs.current[5] = el; }}>
+            {/* 6 — delivery */}
+            <Step n={6} current={current} title="Where should we send the finished work?"
+              summary={summaries[6]} onEdit={() => go(6)}
+              innerRef={(el) => { stepRefs.current[6] = el; }}>
               <input type="hidden" name="deliveryChannel" value={channel} />
               <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
                 <div>
@@ -299,7 +352,7 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                   error={state.fieldErrors?.deliveryHandle}
                 />
               </div>
-              <StepNav onBack={() => go(4)} />
+              <StepNav onBack={() => go(5)} />
             </Step>
           </div>
         </div>
@@ -316,11 +369,28 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                 <>
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-semibold text-fg">{pkg.name}</p>
-                    <p className="font-display text-2xl font-extrabold tabular-nums text-brand whitespace-nowrap">
-                      ${pkg.priceUsd}
-                    </p>
+                    <p className="tabular-nums font-semibold text-fg whitespace-nowrap">{formatNgn(pkg.priceNgn)}</p>
                   </div>
                   {pkg.monthly && <p className="mt-0.5 text-xs text-fg-subtle">per month, cancel any time</p>}
+
+                  {addons.map((k) => {
+                    const a = ADDON_BY_KEY[k];
+                    if (!a) return null;
+                    return (
+                      <div key={k} className="mt-2 flex items-baseline justify-between gap-3 text-sm">
+                        <span className="text-fg-muted">+ {a.name}</span>
+                        <span className="tabular-nums text-fg-muted whitespace-nowrap">{formatNgn(a.priceNgn)}</span>
+                      </div>
+                    );
+                  })}
+
+                  <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-border pt-4">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-subtle">Total</span>
+                    <span className="font-display text-2xl font-extrabold tabular-nums text-brand whitespace-nowrap">
+                      {total != null ? formatNgn(total) : '—'}
+                    </span>
+                  </div>
+
                   <ul className="mt-4 space-y-2 border-t border-border pt-4">
                     {pkg.includes.map((line) => (
                       <li key={line} className="flex gap-2 text-xs text-fg-muted leading-relaxed">
@@ -329,6 +399,7 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                       </li>
                     ))}
                   </ul>
+                  {pkg.note && <p className="mt-3 text-xs text-fg-subtle leading-relaxed">{pkg.note}</p>}
                 </>
               ) : (
                 <p className="text-sm text-fg-muted">Pick a package and it’ll show up here.</p>
@@ -348,10 +419,9 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                     {pkg?.from && 'A starting price — we confirm the final quote for bigger campaigns before any extra work. '}
                     After payment you get your delivery date and an invoice to download.
                   </p>
-                  <SubmitButton amount={pkg?.priceUsd ?? null} />
+                  <SubmitButton amount={total} />
                   <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-fg-subtle">
-                    <Lock className="h-3 w-3" />
-                    {country === NIGERIA ? 'Secure payment via ALAT by Wema' : 'Secure card payment'}
+                    <Lock className="h-3 w-3" /> Secure payment via ALAT by Wema
                   </p>
                 </>
               ) : (
@@ -454,7 +524,7 @@ function Choice({
   );
 }
 
-function StepNav({ onBack, onNext }: { onBack?: () => void; onNext?: () => void }) {
+function StepNav({ onBack, onNext, nextLabel = 'Continue' }: { onBack?: () => void; onNext?: () => void; nextLabel?: string }) {
   if (!onBack && !onNext) return null;
   return (
     <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
@@ -469,7 +539,7 @@ function StepNav({ onBack, onNext }: { onBack?: () => void; onNext?: () => void 
       ) : <span />}
       {onNext && (
         <Button type="button" onClick={onNext} rightIcon={<ArrowRight className="h-4 w-4" />}>
-          Continue
+          {nextLabel}
         </Button>
       )}
     </div>

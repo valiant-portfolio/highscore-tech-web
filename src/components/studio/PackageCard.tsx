@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { Check, ArrowRight } from 'lucide-react';
-import type { StudioPackage } from '@/lib/studio/catalog';
+import { type StudioPackage, formatNgn } from '@/lib/studio/catalog';
 import { cn } from '@/lib/utils';
 
 export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?: string }) {
@@ -24,10 +24,10 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
 
       <h3 className="text-lg font-bold text-fg">{pkg.name}</h3>
 
-      <p className="mt-3 flex items-baseline gap-1.5">
+      <p className="mt-3 flex items-baseline gap-1.5 flex-wrap">
         {pkg.from && <span className="text-sm font-semibold text-fg-subtle">from</span>}
-        <span className="font-display text-4xl font-extrabold tabular-nums text-brand">
-          ${pkg.priceUsd}
+        <span className="font-display text-3xl font-extrabold tabular-nums text-brand">
+          {formatNgn(pkg.priceNgn)}
         </span>
         {pkg.monthly && <span className="text-sm font-semibold text-fg-muted">/month</span>}
       </p>
@@ -42,6 +42,10 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
           </li>
         ))}
       </ul>
+
+      {pkg.note && (
+        <p className="mt-4 border-t border-border pt-3 text-xs text-fg-subtle leading-relaxed">{pkg.note}</p>
+      )}
 
       <Link
         href={`/studio/order?package=${pkg.key}`}

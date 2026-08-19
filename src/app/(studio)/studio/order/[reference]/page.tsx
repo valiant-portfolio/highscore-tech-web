@@ -8,8 +8,7 @@ import { CheckCircle2, Clock, Download, MessageCircle, Send, Mail, AlertCircle }
 import { getStudioOrder } from '@/lib/studio/queries';
 import { sweepStudioOrder } from '@/lib/studio/actions';
 import { AlatPayButton } from '@/components/checkout/AlatPayButton';
-import { COUNTRY_NAME } from '@/lib/studio/countries';
-import { CONTACT_LINKS } from '@/lib/studio/catalog';
+import { CONTACT_LINKS, formatNgn } from '@/lib/studio/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,55 +77,41 @@ export default async function StudioOrderStatusPage({
             <div className="mt-4 flex items-baseline justify-between gap-4 rounded-xl bg-bg-elevated px-4 py-3">
               <span className="text-sm text-fg-muted">{order.package_name}</span>
               <span className="font-display text-2xl font-extrabold tabular-nums text-brand">
-                ${Number(order.amount_usd).toFixed(2)}
+                {formatNgn(Number(order.amount_ngn))}
               </span>
             </div>
 
-            {order.payment_method === 'alatpay' ? (
-              <>
-                <p className="mt-4 text-sm text-fg-muted leading-relaxed">
-                  Paying from Nigeria through <b className="text-fg">ALAT by Wema</b>. You’ll be charged{' '}
-                  <b className="text-fg tabular-nums">₦{Number(order.amount_ngn ?? 0).toLocaleString('en-NG')}</b>{' '}
-                  {order.usd_ngn_rate && (
-                    <span className="text-fg-subtle">(at ₦{Number(order.usd_ngn_rate).toLocaleString('en-NG')} to $1)</span>
-                  )}.
-                </p>
-                <div className="mt-5">
-                  <AlatPayButton
-                    reference={order.payment_reference ?? order.reference}
-                    amountNgn={Number(order.amount_ngn ?? 0)}
-                    customerEmail={order.customer_email}
-                    customerName={order.customer_name}
-                    description={`Highscore Studio — ${order.package_name}`}
-                    successHref={`/studio/order/${order.reference}`}
-                  >
-                    Pay ₦{Number(order.amount_ngn ?? 0).toLocaleString('en-NG')} now
-                  </AlatPayButton>
-                </div>
-                <p className="mt-3 text-xs text-fg-subtle">
-                  Keep this page open until the payment finishes. If you close it by mistake, come
-                  back to this link — we re-check automatically.
-                </p>
-              </>
-            ) : (
-              <div className="mt-4 flex items-start gap-3 rounded-xl border border-border bg-bg-elevated p-4">
-                <AlertCircle className="h-5 w-5 shrink-0 text-brand mt-0.5" />
-                <div className="text-sm text-fg-muted leading-relaxed">
-                  <p className="font-semibold text-fg">Paying from {COUNTRY_NAME[order.country] ?? 'outside Nigeria'}</p>
-                  <p className="mt-1">
-                    We’ll send you a secure card payment link on your {order.delivery_channel} within a few
-                    hours. Your order and brief are already saved — nothing is lost.
-                  </p>
-                  <p className="mt-2">
-                    Need it faster? Message us on{' '}
-                    <a href={`mailto:${CONTACT_LINKS.email}`} className="font-semibold text-brand hover:underline">
-                      {CONTACT_LINKS.email}
-                    </a>{' '}
-                    with your reference.
-                  </p>
-                </div>
-              </div>
+            {/* What the add-ons brought in, so the total is never a surprise. */}
+            {order.addons?.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {order.addons.map((a) => (
+                  <li key={a.key} className="flex items-baseline justify-between gap-3 text-sm text-fg-muted">
+                    <span>+ {a.name}</span>
+                    <span className="tabular-nums">{formatNgn(Number(a.price_ngn))}</span>
+                  </li>
+                ))}
+              </ul>
             )}
+
+            <p className="mt-4 text-sm text-fg-muted leading-relaxed">
+              Paying through <b className="text-fg">ALAT by Wema</b>.
+            </p>
+            <div className="mt-5">
+              <AlatPayButton
+                reference={order.payment_reference ?? order.reference}
+                amountNgn={Number(order.amount_ngn ?? 0)}
+                customerEmail={order.customer_email}
+                customerName={order.customer_name}
+                description={`Highscore Studio — ${order.package_name}`}
+                successHref={`/studio/order/${order.reference}`}
+              >
+                Pay {formatNgn(Number(order.amount_ngn ?? 0))} now
+              </AlatPayButton>
+            </div>
+            <p className="mt-3 text-xs text-fg-subtle">
+              Keep this page open until the payment finishes. If you close it by mistake, come
+              back to this link — we re-check automatically.
+            </p>
           </div>
         )}
 
@@ -146,9 +131,16 @@ export default async function StudioOrderStatusPage({
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-surface p-6 flex flex-col">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-subtle">Invoice</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-subtle">Amount paid</p>
+              {/* The price block above only renders while unpaid, so without
+                  this a paid customer could no longer see what they were charged. */}
+              <p className="mt-2 font-display text-xl font-bold text-fg tabular-nums">
+                {formatNgn(Number(order.amount_ngn))}
+              </p>
               <p className="mt-2 text-sm text-fg-muted leading-relaxed flex-1">
-                Your paid invoice is ready to download for your records.
+                {order.addons?.length > 0
+                  ? `Includes ${order.addons.map((a) => a.name).join(' and ')}. Your invoice is ready to download.`
+                  : 'Your paid invoice is ready to download for your records.'}
               </p>
               <a
                 href={`/api/studio/${order.reference}/invoice.pdf`}

@@ -11,7 +11,6 @@ import { createElement } from 'react';
 import { getStudioOrder } from '@/lib/studio/queries';
 import { StudioInvoicePdf } from '@/lib/studio/InvoicePdf';
 import { pdfResponse } from '@/lib/staff/pdf-stream';
-import { COUNTRY_NAME } from '@/lib/studio/countries';
 import { PROJECT_TYPE_BY_KEY } from '@/lib/studio/catalog';
 
 export const runtime = 'nodejs';
@@ -44,12 +43,10 @@ export async function GET(
       paidOn: fmtDate(order.paid_at),
       customerName: order.customer_name,
       customerEmail: order.customer_email,
-      country: COUNTRY_NAME[order.country] ?? order.country,
       packageName: order.package_name,
       projectType: PROJECT_TYPE_BY_KEY[order.project_type]?.label ?? order.project_type,
-      amountUsd: Number(order.amount_usd),
-      amountNgn: order.amount_ngn == null ? null : Number(order.amount_ngn),
-      usdNgnRate: order.usd_ngn_rate == null ? null : Number(order.usd_ngn_rate),
+      amountNgn: Number(order.amount_ngn),
+      addons: order.addons ?? [],
       paymentMethod: order.payment_method,
       deliveryDue: fmtDate(order.delivery_due),
       deliveryChannel: order.delivery_channel,
