@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import Logo from '@/components/brand/Logo';
 import { AmbientBackdrop } from '@/components/marketing3d/AmbientBackdrop';
+import { STUDIO_URL } from '@/lib/studio/catalog';
 
 interface Column {
   title: string;
@@ -19,6 +20,15 @@ const COLUMNS: Column[] = [
       { href: '/services',  label: 'Software development' },
       { href: '/services',  label: 'Product strategy' },
       { href: '/portfolio', label: 'Portfolio' },
+    ],
+  },
+  {
+    title: 'Studio',
+    links: [
+      { href: STUDIO_URL,               label: 'Highscore Studio' },
+      { href: `${STUDIO_URL}/pricing`,  label: 'Studio pricing' },
+      { href: `${STUDIO_URL}/work`,     label: 'Our work' },
+      { href: `${STUDIO_URL}/order`,    label: 'Order a song' },
     ],
   },
   {
@@ -39,8 +49,9 @@ export function MarketingFooter() {
           <div className="space-y-4">
             <Logo size="md" />
             <p className="text-sm text-fg-muted leading-relaxed max-w-xs">
-              AI systems and software, built to ship. Remote-first across Nigeria,
-              working with clients worldwide.
+              AI systems and software, built to ship — plus Highscore Studio, our
+              music and video branch. Remote-first across Nigeria, working with
+              clients worldwide.
             </p>
             <p className="text-xs text-fg-subtle">
               <a href="mailto:admin@highzcore.tech" className="hover:text-fg">admin@highzcore.tech</a>
@@ -59,19 +70,24 @@ export function MarketingFooter() {
                   {col.title}
                 </p>
                 <ul className="space-y-2">
-                  {col.links.map((l) => (
-                    <li key={`${col.title}-${l.label}`}>
-                      <Link
-                        href={l.href}
-                        className="inline-block text-sm text-fg-muted hover:text-fg transition-colors relative
-                                   after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:bg-brand
-                                   after:scale-x-0 after:origin-left hover:after:scale-x-100
-                                   after:transition-transform after:duration-300"
-                      >
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
+                  {col.links.map((l) => {
+                    const cls =
+                      'inline-block text-sm text-fg-muted hover:text-fg transition-colors relative ' +
+                      'after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:bg-brand ' +
+                      'after:scale-x-0 after:origin-left hover:after:scale-x-100 ' +
+                      'after:transition-transform after:duration-300';
+                    // Studio lives on its own subdomain — absolute URLs leave the app.
+                    const external = /^https?:\/\//.test(l.href);
+                    return (
+                      <li key={`${col.title}-${l.label}`}>
+                        {external ? (
+                          <a href={l.href} className={cls}>{l.label}</a>
+                        ) : (
+                          <Link href={l.href} className={cls}>{l.label}</Link>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

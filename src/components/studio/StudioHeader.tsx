@@ -86,12 +86,25 @@ export function StudioHeader({
   );
 }
 
+/**
+ * Accepts either form for each channel, because both are things you naturally
+ * have to hand: a full link (e.g. a wa.me/message/… click-to-chat short link,
+ * or t.me/…) or a bare number/@handle. Stripping non-digits from a short link
+ * would quietly produce a dead URL, so check for a URL first.
+ */
+function chatHref(value: string, kind: 'whatsapp' | 'telegram'): string {
+  const v = value.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  if (kind === 'whatsapp') return `https://wa.me/${v.replace(/[^\d]/g, '')}`;
+  return `https://t.me/${v.replace(/^@/, '')}`;
+}
+
 export function ContactIcons({
   whatsapp, telegram, email, className, withLabels = false,
 }: { whatsapp?: string; telegram?: string; email: string; className?: string; withLabels?: boolean }) {
   const items = [
-    whatsapp && { href: `https://wa.me/${whatsapp.replace(/[^\d]/g, '')}`, icon: <MessageCircle className="h-4 w-4" />, label: 'WhatsApp' },
-    telegram && { href: `https://t.me/${telegram.replace(/^@/, '')}`, icon: <Send className="h-4 w-4" />, label: 'Telegram' },
+    whatsapp && { href: chatHref(whatsapp, 'whatsapp'), icon: <MessageCircle className="h-4 w-4" />, label: 'WhatsApp' },
+    telegram && { href: chatHref(telegram, 'telegram'), icon: <Send className="h-4 w-4" />, label: 'Telegram' },
     { href: `mailto:${email}`, icon: <Mail className="h-4 w-4" />, label: 'Email' },
   ].filter(Boolean) as { href: string; icon: React.ReactNode; label: string }[];
 

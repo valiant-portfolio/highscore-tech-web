@@ -12,6 +12,7 @@ import Logo from '@/components/brand/Logo';
 import { ThemeQuickToggle } from '@/components/theme/ThemeToggle';
 import { LinkButton } from '@/components/ui';
 import { UserMenu } from '@/components/auth/UserMenu';
+import { STUDIO_URL } from '@/lib/studio/catalog';
 import { cn } from '@/lib/utils';
 
 interface HeaderUser {
@@ -21,9 +22,11 @@ interface HeaderUser {
   role?: 'student' | 'staff' | 'admin';
 }
 
-const PRIMARY_NAV: { href: string; label: string }[] = [
+const PRIMARY_NAV: { href: string; label: string; external?: boolean }[] = [
   { href: '/services',  label: 'Services' },
   { href: '/portfolio', label: 'Portfolio' },
+  // Studio is a separate subdomain, so this leaves the app.
+  { href: STUDIO_URL,   label: 'Studio', external: true },
   { href: '/about',     label: 'About' },
   { href: '/contact',   label: 'Contact' },
 ];
@@ -67,6 +70,19 @@ export function MarketingHeader({ user }: { user?: HeaderUser | null }) {
         <Logo size="sm" />
         <nav className="hidden lg:flex items-center gap-1 ml-2">
           {PRIMARY_NAV.map((n) => {
+            // An external entry (Studio) never matches the current path and
+            // leaves the app, so it renders as a plain anchor.
+            if (n.external) {
+              return (
+                <a
+                  key={n.href}
+                  href={n.href}
+                  className="relative inline-flex items-center h-9 px-3 rounded-md text-sm font-medium text-fg-muted transition-colors hover:text-warning"
+                >
+                  {n.label}
+                </a>
+              );
+            }
             const active = isActive(n.href);
             return (
               <Link
@@ -167,18 +183,28 @@ export function MarketingHeader({ user }: { user?: HeaderUser | null }) {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.04 + i * 0.03 }}
                   >
-                    <Link
-                      href={n.href}
-                      onClick={() => setOpen(false)}
-                      className={cn(
-                        'inline-flex w-full items-center h-12 px-3 rounded-md text-base font-medium',
-                        isActive(n.href)
-                          ? 'bg-brand-tint text-brand'
-                          : 'text-fg hover:bg-surface-hover',
-                      )}
-                    >
-                      {n.label}
-                    </Link>
+                    {n.external ? (
+                      <a
+                        href={n.href}
+                        onClick={() => setOpen(false)}
+                        className="inline-flex w-full items-center h-12 px-3 rounded-md text-base font-medium text-warning hover:bg-surface-hover"
+                      >
+                        {n.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={n.href}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          'inline-flex w-full items-center h-12 px-3 rounded-md text-base font-medium',
+                          isActive(n.href)
+                            ? 'bg-brand-tint text-brand'
+                            : 'text-fg hover:bg-surface-hover',
+                        )}
+                      >
+                        {n.label}
+                      </Link>
+                    )}
                   </motion.div>
                 ))}
                 {SECONDARY_NAV.length > 0 && (

@@ -3,13 +3,14 @@
 // FAQ → final CTA.
 
 import Image from 'next/image';
-import { ArrowRight, Bot, Code2, Compass, Layers } from 'lucide-react';
+import { ArrowRight, Bot, Code2, Compass, Layers, Music } from 'lucide-react';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { Reveal, SectionHeading } from '@/components/marketing/sections';
 import { PremiumCard } from '@/components/marketing/PremiumCard';
 import { LinkButton } from '@/components/ui';
 import { getPublicStats } from '@/lib/stats/public';
 import { listProjects } from '@/lib/portfolio/queries';
+import { STUDIO_URL } from '@/lib/studio/catalog';
 
 const SERVICES = [
   {
@@ -170,6 +171,68 @@ export default async function HomePage() {
           <LinkButton href="/portfolio" variant="secondary" rightIcon={<ArrowRight className="h-4 w-4" />}>
             View full portfolio
           </LinkButton>
+        </div>
+      </Reveal>
+
+      {/* ── Studio ──────────────────────────────────────────────── */}
+      {/* Our creative branch. It lives on its own subdomain, so these are real
+          outbound links rather than <Link> routes. */}
+      <Reveal ambient="brand-soft" id="studio" className="!py-16 md:!py-28">
+        <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-16 items-center">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-warning">
+              <Music className="h-3.5 w-3.5" />
+              Highscore Tech Studio
+            </p>
+            <h2 className="mt-5 font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.025em] leading-[1.08] text-fg">
+              We also make businesses<br />
+              <span className="text-warning">impossible to ignore.</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-base md:text-lg text-fg-muted leading-relaxed">
+              Our creative branch writes custom songs and jingles, produces promo videos —
+              filmed or AI-made — and puts brands everywhere their customers are: social,
+              radio, live TV, billboards, Google and paid ads.
+            </p>
+            <p className="mt-3 max-w-xl text-sm text-fg-muted">
+              Songs for businesses, churches, weddings, birthdays and events — from{' '}
+              <span className="font-bold text-warning">$8</span> up to full monthly campaigns.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href={STUDIO_URL}
+                className="inline-flex h-12 items-center gap-2 rounded-lg bg-warning px-6 text-sm font-bold text-ink transition-opacity hover:opacity-90"
+              >
+                Visit Highscore Studio <ArrowRight className="h-4 w-4" />
+              </a>
+              <a
+                href={`${STUDIO_URL}/pricing`}
+                className="inline-flex h-12 items-center rounded-lg border border-border px-6 text-sm font-semibold text-fg hover:bg-surface-hover"
+              >
+                See Studio pricing
+              </a>
+            </div>
+          </div>
+
+          <PremiumCard className="h-full" highlight>
+            <div className="p-6 md:p-8">
+              <p className="text-xs uppercase tracking-[0.18em] font-semibold text-warning">
+                What the Studio does
+              </p>
+              <ul className="mt-5 space-y-4 text-sm md:text-[15px] text-fg-muted">
+                {[
+                  ['Custom songs & jingles', 'written about your business or occasion'],
+                  ['Promo videos', 'filmed live, or made with AI from your photos'],
+                  ['Radio, TV & outdoor', 'broadcast-ready cuts, billboards and signage'],
+                  ['Google ranking & ads', 'get found, then get in front of buyers'],
+                ].map(([title, rest]) => (
+                  <li key={title} className="flex gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
+                    <span><b className="text-fg">{title}</b> — {rest}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </PremiumCard>
         </div>
       </Reveal>
 

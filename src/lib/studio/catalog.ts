@@ -292,3 +292,12 @@ export const CONTACT_LINKS = {
   telegram: process.env.NEXT_PUBLIC_STUDIO_TELEGRAM ?? '',
   email: 'studio@highzcore.tech',
 };
+
+/**
+ * Where links from the main site should send people. Studio lives on its own
+ * subdomain in production; locally there is no subdomain, so we stay on the
+ * /studio path. Override with NEXT_PUBLIC_STUDIO_URL if the host ever changes.
+ */
+export const STUDIO_URL =
+  process.env.NEXT_PUBLIC_STUDIO_URL
+  ?? (process.env.NODE_ENV === 'development' ? '/studio' : 'https://studio.highzcore.tech');
