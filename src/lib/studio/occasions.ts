@@ -107,7 +107,7 @@ export const OCCASIONS: Occasion[] = [
     intro:
       'The jingle people hum back at you in the market. We write it around what you actually sell, what you charge and why you are better — then produce it for wherever it needs to run: social, radio, live TV, or a billboard.',
     projectType: 'business',
-    packages: ['business_jingle', 'business_ai_video', 'business_shoot'],
+    packages: ['business_starter', 'business_reach', 'business_broadcast'],
     gets: [
       'A jingle written around your offer, not a generic tune',
       'Your prices, location and phone number said clearly',

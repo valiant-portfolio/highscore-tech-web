@@ -2,7 +2,7 @@
 // song to always-on brand retainers.
 
 import type { Metadata } from 'next';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import { PACKAGES, ADDONS, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
@@ -41,10 +41,19 @@ export default function StudioPricingPage() {
       {/* No hero. Someone on the pricing page came to see prices, so the first
           thing on screen is the first package, not a headline about them. */}
       <section className="px-4 md:px-8 pt-10 md:pt-12 pb-2">
-        <div className="mx-auto max-w-[1180px]">
+        <div className="mx-auto max-w-[1180px] flex flex-wrap items-center justify-between gap-4">
           <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
             Pricing
           </h1>
+          {/* Sales document, not a page dump: the same catalogue rendered as a
+              PDF you can send to a client, or they can keep. */}
+          <a
+            href="/api/studio/rate-card.pdf"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-bold text-fg transition-colors hover:border-brand/60 hover:bg-surface-hover"
+          >
+            <Download className="h-4 w-4" />
+            Download as PDF
+          </a>
         </div>
       </section>
 

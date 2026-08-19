@@ -104,60 +104,40 @@ export const PACKAGES: StudioPackage[] = [
   /* ── Business & brands ────────────────────────────────────────────────
      Commercial work: usage rights, scripting around the offer, and masters
      built for where the advert will actually run.                         */
+  // A stacking ladder: each tier is everything below it, plus a new channel.
+  // Nobody has to work out what they are losing by choosing the cheaper one.
   {
-    key: 'business_jingle',
-    name: 'Business jingle',
+    key: 'business_starter',
+    name: 'Jingle + advert video',
     priceNgn: 120_000,
     group: 'business',
-    blurb: 'The jingle people hum back at you in the market.',
-    includes: [
-      'Jingle written around what you sell, your prices and your location',
-      'Scripted to say the things a customer must hear',
-      'Full commercial usage rights — run it anywhere, forever',
-      'Broadcast-quality master plus social cuts',
-      'One round of revisions',
-    ],
+    blurb: 'Your jingle and a finished advert video, ready to post everywhere.',
+    includes: [],
   },
   {
-    key: 'business_video_edit',
-    name: 'Jingle + your footage edited',
+    key: 'business_reach',
+    name: 'Radio & street',
     priceNgn: 180_000,
     group: 'business',
-    blurb: 'You send the footage, we build the advert around it.',
-    includes: [
-      'Everything in Business jingle',
-      'We edit your own videos and photos into a finished advert',
-      'Your prices, location and phone number on screen',
-      'Cut for every platform',
-    ],
+    blurb: 'Everything before, plus radio and the banners on your street.',
+    includes: [],
   },
   {
-    key: 'business_ai_video',
-    name: 'Jingle + AI advert video',
+    key: 'business_broadcast',
+    name: 'TV & Google',
     priceNgn: 220_000,
     group: 'business',
     featured: true,
-    blurb: 'A full advert generated with AI — no shoot required.',
-    includes: [
-      'Everything in Business jingle',
-      'A complete advert video created with AI',
-      'Photos of your business turned into moving video',
-      'Platform-ready cuts plus a broadcast-ready master',
-    ],
+    blurb: 'Everything before, plus live TV and being found on Google.',
+    includes: [],
   },
   {
-    key: 'business_shoot',
-    name: 'Jingle + we come and shoot',
+    key: 'business_complete',
+    name: 'The full campaign',
     priceNgn: 350_000,
     group: 'business',
-    blurb: 'We come to your place and film the real thing.',
-    includes: [
-      'Everything in Business jingle',
-      'A filming day at your location with our crew',
-      'Professionally filmed and edited advert',
-      'Platform-ready cuts plus a broadcast-ready master',
-      'Stills from the shoot you can keep using',
-    ],
+    blurb: 'Everything before, and we come and film the real thing.',
+    includes: [],
     note: 'Covers a filming day in Lagos. Outside Lagos we quote travel before we start.',
   },
 
@@ -232,9 +212,13 @@ export const PACKAGE_BY_KEY: Record<string, StudioPackage> = Object.fromEntries(
 );
 
 /* ── Add-ons ─────────────────────────────────────────────────────────────
-   Bolted on top of any package: getting the finished piece onto air. Our fee
-   covers producing the broadcast master and arranging the placement; the
-   station's airtime is the client's budget and quoted per campaign.        */
+   The packages PRODUCE the broadcast-ready advert. These add-ons are us
+   actually getting it on air: choosing the stations, negotiating the rate,
+   booking the slots and running the campaign. That is separate work from
+   making the advert, which is why it is priced separately.
+
+   The station's airtime is always the client's own budget, paid to the
+   station — never through us.                                              */
 
 export interface StudioAddon {
   key: string;
@@ -246,15 +230,17 @@ export interface StudioAddon {
 export const ADDONS: StudioAddon[] = [
   {
     key: 'radio',
-    name: 'Radio',
+    name: 'Radio placement',
     priceNgn: 120_000,
-    blurb: 'Jingle mixed for air, 15s / 30s / 60s spots, and the station booked for you.',
+    blurb:
+      'We pick the stations, negotiate the rate, book the slots and run the campaign for you. Airtime is your budget, paid to the station.',
   },
   {
     key: 'live_tv',
-    name: 'Live TV',
+    name: 'Live TV placement',
     priceNgn: 250_000,
-    blurb: 'Broadcast master produced to station spec and your advert placed on live television.',
+    blurb:
+      'Same for television — the station chosen, the rate negotiated, the slots booked and the run managed. Airtime is your budget, paid to the station.',
   },
 ];
 

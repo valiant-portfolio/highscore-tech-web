@@ -190,9 +190,9 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
 
   /* ── Business & brands ─────────────────────────────────────────────── */
 
-  business_jingle: {
-    bestFor: 'A business that wants to be remembered — and wants the advert to actually say what it sells.',
-    turnaround: '5–7 working days from payment',
+  business_starter: {
+    bestFor: 'Any business that wants to be seen and heard — a shop, a service, a brand starting out.',
+    turnaround: '7 working days from payment',
     deliverables: [
       {
         title: 'A jingle written around your offer',
@@ -200,23 +200,33 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
           'We write it about what you actually sell, what you charge and where you are. The point is not a nice tune — it is a nice tune that makes someone call you.',
       },
       {
-        title: 'Scripted to say what a customer must hear',
+        title: 'A finished advert video',
         detail:
-          'Your prices, your location, your phone number, your one reason to choose you. Written so it lands in the first few seconds, because that is all you get.',
+          'Not just audio. You get a complete advert video built around the jingle — made with AI, or from the photos and clips you send us, whichever suits your business better.',
       },
       {
-        title: 'Full commercial usage rights',
+        title: 'Full commercial usage rights, forever',
         detail:
-          'Run it anywhere, for as long as you like — radio, TV, social, in your shop, on hold on your phone line. It is yours. No licence renewals, no per-play fees back to us.',
+          'Run it anywhere for as long as you like — radio, TV, social, in your shop, on hold on your phone line. It is yours. No licence renewals, no per-play fees back to us.',
       },
       {
-        title: 'Broadcast-quality master',
+        title: 'Your song on Instagram and Facebook',
         detail:
-          'Mixed and levelled to the standard stations actually accept, so you are not rejected when you take it to radio.',
+          'We load your jingle into the Instagram and Facebook audio library. After that, you or anyone on your team can open the app, search your business name and pick your own song for any Reel or Story — so every post sounds like you, forever, without asking us.',
       },
       {
-        title: 'Social cuts included',
-        detail: 'Shorter versions for WhatsApp status, Instagram and TikTok, from the same recording.',
+        title: 'WhatsApp status cuts',
+        detail:
+          'Short versions cut to the length WhatsApp status allows, so you can post the advert straight to status the day you get it.',
+      },
+      {
+        title: 'Cut for every platform',
+        detail:
+          'Wide for Facebook and YouTube, square for feeds, vertical for status, Reels and TikTok. One job, every format — you are never cropping things yourself.',
+      },
+      {
+        title: 'Cover artwork for the song',
+        detail: 'Branded artwork that shows when the audio plays, so it looks like a real release rather than a file.',
       },
       {
         title: 'One round of changes',
@@ -226,125 +236,161 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
     process: [
       'You fill the brief — what you sell, your prices, your location, your customer.',
       'We write the script and lyrics and send them for approval before recording.',
-      'We record, produce and master it.',
-      'You get the master plus every cut, delivered your way.',
+      'We record and produce the jingle, then build the advert video around it.',
+      'You get everything, plus your song loaded into Instagram and Facebook.',
     ],
     notIncluded: [
-      'Video — add a video package if you want one.',
-      'Radio or TV airtime — add those below and we produce and place it; the station’s airtime is your budget.',
+      'Radio and TV airtime — add placement below and we book the stations for you.',
+      'Us coming to film on location — that is the full campaign package.',
     ],
   },
 
-  business_video_edit: {
-    bestFor: 'You already have footage of your business — the shop, the product, the team — and want a real advert from it.',
-    turnaround: '7–10 working days from payment',
+  business_reach: {
+    bestFor: 'A business whose customers are on the road and on the radio, not only on the phone.',
+    turnaround: '10 working days from payment',
     deliverables: [
       {
-        title: 'Everything in the Business jingle',
-        detail: 'The full jingle, scripted around your offer, with commercial rights and a broadcast master.',
+        title: 'Everything in Jingle + advert video',
+        detail:
+          'The full jingle, the advert video, commercial rights, your song on Instagram and Facebook, WhatsApp cuts, platform formats and cover artwork — all of it, included.',
       },
       {
-        title: 'Your footage cut into a finished advert',
+        title: 'Radio-ready spots — 15, 30 and 60 seconds',
         detail:
-          'Send what you have — phone video of the shop, product photos, pictures of the team — and we build the advert around it, cut in time with the jingle and colour corrected so it looks deliberate.',
+          'Your advert re-cut and mixed to the three lengths stations actually sell, levelled to broadcast standard so nothing is rejected when you take it in.',
       },
       {
-        title: 'Your details on screen',
+        title: 'Road banner and street signage artwork',
         detail:
-          'Prices, address, phone number, social handles — on screen at the moment they matter, so someone can act without replaying it.',
+          'Print-ready artwork for the banners outside your shop, along your street, or at the junction — sized properly for the printer, matching the advert so people connect the two.',
       },
       {
-        title: 'Cut for every platform',
+        title: 'Shop-front and vehicle branding artwork',
         detail:
-          'Wide for TV and Facebook, square for feeds, vertical for status, Reels and TikTok. One shoot, every format.',
+          'The same design worked up for your signboard and your bus or keke, so your brand is doing the advertising while it moves.',
+      },
+      {
+        title: 'Extra video cuts for the campaign',
+        detail:
+          'More short versions from the same production, so you are posting something different each week instead of the same clip.',
+      },
+      {
+        title: 'Two rounds of changes',
+        detail: 'More room to get it right, because more is riding on it.',
       },
     ],
     process: [
-      'You fill the brief and send your footage and photos.',
-      'We script the jingle and send it for approval.',
-      'We produce the jingle, then edit your material into the advert.',
-      'You get the jingle, the full advert and every cut.',
+      'You fill the brief — what you sell, where you are, and where the banners will go.',
+      'We script and send everything for approval before we produce.',
+      'We produce the jingle, the advert video, the radio spots and the print artwork.',
+      'You get the files, the artwork print-ready, and your song on Instagram and Facebook.',
     ],
     notIncluded: [
-      'Filming — this package edits material you already have.',
-      'Airtime for radio or TV.',
+      'Printing and mounting the banners — we give you print-ready artwork; your printer does the rest.',
+      'Radio and TV airtime — add placement below and we book the stations for you.',
     ],
   },
 
-  business_ai_video: {
-    bestFor: 'A business that wants a proper advert without stopping trading for a shoot.',
-    turnaround: '7–10 working days from payment',
+  business_broadcast: {
+    bestFor: 'A business ready for television, and one that wants customers to find them on Google too.',
+    turnaround: '12 working days from payment',
     deliverables: [
       {
-        title: 'Everything in the Business jingle',
-        detail: 'The full jingle, scripted around your offer, with commercial rights and a broadcast master.',
+        title: 'Everything in Radio & street',
+        detail:
+          'The jingle, the advert video, commercial rights, Instagram and Facebook audio, WhatsApp cuts, radio spots, banner and vehicle artwork — all included.',
       },
       {
-        title: 'A complete advert video generated with AI',
+        title: 'A TV-spec broadcast master',
         detail:
-          'We build the visuals to match your script — the scenes, the product moments, the pace. No shoot day, no closing the shop, no crew fee.',
+          'Your advert finished to the technical standard television stations require — resolution, audio levels, safe margins. This is what stops a station sending you away.',
       },
       {
-        title: 'Your business in it, not stock footage',
+        title: 'Your business on Google Maps and Search',
         detail:
-          'Send photos of your shop, your products, your team, and we turn them into moving video, so customers recognise the actual place.',
+          'We set up and properly fill in your Google Business Profile — hours, services, photos, location, category. This is the listing that shows when someone nearby searches what you sell, and it is the single biggest free win most businesses leave empty.',
       },
       {
-        title: 'Broadcast-ready master plus platform cuts',
+        title: 'Google review link set up for you',
         detail:
-          'A TV-spec version alongside wide, square and vertical cuts for everywhere else.',
+          'A direct link you can send customers to leave a review, because reviews are what push you above competitors in local search.',
+      },
+      {
+        title: 'Website search basics',
+        detail:
+          'If you have a website, we fix the titles, descriptions and speed issues that keep it off the first page. If you do not, we point your listing where the customers should land.',
+      },
+      {
+        title: 'A campaign plan for the year',
+        detail:
+          'A simple written plan for when to push, which channel to use for which season, and what to say — so the advert is used well instead of run once and forgotten.',
+      },
+      {
+        title: 'Two rounds of changes',
+        detail: 'Across everything, not per item.',
       },
     ],
     process: [
-      'You fill the brief and send any photos of the business.',
-      'We script the jingle and advert and send them for approval.',
-      'We produce the jingle, then generate and edit the video to it.',
-      'You get the master and every cut.',
+      'You fill the brief and we look at your current search presence.',
+      'We script and send everything for approval.',
+      'We produce the jingle, video, radio spots, TV master and print artwork.',
+      'We set up your Google listing and hand over the campaign plan.',
     ],
     notIncluded: [
-      'Filming or a crew.',
-      'Airtime for radio or TV.',
+      'Ongoing SEO month to month — that is the Google ranking retainer.',
+      'Radio and TV airtime — add placement below and we book the stations for you.',
+      'Printing and mounting banners.',
     ],
   },
 
-  business_shoot: {
+  business_complete: {
     bestFor: 'A business where the real place, the real product and the real people are the selling point.',
-    turnaround: '10–14 working days, including the shoot day',
+    turnaround: '14 working days, including the shoot day',
     deliverables: [
       {
-        title: 'Everything in the Business jingle',
-        detail: 'The full jingle, scripted around your offer, with commercial rights and a broadcast master.',
+        title: 'Everything in TV & Google',
+        detail:
+          'The jingle, advert video, commercial rights, Instagram and Facebook audio, WhatsApp cuts, radio spots, banner and vehicle artwork, TV master, Google listing and campaign plan — every bit of it.',
       },
       {
         title: 'A filming day at your location',
         detail:
-          'We come to you with our crew and equipment and shoot for the day — the premises, the product, the process, your team at work.',
+          'We come to you with our crew and equipment and shoot for the day — the premises, the product, the process, your team at work. Real footage of the real place beats anything generated.',
       },
       {
-        title: 'A professionally filmed and edited advert',
+        title: 'A professionally filmed and graded advert',
         detail:
-          'Properly lit and framed, cut to the jingle, graded so your business looks its best. This is the version that makes a customer trust you before they arrive.',
+          'Properly lit, framed and colour graded, cut to your jingle. This is the version that makes a customer trust you before they arrive.',
       },
       {
-        title: 'Stills you can keep using',
+        title: 'Professional photographs from the same day',
         detail:
-          'Photographs from the same day, edited and handed over — for your social pages, your Google listing, your flyers, your website.',
+          'Edited stills handed over for your social pages, your Google listing, your flyers and your website. Most businesses pay separately for these.',
       },
       {
-        title: 'Broadcast-ready master plus platform cuts',
-        detail: 'TV-spec master, plus wide, square and vertical versions.',
+        title: 'A month of social content from the shoot',
+        detail:
+          'We cut the footage into a batch of short videos — enough to keep posting for weeks off one filming day, instead of one advert and nothing else.',
+      },
+      {
+        title: 'Priority turnaround and a direct line',
+        detail: 'Your job goes to the front of our queue, and you deal with us directly rather than through a form.',
+      },
+      {
+        title: 'Three rounds of changes',
+        detail: 'Across everything, until it is right.',
       },
     ],
     process: [
       'You fill the brief and we agree a shoot date.',
       'We script the jingle and the advert and send them for approval.',
       'We come and film — usually half to a full day, depending on the location.',
-      'We produce, edit and grade, then deliver everything.',
+      'We produce, edit and grade everything, set up your Google listing, and deliver the lot.',
     ],
     notIncluded: [
       'Travel outside Lagos — quoted before we start, never added afterwards.',
-      'Paid actors, models or a venue we have to rent.',
-      'Airtime for radio or TV.',
+      'Paid actors, models, or a venue we have to rent.',
+      'Radio and TV airtime — add placement below and we book the stations for you.',
     ],
   },
 
