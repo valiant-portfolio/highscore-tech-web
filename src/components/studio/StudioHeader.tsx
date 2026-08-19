@@ -12,8 +12,9 @@ import Logo from '@/components/brand/Logo';
 import { LinkButton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
+// No "Studio" entry — the logo is the way home, so a nav link beside it is
+// just the same destination twice.
 const NAV = [
-  { href: '/studio',           label: 'Studio' },
   { href: '/studio/pricing',   label: 'Pricing' },
   { href: '/studio/work',      label: 'Our work' },
 ];
@@ -23,8 +24,7 @@ export function StudioHeader({
 }: { whatsapp?: string; telegram?: string; email: string }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    href === '/studio' ? pathname === '/studio' : pathname?.startsWith(href);
+  const isActive = (href: string) => pathname?.startsWith(href) ?? false;
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur-md">

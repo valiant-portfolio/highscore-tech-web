@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, Music, Clapperboard, Radio, Tv, Megaphone, Search, TrendingUp } from 'lucide-react';
 import { PACKAGES } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
+import { StudioHeroBackdrop } from '@/components/studio/StudioHeroBackdrop';
 import { LinkButton } from '@/components/ui';
 
 export const metadata: Metadata = {
@@ -31,16 +32,24 @@ export default function StudioHomePage() {
   return (
     <>
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <section className="relative isolate overflow-hidden px-4 md:px-8 pt-20 md:pt-28 pb-16 md:pb-20">
+      {/* Deep bottom padding is deliberate: it reserves a clear band for the
+          spectrum below the copy, instead of the bars running through it. */}
+      <section className="relative isolate overflow-hidden px-4 md:px-8 pt-20 md:pt-28 pb-40 md:pb-48">
         <div
           aria-hidden="true"
-          className="absolute inset-0 -z-10"
+          className="absolute inset-0 -z-20"
           style={{
             background:
               'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 70%)',
           }}
         />
-        <div className="mx-auto max-w-[900px] text-center">
+        {/* Live spectrum analyser — the thing that says "music studio" before
+            anyone reads a word. Anchored to the lower half of the hero: across
+            the whole section it climbed straight through the headline. */}
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[46%] -z-10">
+          <StudioHeroBackdrop />
+        </div>
+        <div className="relative mx-auto max-w-[900px] text-center">
           <p className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
             Highscore Tech Studio
           </p>
