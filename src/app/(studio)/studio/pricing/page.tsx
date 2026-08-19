@@ -38,30 +38,33 @@ const GROUPS = [
 export default function StudioPricingPage() {
   return (
     <>
-      <section className="px-4 md:px-8 pt-16 md:pt-24 pb-10 text-center">
-        <div className="mx-auto max-w-[760px]">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Pricing</p>
-          <h1 className="mt-4 font-display text-4xl md:text-6xl font-extrabold tracking-[-0.03em] leading-[1.05] text-fg">
-            The full menu.
+      {/* No hero. Someone on the pricing page came to see prices, so the first
+          thing on screen is the first package, not a headline about them. */}
+      <section className="px-4 md:px-8 pt-10 md:pt-12 pb-2">
+        <div className="mx-auto max-w-[1180px] flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
+            Pricing
           </h1>
-          <p className="mt-5 text-base md:text-lg text-fg-muted leading-relaxed">
-            All prices in US dollars so anyone, anywhere can pay. Nigerian cards settle
-            through ALAT by Wema at checkout.
+          <p className="text-sm text-fg-muted">
+            All prices in US dollars. Nigerian cards settle through ALAT by Wema at checkout.
           </p>
         </div>
       </section>
 
-      {GROUPS.map((g) => {
+      {GROUPS.map((g, i) => {
         const items = PACKAGES.filter((p) => p.group === g.id);
         return (
-          <section key={g.id} className="px-4 md:px-8 py-12 md:py-16 border-t border-border first-of-type:border-t-0">
+          <section
+            key={g.id}
+            className={`px-4 md:px-8 py-10 md:py-12 ${i > 0 ? 'border-t border-border' : ''}`}
+          >
             <div className="mx-auto max-w-[1180px]">
               <div className="max-w-2xl">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{g.eyebrow}</p>
-                <h2 className="mt-3 font-display text-2xl md:text-4xl font-bold tracking-[-0.02em] text-fg">{g.title}</h2>
-                <p className="mt-3 text-fg-muted leading-relaxed">{g.body}</p>
+                <h2 className="mt-2 font-display text-xl md:text-2xl font-bold tracking-[-0.02em] text-fg">{g.title}</h2>
+                <p className="mt-2 text-sm text-fg-muted leading-relaxed">{g.body}</p>
               </div>
-              <div className="mt-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {items.map((p) => <PackageCard key={p.key} pkg={p} />)}
               </div>
             </div>

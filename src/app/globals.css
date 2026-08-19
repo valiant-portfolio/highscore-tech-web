@@ -199,6 +199,18 @@ a, button {
   border-radius: var(--r-sm);
 }
 
+/* Tailwind v4's Preflight sets `button { cursor: default }`, so every button in
+   the app came out with an arrow cursor and read as non-interactive. Put the
+   pointer back on anything clickable, and show the disabled cursor when it
+   genuinely can't be clicked. */
+:where(button, [role='button'], summary, label[for]):not(:disabled):not([aria-disabled='true']) {
+  cursor: pointer;
+}
+:where(button, [role='button']):disabled,
+:where(button, [role='button'])[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 /* Native dropdown options.
    The popup list is drawn by the OS, and on Windows it keeps a white background
    while inheriting the <select>'s light `color` in dark mode — white text on
