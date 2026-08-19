@@ -28,7 +28,9 @@ function resolveTransport(): Transport | null {
   if (HOSTINGER_USER && HOSTINGER_PASS) {
     return {
       host: process.env.SMTP_HOST ?? 'smtp.hostinger.com',
-      port: Number(process.env.SMTP_PORT ?? 465),
+      // 587 (STARTTLS) by default, not 465: plenty of networks and ISPs block
+      // 465 and 25 outright to curb spam, and the failure looks like a hang.
+      port: Number(process.env.SMTP_PORT ?? 587),
       user: HOSTINGER_USER,
       pass: HOSTINGER_PASS,
     };
@@ -59,6 +61,11 @@ const transporter = resolved
       host: resolved.host,
       port: resolved.port,
       secure: resolved.port === 465, // 465 = implicit TLS, 587 = STARTTLS
+      // On 587 the connection starts in the clear. Without this, nodemailer
+      // can send AUTH before upgrading, and the server rejects plaintext
+      // credentials with a bare `535 authentication failed` that reads like a
+      // wrong password. Refuse to authenticate until TLS is up.
+      requireTLS: true,
       auth: { user: resolved.user, pass: resolved.pass },
     })
   : null;
