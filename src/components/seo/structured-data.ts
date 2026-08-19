@@ -42,8 +42,10 @@ export function serviceSchema(opts: {
   name: string;
   description: string;
   path: string;
-  /** Lowest price in USD, if the page has one. Rendered as "from". */
+  /** Lowest price, if the page has one. Rendered as "from". */
   priceFrom?: number | null;
+  /** ISO currency for priceFrom. */
+  currency?: string;
 }) {
   return {
     '@context': 'https://schema.org',
@@ -57,12 +59,12 @@ export function serviceSchema(opts: {
       name: 'Highscore Tech',
       url: opts.siteUrl,
     },
-    areaServed: 'Worldwide',
+    areaServed: 'NG',
     ...(opts.priceFrom != null && {
       offers: {
         '@type': 'Offer',
         price: opts.priceFrom,
-        priceCurrency: 'USD',
+        priceCurrency: opts.currency ?? 'NGN',
         availability: 'https://schema.org/InStock',
         url: `${opts.siteUrl}${opts.path}`,
       },

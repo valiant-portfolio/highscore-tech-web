@@ -27,6 +27,7 @@ import {
   ADDONS, ADDON_BY_KEY, totalNgn, formatNgn,
   type ProjectType,
 } from '@/lib/studio/catalog';
+import { includeTitles } from '@/lib/studio/packages';
 import { createStudioOrder, type OrderFormState } from '@/lib/studio/actions';
 import { cn } from '@/lib/utils';
 
@@ -393,7 +394,7 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                   </div>
 
                   <ul className="mt-4 space-y-2 border-t border-border pt-4">
-                    {pkg.includes.map((line) => (
+                    {includeTitles(pkg.key, pkg.includes).map((line) => (
                       <li key={line} className="flex gap-2 text-xs text-fg-muted leading-relaxed">
                         <Check className="h-3.5 w-3.5 shrink-0 mt-px text-success" aria-hidden="true" />
                         <span>{line}</span>

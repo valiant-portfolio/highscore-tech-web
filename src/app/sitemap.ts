@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { listProjectSlugs } from '@/lib/portfolio/queries';
 import { OCCASIONS } from '@/lib/studio/occasions';
+import { PACKAGES } from '@/lib/studio/catalog';
 
 // /sitemap.xml — public, indexable routes. Dynamic portfolio slugs are
 // pulled at build time. Academy URLs are gone: teaching is retired from the
@@ -45,5 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     make('/studio/contact', 'monthly', 0.6),
     // The occasion pages are the ones built to rank.
     ...OCCASIONS.map((o) => make(`/studio/songs/${o.slug}`, 'weekly', 0.9)),
+    // One page per package, explaining exactly what the price covers.
+    ...PACKAGES.map((p) => make(`/studio/packages/${p.key}`, 'monthly', 0.85)),
   ];
 }
