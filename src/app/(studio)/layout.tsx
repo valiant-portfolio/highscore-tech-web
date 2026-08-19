@@ -2,6 +2,7 @@
 // header rather than the agency one: different buyer, different journey.
 
 import { StudioHeader } from '@/components/studio/StudioHeader';
+import { WhatsAppFloat } from '@/components/studio/WhatsAppFloat';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 import { CONTACT_LINKS } from '@/lib/studio/catalog';
 
@@ -21,6 +22,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
       />
       <main id="studio-content" className="flex-1">{children}</main>
       <MarketingFooter />
+      <WhatsAppFloat whatsapp={CONTACT_LINKS.whatsapp} />
     </>
   );
 }

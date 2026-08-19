@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { href: '/studio/pricing',   label: 'Pricing' },
   { href: '/studio/work',      label: 'Our work' },
+  { href: '/studio/contact',   label: 'Contact us' },
 ];
 
 export function StudioHeader({
@@ -58,8 +59,10 @@ export function StudioHeader({
           ))}
         </nav>
 
+        {/* No bare channel icons here: unlabelled, they read as decoration and
+            nobody knows what they do. Reaching us is the Contact link above and
+            the floating WhatsApp button. */}
         <div className="ml-auto flex items-center gap-1.5">
-          <ContactIcons whatsapp={whatsapp} telegram={telegram} email={email} className="hidden sm:flex" />
           <LinkButton href="/studio/order" size="sm">Order now</LinkButton>
           <button
             type="button"

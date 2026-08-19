@@ -50,8 +50,8 @@ export default function StudioHomePage() {
           className="absolute inset-0 -z-20"
           style={{
             background:
-              'linear-gradient(180deg, color-mix(in srgb, var(--color-ink) 82%, transparent) 0%, color-mix(in srgb, var(--color-ink) 88%, transparent) 55%, var(--color-bg) 100%), ' +
-              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 18%, transparent) 0%, transparent 70%)',
+              'linear-gradient(180deg, color-mix(in srgb, var(--color-ink) 58%, transparent) 0%, color-mix(in srgb, var(--color-ink) 70%, transparent) 55%, var(--color-bg) 100%), ' +
+              'radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 70%)',
           }}
         />
         {/* Live spectrum analyser — the thing that says "music studio" before
