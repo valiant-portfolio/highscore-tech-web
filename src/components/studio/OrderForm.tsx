@@ -33,9 +33,10 @@ import { cn } from '@/lib/utils';
 const INITIAL: OrderFormState = { status: 'idle' };
 const LAST_STEP = 6;
 
-const GROUPS: { id: 'core' | 'brand'; label: string }[] = [
-  { id: 'core',  label: 'Songs & video' },
-  { id: 'brand', label: 'For bigger brands' },
+const GROUPS: { id: 'personal' | 'business' | 'brand'; label: string }[] = [
+  { id: 'personal', label: 'Personal & occasions' },
+  { id: 'business', label: 'Business & brands' },
+  { id: 'brand',    label: 'Ongoing, every month' },
 ];
 
 const ADDON_ICON: Record<string, React.ReactNode> = {

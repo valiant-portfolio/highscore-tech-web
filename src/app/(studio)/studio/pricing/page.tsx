@@ -1,5 +1,5 @@
-// The full Studio menu — every package, itemised, from the ₦15,000 song to
-// always-on brand campaigns.
+// The full Studio menu — every package, itemised, from the ₦25,000 personal
+// song to always-on brand retainers.
 
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
@@ -8,24 +8,30 @@ import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'Studio pricing — songs from ₦15,000 to full brand campaigns',
+  title: 'Studio pricing — songs from ₦25,000, business jingles from ₦120,000',
   description:
-    'Highscore Studio pricing: custom songs from ₦15,000, AI video from ₦45,000, filmed on location from ₦70,000, plus live TV and radio, outdoor branding, Google ranking and ads management.',
+    'Highscore Studio pricing: personal songs from ₦25,000, business jingles from ₦120,000, AI advert video from ₦220,000, filmed on location from ₦350,000, plus radio and live TV, Google ranking and ads management.',
   alternates: { canonical: '/studio/pricing' },
 };
 
 const GROUPS = [
   {
-    id: 'core',
-    eyebrow: 'Songs & video',
-    title: 'No business is too small.',
-    body: 'Start with the song alone, or add the video — however you want it made.',
+    id: 'personal',
+    eyebrow: 'Personal & occasions',
+    title: 'For the person, or the day.',
+    body: 'Birthdays, weddings, anniversaries, church programmes. Priced so anyone can order one.',
+  },
+  {
+    id: 'business',
+    eyebrow: 'Business & brands',
+    title: 'For the business that wants to be heard.',
+    body: 'Commercial work: full usage rights, scripting written around your offer and your prices, and masters built for wherever the advert runs.',
   },
   {
     id: 'brand',
-    eyebrow: 'For bigger brands',
-    title: 'Run your whole presence.',
-    body: 'Where we stop making content and start running everything — outdoor, Google and paid ads.',
+    eyebrow: 'Ongoing',
+    title: 'Stay on their screens every month.',
+    body: 'Retainers, for brands that would rather be everywhere all year than appear once.',
   },
 ] as const;
 

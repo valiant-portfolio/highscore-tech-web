@@ -33,11 +33,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom birthday songs, made for one person',
     title: 'Custom birthday song — written and produced for them',
     description:
-      'Order a custom birthday song with their name in it, from ₦15,000. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
+      'Order a custom birthday song with their name in it, from ₦25,000. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
     intro:
       'A birthday message they will replay for years. We write the song around the person — their name, what they love, the way you talk about them — and produce it properly so it sounds like something off the radio.',
     projectType: 'birthday',
-    packages: ['music_only', 'ai_video', 'video_edit'],
+    packages: ['personal_song', 'personal_ai_video', 'personal_video_edit'],
     gets: [
       'Their name sung in the song',
       'Written from the details you give us — inside jokes, memories, the lot',
@@ -61,7 +61,7 @@ export const OCCASIONS: Occasion[] = [
     intro:
       'Your first dance should not be somebody else’s love song. We write one about you — how you met, what you call each other, the bit of the story only your friends know — and produce it ready for the day.',
     projectType: 'event',
-    packages: ['ai_video', 'video_edit', 'on_location'],
+    packages: ['event_package', 'personal_ai_video', 'personal_video_edit'],
     gets: [
       'A song about your actual story, not a template',
       'Ready for the first dance, the entrance or the montage',
@@ -80,11 +80,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs and jingles for churches and church programmes',
     title: 'Custom church song — anniversaries, conventions and programmes',
     description:
-      'Custom songs for church anniversaries, conventions, harvests and programmes, from ₦15,000. Themed around your scripture and produced for the service.',
+      'Custom songs for church anniversaries, conventions, harvests and programmes, from ₦25,000. Themed around your scripture and produced for the service.',
     intro:
       'For the anniversary, the convention, the harvest — a song written around your theme and your scripture, that the congregation can actually sing along to. We produce it for the room it will be played in.',
     projectType: 'church',
-    packages: ['music_only', 'ai_video', 'on_location'],
+    packages: ['personal_song', 'personal_ai_video', 'event_package'],
     gets: [
       'Written around your theme or scripture',
       'Gospel, afro-gospel, worship, choir or praise — your call',
@@ -103,11 +103,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom jingles that make your business impossible to ignore',
     title: 'Business jingle — custom advert songs for your brand',
     description:
-      'Custom jingles and advert songs for businesses, from ₦15,000. Radio-ready, TV-ready and built for social, with promo video, outdoor branding and ads from Highscore Studio.',
+      'Custom jingles and advert songs for businesses, from ₦120,000. Full commercial rights, radio-ready and TV-ready, with advert video, Google ranking and paid ads from Highscore Studio.',
     intro:
       'The jingle people hum back at you in the market. We write it around what you actually sell, what you charge and why you are better — then produce it for wherever it needs to run: social, radio, live TV, or a billboard.',
     projectType: 'business',
-    packages: ['ai_video', 'on_location', 'video_edit'],
+    packages: ['business_jingle', 'business_ai_video', 'business_shoot'],
     gets: [
       'A jingle written around your offer, not a generic tune',
       'Your prices, location and phone number said clearly',
@@ -115,7 +115,7 @@ export const OCCASIONS: Occasion[] = [
       'Optional promo video, billboards, Google ranking and paid ads',
     ],
     faqs: [
-      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. Add radio (₦30,000) or live TV (₦70,000) at the order form and we produce the broadcast master and arrange the placement. The station’s airtime is quoted separately, per campaign.' },
+      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. Add radio (₦120,000) or live TV (₦250,000) at the order form and we produce the broadcast master and book the station for you. The airtime itself is your budget and is quoted per campaign.' },
       { q: 'Do you make the video as well?', a: 'Yes, three ways: we edit footage you send us, we generate the video with AI, or we come to your place and film it. Pick whichever suits at the order form.' },
       { q: 'Can you keep making content every month?', a: 'That is the Brand Engine: a set number of videos each month, ongoing jingles and seasonal campaigns, so you stay on people’s screens instead of appearing once.' },
     ],
@@ -126,11 +126,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs for parties, clubs and events',
     title: 'Custom party song — for parties, clubs and events',
     description:
-      'Custom songs and hype tracks for parties, club nights, launches and events, from ₦15,000. Produced by Highscore Studio and delivered before your date.',
+      'Custom songs and hype tracks for parties, club nights, launches and events, from ₦25,000. Produced by Highscore Studio and delivered before your date.',
     intro:
       'A track made for your night — the name of the event, the host, the crowd it is for. Something to open with, to hype the room, or to post in the run-up so people actually turn up.',
     projectType: 'event',
-    packages: ['music_only', 'ai_video', 'video_edit'],
+    packages: ['personal_song', 'personal_ai_video', 'event_package'],
     gets: [
       'A track built around your event and its name',
       'Shout-outs for hosts, sponsors or the guest list',

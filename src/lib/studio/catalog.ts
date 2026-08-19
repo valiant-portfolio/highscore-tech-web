@@ -7,6 +7,13 @@
 //
 // We sell to the Nigerian market, so everything is priced and charged in Naira
 // and settled through ALAT by Wema. Amounts are whole Naira as integers.
+//
+// Personal and business work are priced separately on purpose. They are not the
+// same song with a different number on it: a business package carries
+// commercial usage rights, scripting written around the client's offer and
+// prices, and broadcast-ready masters. Someone buying a birthday song for their
+// mother is spending fun money; a business running a jingle on radio is about
+// to spend far more than our fee on airtime alone.
 
 export type ProjectType = 'church' | 'business' | 'birthday' | 'event';
 
@@ -24,91 +31,158 @@ export interface StudioPackage {
   blurb: string;
   /** Itemised deliverables — what the client actually gets. */
   includes: string[];
-  group: 'core' | 'brand';
+  group: 'personal' | 'business' | 'brand';
   /** Recurring monthly rather than one-off. */
   monthly?: boolean;
   /** Price is a floor; the rest is scoped per job. */
   from?: boolean;
-  /** Highlighted as the popular pick. */
+  /** Highlighted as the popular pick within its group. */
   featured?: boolean;
   /** Extra condition the customer should know before ordering. */
   note?: string;
 }
 
 export const PACKAGES: StudioPackage[] = [
+  /* ── Personal & occasions ─────────────────────────────────────────────
+     Birthdays, weddings, anniversaries, church programmes. Kept genuinely
+     affordable — this is the door into the studio.                        */
   {
-    key: 'music_only',
-    name: 'Music only',
-    priceNgn: 15_000,
-    group: 'core',
-    blurb: 'The song itself. Fast, and yours to use anywhere.',
+    key: 'personal_song',
+    name: 'Personal song',
+    priceNgn: 25_000,
+    group: 'personal',
+    blurb: 'A song written about one person or one occasion.',
     includes: [
-      'One custom song written about you, your business or your occasion',
+      'A custom song written around the person or the day',
+      'Their name and your details in the lyrics',
       'Clean, studio-quality audio',
-      'Yours to post, play or broadcast',
+      'Yours to play, post and keep',
     ],
   },
   {
-    key: 'video_edit',
-    name: 'Music + your footage edited',
-    priceNgn: 28_000,
-    group: 'core',
-    blurb: 'You send the photos and clips, we cut them to the song.',
-    includes: [
-      'Everything in Music only',
-      'You send your own videos and pictures',
-      'We edit them into a finished video around the song',
-      'Cut for social — WhatsApp status, Instagram, TikTok',
-    ],
-  },
-  {
-    key: 'ai_video',
-    name: 'Music + AI video',
+    key: 'personal_video_edit',
+    name: 'Song + your photos & clips',
     priceNgn: 45_000,
-    group: 'core',
-    featured: true,
-    blurb: 'No footage needed — we generate the video with AI.',
+    group: 'personal',
+    blurb: 'You send the photos and videos, we cut them to the song.',
     includes: [
-      'Everything in Music only',
+      'Everything in Personal song',
+      'You send your own photos and clips',
+      'We edit them into a finished video around the song',
+      'Cut for WhatsApp status, Instagram and TikTok',
+    ],
+  },
+  {
+    key: 'personal_ai_video',
+    name: 'Song + AI video',
+    priceNgn: 60_000,
+    group: 'personal',
+    featured: true,
+    blurb: 'No footage needed — we generate the whole video with AI.',
+    includes: [
+      'Everything in Personal song',
       'A full video created with AI',
       'Your photos turned into moving video',
       'Ready for every platform',
     ],
   },
   {
-    key: 'on_location',
-    name: 'Music + we come and shoot',
-    priceNgn: 70_000,
-    group: 'core',
-    blurb: 'We come to your place and film the real thing.',
+    key: 'event_package',
+    name: 'Wedding & event package',
+    priceNgn: 150_000,
+    group: 'personal',
+    blurb: 'For the day itself — song, multiple videos and the highlight cut.',
     includes: [
-      'Everything in Music only',
-      'We come to your location and shoot',
-      'Professionally filmed and edited video of your business',
-      'Platform-ready cuts plus a broadcast-ready master',
+      'Custom song written around your story or your programme',
+      'Multiple videos plus a highlight edit',
+      'Social cut-downs for the run-up and the day after',
+      'Delivery locked to your event date',
+      'One round of revisions before the day',
     ],
-    note: 'Locations outside Lagos may carry a travel cost — we confirm before we start.',
   },
 
-  // ── Bigger brands ─────────────────────────────────────────────────────
+  /* ── Business & brands ────────────────────────────────────────────────
+     Commercial work: usage rights, scripting around the offer, and masters
+     built for where the advert will actually run.                         */
   {
-    key: 'outdoor_branding',
-    name: 'Outdoor branding',
+    key: 'business_jingle',
+    name: 'Business jingle',
     priceNgn: 120_000,
-    from: true,
-    group: 'brand',
-    blurb: 'Billboards, banners and signage that match the campaign.',
+    group: 'business',
+    blurb: 'The jingle people hum back at you in the market.',
     includes: [
-      'Billboard, banner and street-signage artwork',
-      'Vehicle and shop-front branding',
-      'Print-ready at any size',
+      'Jingle written around what you sell, your prices and your location',
+      'Scripted to say the things a customer must hear',
+      'Full commercial usage rights — run it anywhere, forever',
+      'Broadcast-quality master plus social cuts',
+      'One round of revisions',
     ],
-    note: 'Board rental and printing are quoted separately, per site.',
+  },
+  {
+    key: 'business_video_edit',
+    name: 'Jingle + your footage edited',
+    priceNgn: 180_000,
+    group: 'business',
+    blurb: 'You send the footage, we build the advert around it.',
+    includes: [
+      'Everything in Business jingle',
+      'We edit your own videos and photos into a finished advert',
+      'Your prices, location and phone number on screen',
+      'Cut for every platform',
+    ],
+  },
+  {
+    key: 'business_ai_video',
+    name: 'Jingle + AI advert video',
+    priceNgn: 220_000,
+    group: 'business',
+    featured: true,
+    blurb: 'A full advert generated with AI — no shoot required.',
+    includes: [
+      'Everything in Business jingle',
+      'A complete advert video created with AI',
+      'Photos of your business turned into moving video',
+      'Platform-ready cuts plus a broadcast-ready master',
+    ],
+  },
+  {
+    key: 'business_shoot',
+    name: 'Jingle + we come and shoot',
+    priceNgn: 350_000,
+    group: 'business',
+    blurb: 'We come to your place and film the real thing.',
+    includes: [
+      'Everything in Business jingle',
+      'A filming day at your location with our crew',
+      'Professionally filmed and edited advert',
+      'Platform-ready cuts plus a broadcast-ready master',
+      'Stills from the shoot you can keep using',
+    ],
+    note: 'Covers a filming day in Lagos. Outside Lagos we quote travel before we start.',
+  },
+
+  /* ── Ongoing ──────────────────────────────────────────────────────────
+     Retainers. The part that makes a studio survivable month to month.    */
+  {
+    key: 'ads_management',
+    name: 'Ads management',
+    priceNgn: 200_000,
+    from: true,
+    monthly: true,
+    group: 'brand',
+    blurb: 'We run the ads. You take the calls.',
+    includes: [
+      'We run your paid ads — Google, Meta and TikTok',
+      'Creatives built from your jingle and video',
+      'Targeting, tracking and monthly optimisation',
+      'A report showing what the spend actually returned',
+    ],
+    note: 'Ad spend is your budget and is paid to the platforms.',
   },
   {
     key: 'google_ranking',
     name: 'Google ranking (SEO)',
-    priceNgn: 150_000,
+    priceNgn: 250_000,
     from: true,
     monthly: true,
     group: 'brand',
@@ -116,38 +190,39 @@ export const PACKAGES: StudioPackage[] = [
     includes: [
       'Get your website or brand ranking on Google',
       'On-page fixes, content and keyword targeting',
-      'Google Business Profile set up properly',
+      'Google Business Profile set up and maintained',
       'Monthly ranking report',
     ],
   },
   {
-    key: 'ads_management',
-    name: 'Ads management',
-    priceNgn: 100_000,
+    key: 'content_retainer',
+    name: 'Content retainer',
+    priceNgn: 350_000,
     from: true,
     monthly: true,
     group: 'brand',
-    blurb: 'We run the ads. You take the calls.',
+    blurb: 'A steady stream of content, every month.',
     includes: [
-      'We run your paid ads — Google, Meta and TikTok',
-      'Creatives built from your song and video',
-      'Targeting, tracking and optimisation',
+      'A set number of videos every month',
+      'Seasonal jingles and campaign refreshes',
+      'Cut for every platform, posted on schedule',
+      'Priority turnaround',
     ],
-    note: 'Ad spend is your budget and is paid to the platforms.',
   },
   {
     key: 'brand_engine',
     name: 'Brand Engine',
-    priceNgn: 300_000,
+    priceNgn: 750_000,
     from: true,
     monthly: true,
     group: 'brand',
-    blurb: 'Always-on. We keep you on people’s screens, month after month.',
+    blurb: 'Everything, always on. We run your whole presence.',
     includes: [
-      'A set number of videos every month',
-      'Ongoing jingles and seasonal campaigns',
-      'Everything above bundled together',
-      'Priority turnaround',
+      'Everything in the Content retainer',
+      'Ads management and Google ranking included',
+      'Outdoor branding artwork — billboards, banners, signage',
+      'Broadcast campaigns planned across the year',
+      'A dedicated line to us, first in the queue',
     ],
   },
 ];
@@ -159,7 +234,7 @@ export const PACKAGE_BY_KEY: Record<string, StudioPackage> = Object.fromEntries(
 /* ── Add-ons ─────────────────────────────────────────────────────────────
    Bolted on top of any package: getting the finished piece onto air. Our fee
    covers producing the broadcast master and arranging the placement; the
-   station's airtime is quoted per campaign.                                */
+   station's airtime is the client's budget and quoted per campaign.        */
 
 export interface StudioAddon {
   key: string;
@@ -170,16 +245,16 @@ export interface StudioAddon {
 
 export const ADDONS: StudioAddon[] = [
   {
-    key: 'live_tv',
-    name: 'Live TV broadcast',
-    priceNgn: 70_000,
-    blurb: 'Broadcast-ready master and your advert placed on live television.',
-  },
-  {
     key: 'radio',
     name: 'Radio',
-    priceNgn: 30_000,
-    blurb: 'Jingle mixed for air, with 15s / 30s / 60s spots for the station.',
+    priceNgn: 120_000,
+    blurb: 'Jingle mixed for air, 15s / 30s / 60s spots, and the station booked for you.',
+  },
+  {
+    key: 'live_tv',
+    name: 'Live TV',
+    priceNgn: 250_000,
+    blurb: 'Broadcast master produced to station spec and your advert placed on live television.',
   },
 ];
 
@@ -244,7 +319,7 @@ export const PROJECT_TYPES: ProjectTypeDef[] = [
     fields: [
       { name: 'business_name', label: 'Business name', type: 'text', required: true, placeholder: 'e.g. Mama Nkechi Foods' },
       { name: 'what_you_do', label: 'What does the business do or sell?', type: 'textarea', required: true, placeholder: 'Say it plainly — what you sell and who buys it.' },
-      { name: 'location', label: 'Where are you based?', type: 'text', placeholder: 'e.g. Ikeja, Lagos', hint: 'Say it in the advert, and it decides travel if we come to shoot.' },
+      { name: 'location', label: 'Where are you based?', type: 'text', placeholder: 'e.g. Ikeja, Lagos', hint: 'Said in the advert, and it decides travel if we come to shoot.' },
       { name: 'target_customer', label: 'Who is your customer?', type: 'text', placeholder: 'e.g. young families in Lagos' },
       { name: 'slogan', label: 'Slogan or tagline', type: 'text', placeholder: 'If you have one.' },
       { name: 'selling_points', label: 'What must the advert say?', type: 'textarea', required: true, placeholder: 'Your prices, your location, your phone number — the things a customer must hear.' },

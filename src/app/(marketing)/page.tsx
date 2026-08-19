@@ -195,7 +195,7 @@ export default async function HomePage() {
             </p>
             <p className="mt-3 max-w-xl text-sm text-fg-muted">
               Songs for businesses, churches, weddings, birthdays and events — from{' '}
-              <span className="font-bold text-brand">₦15,000</span> up to full monthly campaigns.
+              <span className="font-bold text-brand">₦25,000</span>, business jingles from ₦120,000.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a

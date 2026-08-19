@@ -1,6 +1,5 @@
-// Highscore Studio — landing page. Sells the whole ladder: a ₦15,000 song for
-// the smallest business, up to always-on brand campaigns on TV, radio and
-// outdoor.
+// Highscore Studio — landing page. Sells the whole ladder: a ₦25,000 personal
+// song, business jingles from ₦120,000, up to always-on brand retainers.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -14,7 +13,7 @@ import { LinkButton } from '@/components/ui';
 export const metadata: Metadata = {
   title: 'Highscore Studio — custom songs, jingles & promo videos',
   description:
-    'We make businesses famous. Custom songs from ₦15,000, AI and filmed promo videos, radio and live TV, outdoor branding, Google ranking and paid ads. Songs for birthdays, weddings, churches, parties and events across Nigeria.',
+    'We make businesses famous. Personal songs from ₦25,000 and business jingles from ₦120,000 — AI and filmed advert video, radio and live TV, Google ranking and paid ads. Songs for birthdays, weddings, churches, parties and events across Nigeria.',
   alternates: { canonical: '/studio' },
 };
 
@@ -28,8 +27,8 @@ const WHAT_WE_DO = [
 ];
 
 export default function StudioHomePage() {
-  const core = PACKAGES.filter((p) => p.group === 'core');
-  const brand = PACKAGES.filter((p) => p.group === 'brand');
+  const personal = PACKAGES.filter((p) => p.group === 'personal');
+  const business = PACKAGES.filter((p) => p.group === 'business');
 
   return (
     <>
@@ -83,7 +82,7 @@ export default function StudioHomePage() {
             </LinkButton>
           </div>
           <p className="mt-6 text-sm text-fg-subtle">
-            Songs from <span className="font-bold text-brand">₦15,000</span> · we deliver to WhatsApp, Telegram or email
+            Personal songs from <span className="font-bold text-brand">₦25,000</span> · business jingles from <span className="font-bold text-brand">₦120,000</span>
           </p>
         </div>
       </section>
@@ -129,27 +128,31 @@ export default function StudioHomePage() {
       <section id="pricing" className="px-4 md:px-8 py-16 md:py-20 border-t border-border">
         <div className="mx-auto max-w-[1180px]">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Start here</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Personal &amp; occasions</p>
             <h2 className="mt-3 font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
-              No business is too small.
+              For the person, or the day.
             </h2>
             <p className="mt-3 text-fg-muted leading-relaxed">
-              We priced the first step so a small business can still show up looking
-              like the big brands.
+              Birthdays, weddings, anniversaries, church programmes — priced so anyone
+              can order one.
             </p>
           </div>
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {core.map((p) => <PackageCard key={p.key} pkg={p} />)}
+            {personal.map((p) => <PackageCard key={p.key} pkg={p} />)}
           </div>
 
           <div className="mt-16 text-center max-w-2xl mx-auto">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">For bigger brands</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Business &amp; brands</p>
             <h2 className="mt-3 font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
-              Run your whole presence.
+              For the business that wants to be heard.
             </h2>
+            <p className="mt-3 text-fg-muted leading-relaxed">
+              Full commercial rights, scripting built around your offer, and masters
+              made for wherever the advert runs.
+            </p>
           </div>
           <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {brand.map((p) => <PackageCard key={p.key} pkg={p} />)}
+            {business.map((p) => <PackageCard key={p.key} pkg={p} />)}
           </div>
 
           <div className="mt-12 text-center">
@@ -221,7 +224,7 @@ export default function StudioHomePage() {
             Let’s make them hear you.
           </h2>
           <p className="mt-4 text-fg-muted leading-relaxed">
-            Start with a ₦15,000 song, or go all the way to a campaign on live TV.
+            Start with a ₦25,000 song, or go all the way to a campaign on live TV.
             Either way, it starts with one form.
           </p>
           <div className="mt-8">
