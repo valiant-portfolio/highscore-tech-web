@@ -5,10 +5,16 @@
 // client callback in isolation) and update the payment + enrollment rows.
 // This is the ONLY confirmation path — there is no webhook for ALATPay on
 // Highscore Tech.
+//
+// Two kinds of reference arrive here: academy payments (HST-…) and Studio
+// orders (HSS-…). Both mark-paid functions look their reference up and no-op
+// when it isn't theirs, so we can hand the reference to both without caring
+// which it is.
 
 import { NextResponse } from 'next/server';
 import { verifyAlatPayTransaction } from '@/lib/alatpay/server';
 import { markPaymentSucceededAction } from '@/lib/enrollment/actions';
+import { markStudioOrderPaid } from '@/lib/studio/actions';
 
 export const runtime = 'nodejs';
 
@@ -30,7 +36,12 @@ export async function POST(req: Request) {
   const result = await verifyAlatPayTransaction(reference);
 
   if (result.status === 'succeeded') {
-    await markPaymentSucceededAction(reference, { remote: result.raw, sdk: sdkResponse });
+    const payload = { remote: result.raw, sdk: sdkResponse };
+    if (reference.startsWith('HSS-')) {
+      await markStudioOrderPaid(reference, payload);
+    } else {
+      await markPaymentSucceededAction(reference, payload);
+    }
     return NextResponse.json({ ok: true, status: 'succeeded' });
   }
 

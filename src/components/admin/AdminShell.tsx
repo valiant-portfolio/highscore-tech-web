@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox,
   CircleDollarSign, ExternalLink, LogOut, Menu, X,
   Activity, ShieldCheck, FileText, Settings, ClipboardList,
-  Briefcase, Coins, LineChart,
+  Briefcase, Coins, LineChart, Music,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: '/admin',             label: 'Dashboard',   icon: <LayoutDashboard className="h-4 w-4" /> },
   { href: '/admin/portfolio',   label: 'Portfolio',   icon: <Layers className="h-4 w-4" /> },
+  { href: '/admin/studio',      label: 'Studio',      icon: <Music className="h-4 w-4" /> },
   { href: '/admin/courses',     label: 'Courses',     icon: <GraduationCap className="h-4 w-4" /> },
   { href: '/admin/enrollments', label: 'Enrolments',  icon: <Users className="h-4 w-4" /> },
   { href: '/admin/staff',       label: 'Staff',       icon: <IdCard className="h-4 w-4" /> },
