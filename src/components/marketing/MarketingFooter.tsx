@@ -25,10 +25,13 @@ const COLUMNS: Column[] = [
   {
     title: 'Studio',
     links: [
-      { href: STUDIO_URL,               label: 'Highscore Studio' },
-      { href: `${STUDIO_URL}/pricing`,  label: 'Studio pricing' },
-      { href: `${STUDIO_URL}/work`,     label: 'Our work' },
-      { href: `${STUDIO_URL}/order`,    label: 'Order a song' },
+      { href: STUDIO_URL,                            label: 'Highscore Studio' },
+      { href: `${STUDIO_URL}/pricing`,               label: 'Studio pricing' },
+      { href: `${STUDIO_URL}/songs/birthday-song`,   label: 'Birthday songs' },
+      { href: `${STUDIO_URL}/songs/wedding-song`,    label: 'Wedding songs' },
+      { href: `${STUDIO_URL}/songs/church-song`,     label: 'Church songs' },
+      { href: `${STUDIO_URL}/songs/business-jingle`, label: 'Business jingles' },
+      { href: `${STUDIO_URL}/order`,                 label: 'Order a song' },
     ],
   },
   {

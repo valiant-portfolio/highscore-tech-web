@@ -36,6 +36,53 @@ export function websiteSchema(siteUrl: string, name: string) {
   };
 }
 
+// ── Service — one per Studio offering / occasion page ─────────────────────
+export function serviceSchema(opts: {
+  siteUrl: string;
+  name: string;
+  description: string;
+  path: string;
+  /** Lowest price in USD, if the page has one. Rendered as "from". */
+  priceFrom?: number | null;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: opts.name,
+    description: opts.description,
+    serviceType: 'Custom music and video production',
+    url: `${opts.siteUrl}${opts.path}`,
+    provider: {
+      '@type': 'Organization',
+      name: 'Highscore Tech',
+      url: opts.siteUrl,
+    },
+    areaServed: 'Worldwide',
+    ...(opts.priceFrom != null && {
+      offers: {
+        '@type': 'Offer',
+        price: opts.priceFrom,
+        priceCurrency: 'USD',
+        availability: 'https://schema.org/InStock',
+        url: `${opts.siteUrl}${opts.path}`,
+      },
+    }),
+  };
+}
+
+// ── FAQPage — lets the questions surface directly in search results ────────
+export function faqSchema(faqs: ReadonlyArray<{ q: string; a: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  };
+}
+
 // ── BreadcrumbList ────────────────────────────────────────────────────────
 export function breadcrumbSchema(crumbs: ReadonlyArray<{ name: string; url: string }>) {
   return {

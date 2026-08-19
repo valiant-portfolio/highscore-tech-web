@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Music, Clapperboard, Radio, Tv, Megaphone, Search, TrendingUp } from 'lucide-react';
 import { PACKAGES } from '@/lib/studio/catalog';
+import { OCCASIONS } from '@/lib/studio/occasions';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { StudioHeroBackdrop } from '@/components/studio/StudioHeroBackdrop';
 import { LinkButton } from '@/components/ui';
@@ -154,6 +155,35 @@ export default function StudioHomePage() {
             <LinkButton href="/studio/pricing" variant="secondary" rightIcon={<TrendingUp className="h-4 w-4" />}>
               See the full menu — radio, TV, outdoor, Google &amp; ads
             </LinkButton>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Occasions ────────────────────────────────────────────── */}
+      {/* Real links, not decoration: each of these is a page built to rank for
+          its own search, and this is how crawlers and customers find them. */}
+      <section className="px-4 md:px-8 py-14 md:py-16 border-t border-border">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">What’s the occasion?</p>
+            <h2 className="mt-3 font-display text-2xl md:text-4xl font-bold tracking-[-0.02em] text-fg">
+              We make songs for all of it.
+            </h2>
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {OCCASIONS.map((o) => (
+              <Link
+                key={o.slug}
+                href={`/studio/songs/${o.slug}`}
+                className="group rounded-xl border border-border bg-surface p-5 transition-colors hover:border-brand/60 hover:bg-surface-hover"
+              >
+                <h3 className="flex items-center justify-between gap-3 font-semibold text-fg">
+                  {o.name}
+                  <ArrowRight className="h-4 w-4 shrink-0 text-fg-subtle transition-transform group-hover:translate-x-0.5" />
+                </h3>
+                <p className="mt-1.5 text-sm text-fg-muted leading-relaxed line-clamp-2">{o.intro}</p>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
