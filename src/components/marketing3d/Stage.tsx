@@ -35,10 +35,17 @@ export interface StageProps {
   gradient: StageGradient;
   /** Override which tier the scene runs at. Useful for debugging. */
   forceTier?: CapabilityTier;
+  /**
+   * Antialias + full dpr on the medium tier too. For scenes built from hard
+   * edges (bars, panels) rather than soft gradients, where the default medium
+   * settings leave visible stair-stepping. Does NOT mount a canvas on devices
+   * that wouldn't otherwise get one.
+   */
+  crisp?: boolean;
   className?: string;
 }
 
-export function Stage({ children, gradient, forceTier, className }: StageProps) {
+export function Stage({ children, gradient, forceTier, crisp = false, className }: StageProps) {
   const [mounted, setMounted] = useState(false);
   const [tier, setTier] = useState<CapabilityTier>('none');
 
@@ -51,7 +58,8 @@ export function Stage({ children, gradient, forceTier, className }: StageProps) 
   }, [forceTier]);
 
   const wantCanvas = mounted && (tier === 'high' || tier === 'medium');
-  const dpr = tier === 'high' ? ([1, 2] as [number, number]) : ([1, 1.5] as [number, number]);
+  const fullQuality = tier === 'high' || crisp;
+  const dpr = fullQuality ? ([1, 2] as [number, number]) : ([1, 1.5] as [number, number]);
 
   return (
     <div className={cn('absolute inset-0 overflow-hidden pointer-events-none', className)}>
@@ -60,7 +68,7 @@ export function Stage({ children, gradient, forceTier, className }: StageProps) 
       {wantCanvas && (
         <FiberCanvas
           dpr={dpr}
-          gl={{ antialias: tier === 'high', alpha: true, powerPreference: 'low-power' }}
+          gl={{ antialias: fullQuality, alpha: true, powerPreference: 'low-power' }}
           performance={{ min: 0.5 }}
           camera={{ position: [0, 0, 5], fov: 60 }}
           style={{ position: 'absolute', inset: 0 }}

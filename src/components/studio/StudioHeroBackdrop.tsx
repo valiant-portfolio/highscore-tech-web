@@ -16,14 +16,16 @@ import { SoundWave } from '@/components/marketing3d/scenes/SoundWave';
 export function StudioHeroBackdrop() {
   return (
     <Stage
+      crisp
       gradient={{
         // What low-tier devices see instead — the same glow, no canvas.
         fallback:
           'radial-gradient(75% 60% at 50% 100%, color-mix(in srgb, #18C2DC 20%, transparent) 0%, transparent 72%)',
       }}
-      // Fades out at the top so the bars never climb into the headline, and
-      // again at the very bottom so they dissolve into the section below.
-      className="opacity-[0.55] [mask-image:linear-gradient(to_bottom,transparent_0%,black_45%,black_92%,transparent_100%)]"
+      // Fades out at the top so the bars never climb into the headline. Kept at
+      // full strength otherwise — dimming the whole layer was what made the
+      // bars look washed out instead of sharp.
+      className="[mask-image:linear-gradient(to_bottom,transparent_0%,black_30%,black_96%,transparent_100%)]"
     >
       <ambientLight intensity={1} />
       <SoundWave />
