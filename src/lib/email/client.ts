@@ -6,7 +6,11 @@
 //
 // Setup, once:
 //   1. Create the mailbox in hPanel → Emails → your domain → Create mailbox.
-//   2. Put the mailbox address in SMTP_USER and its password in SMTP_PASSWORD.
+//   2. SMTP_USER must be a REAL MAILBOX, never an alias. An alias only
+//      receives and forwards; it has no password, so authentication fails with
+//      a bare `535` however many times you reset it. We authenticate as the
+//      real mailbox and put the friendly noreply alias in EMAIL_FROM — the
+//      server allows sending as an alias of the account you logged in as.
 //   3. DNS lives on NETLIFY, not Hostinger — see the note at the bottom.
 //
 // The Gmail path is kept only as a fallback so mail keeps flowing if the
