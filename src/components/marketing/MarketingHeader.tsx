@@ -107,20 +107,11 @@ export function MarketingHeader({ user }: { user?: HeaderUser | null }) {
         </nav>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <ThemeQuickToggle className="hidden md:inline-flex" />
-          {user ? (
+          {/* No public Log in / Sign up. The portal is for admin and staff only,
+              who go to /login directly — the route still works, it just isn't
+              advertised to visitors. Signed-in users keep their menu. */}
+          {user && (
             <UserMenu fullName={user.fullName} email={user.email} initials={user.initials} role={user.role} />
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="hidden md:inline-flex h-9 items-center px-3 text-sm font-semibold text-fg-muted hover:text-fg"
-              >
-                Log in
-              </Link>
-              <LinkButton href="/signup" size="sm" className="hidden sm:inline-flex">
-                Sign up
-              </LinkButton>
-            </>
           )}
           <button
             type="button"
@@ -249,22 +240,7 @@ export function MarketingHeader({ user }: { user?: HeaderUser | null }) {
                       Signed in as {user.email}
                     </p>
                   </>
-                ) : (
-                  <>
-                    <span onClick={() => setOpen(false)}>
-                      <LinkButton href="/signup" fullWidth size="lg">
-                        Sign up
-                      </LinkButton>
-                    </span>
-                    <Link
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className="block w-full text-center h-11 leading-[44px] rounded-md text-sm font-semibold text-fg-muted hover:text-fg"
-                    >
-                      Log in
-                    </Link>
-                  </>
-                )}
+                ) : null}
                 <div className="pt-2 flex justify-center">
                   <ThemeQuickToggle />
                 </div>
