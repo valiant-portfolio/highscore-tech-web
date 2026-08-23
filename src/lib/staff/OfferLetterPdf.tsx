@@ -9,7 +9,7 @@ import {
   COMPANY_REG_NO, COMPANY_ADDRESS,
   formatDateLong, formatNgnPlain,
 } from './pdf-shared';
-import { ROLE_CONTENT, breakdownSalary } from './role-content';
+import { roleContentFor, breakdownSalary } from './role-content';
 import type { StaffRecord } from './queries';
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function OfferLetterPdf({ staff, issuedDate, ceoSignatureDataUri, staffSignatureDataUri }: Props) {
-  const content = ROLE_CONTENT[staff.slug];
+  const content = roleContentFor(staff.slug);
   const salary = breakdownSalary(staff.slug, staff.salary_ngn);
   // Payday is the 15th of every month — first pay = next 15th after the
   // start date (or the same month if start is before the 15th).

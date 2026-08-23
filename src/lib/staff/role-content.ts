@@ -16,6 +16,16 @@ const SHARED_WORKFLOW = [
   'Daily SOD + EOD posts in the team Google Workspace group; blockers at the top.',
 ];
 
+// The creative side has no branches or pull requests, so it gets its own short
+// set of governance rules. How the work actually flows week to week lives in
+// the Company Operating Guide, not in a job description.
+const CREATIVE_WORKFLOW = [
+  'Paired role — Rofiat and Olivia work together at every step. Content, captions, timing and promotion are decided jointly; neither of them ships a decision alone.',
+  'Single approval point — the CEO approves all outbound work before it publishes.',
+  'Single source of truth — Olivia owns the project tracking document; if it is not in the doc, it is not on the team radar.',
+  'Daily SOD + EOD posts in the team channel; blockers at the top.',
+];
+
 export const ROLE_CONTENT: Record<string, RoleContent> = {
   olivia: {
     responsibilities: [
@@ -30,6 +40,22 @@ export const ROLE_CONTENT: Record<string, RoleContent> = {
     ],
     workflowNotes: SHARED_WORKFLOW,
     ipScope: 'documentation, marketing copy, project plans, internal processes, and any commercial communication produced in the course of duties',
+  },
+
+  rofiat: {
+    responsibilities: [
+      'Video editing and production — every finished video that leaves Highscore Studio, both paid client work and our own brand content. This is the core of the role.',
+      'Work as a pair with Olivia. The two of you plan together and decide together; nothing here is done alone or handed back and forth.',
+      'Turn each song the CEO delivers into content. With Olivia, work out what it should become — which cuts, which formats, which platforms, and what the piece is meant to achieve.',
+      'Plan the caption, the posting time and the promotion angle for every piece, agreed jointly with Olivia before anything goes out.',
+      'Media strategy and planning with Olivia — what we post, why we are posting it, and what we expect it to bring back.',
+      'Produce the creatives for paid advertising, built from the songs and videos already made, so campaigns are not starting from a blank page.',
+      'Hold the visual standard. Every output carries the Highscore Studio look — consistent typography, colour, pacing and finish — so the work is recognisable before the logo appears.',
+      'Deliver client orders to the brief and on the promised date, including filming on location where the package calls for it.',
+      'Keep the asset library in order so footage, stills and finished pieces can be reused rather than remade.',
+    ],
+    workflowNotes: CREATIVE_WORKFLOW,
+    ipScope: 'video edits, filmed and generated footage, motion graphics, thumbnails, social creatives, advertising assets, captions, content plans, and any creative deliverables produced in the course of duties',
   },
 
   godswill: {
@@ -81,6 +107,26 @@ export const ROLE_CONTENT: Record<string, RoleContent> = {
     ipScope: 'source code, technical designs, architectural decisions, code reviews, and any technical deliverables produced in the course of duties',
   },
 };
+
+/**
+ * Resolve a staff member's role content from their slug.
+ *
+ * Slugs used to be bare first names ("olivia"), but newer records are full
+ * names ("onifade-rofiat-omowunmi"). A plain ROLE_CONTENT[slug] lookup misses
+ * those, and the PDF generators silently fall back to "Job description not
+ * available for this role" — a blank document handed to a new hire.
+ *
+ * So: exact match first, then match a role key as a whole word inside the slug.
+ */
+export function roleContentFor(slug: string): RoleContent | undefined {
+  const exact = ROLE_CONTENT[slug];
+  if (exact) return exact;
+  const parts = slug.toLowerCase().split('-');
+  for (const key of Object.keys(ROLE_CONTENT)) {
+    if (parts.includes(key)) return ROLE_CONTENT[key];
+  }
+  return undefined;
+}
 
 // Olivia's salary is documented as 50k base + 20k data allowance. The other
 // roles take their full salary as base.

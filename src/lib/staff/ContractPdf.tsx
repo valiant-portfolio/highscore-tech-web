@@ -10,7 +10,7 @@ import {
   COMPANY_REG_NO, COMPANY_ADDRESS,
   formatDateLong, formatNgnPlain,
 } from './pdf-shared';
-import { ROLE_CONTENT, breakdownSalary } from './role-content';
+import { roleContentFor, breakdownSalary } from './role-content';
 import type { StaffRecord } from './queries';
 
 interface Props {
@@ -34,7 +34,7 @@ function Clause({ n, title, children }: { n: string; title: string; children: Re
 }
 
 export function ContractPdf({ staff, issuedDate, ceoSignatureDataUri, staffSignatureDataUri }: Props) {
-  const content = ROLE_CONTENT[staff.slug];
+  const content = roleContentFor(staff.slug);
   const salary  = breakdownSalary(staff.slug, staff.salary_ngn);
   const ipScope = content?.ipScope ?? 'work product produced in the course of duties';
   const isSigned = !!staff.nda_signed_at;

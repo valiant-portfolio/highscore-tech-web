@@ -7,7 +7,7 @@ import {
   COMPANY_NAME, COMPANY_TAGLINE, COMPANY_REG_NO, COMPANY_ADDRESS,
   formatDateLong,
 } from './pdf-shared';
-import { ROLE_CONTENT } from './role-content';
+import { roleContentFor } from './role-content';
 import type { StaffRecord } from './queries';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function JobDescriptionPdf({ staff, issuedDate }: Props) {
-  const content = ROLE_CONTENT[staff.slug];
+  const content = roleContentFor(staff.slug);
   if (!content) {
     return (
       <Document>
