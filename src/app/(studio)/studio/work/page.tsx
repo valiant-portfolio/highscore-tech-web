@@ -8,6 +8,7 @@
 import type { Metadata } from 'next';
 import { Music, Play, Sparkles } from 'lucide-react';
 import { listStudioWorks } from '@/lib/studio/queries';
+import { youtubeId, youtubeEmbedUrl } from '@/lib/studio/youtube';
 import { LinkButton } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -53,10 +54,24 @@ export default async function StudioWorkPage() {
           </div>
         ) : (
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {works.map((w) => (
+            {works.map((w) => {
+              const ytId = youtubeId(w.video_url);
+              return (
               <figure key={w.id} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
                 <div className="relative aspect-video bg-bg-elevated">
-                  {w.media_type === 'video' && w.video_url ? (
+                  {ytId ? (
+                    // Hosted on YouTube: embed rather than <video>, which cannot
+                    // play a YouTube URL. loading="lazy" keeps a long gallery from
+                    // pulling down a player per piece before it is scrolled to.
+                    <iframe
+                      src={youtubeEmbedUrl(ytId)}
+                      title={w.title}
+                      loading="lazy"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="absolute inset-0 h-full w-full border-0"
+                    />
+                  ) : w.media_type === 'video' && w.video_url ? (
                     <video
                       src={w.video_url}
                       poster={w.poster_url ?? undefined}
@@ -88,7 +103,8 @@ export default async function StudioWorkPage() {
                   )}
                 </figcaption>
               </figure>
-            ))}
+              );
+            })}
           </div>
         )}
 

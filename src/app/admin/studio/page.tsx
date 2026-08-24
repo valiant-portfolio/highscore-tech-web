@@ -1,7 +1,8 @@
 // Studio order queue. Everything needed to actually start the work: the brief,
 // the deadline we committed to, and where the finished piece has to be sent.
 
-import { Music, Download } from 'lucide-react';
+import Link from 'next/link';
+import { Music, Download, Film } from 'lucide-react';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { listStudioOrders } from '@/lib/studio/queries';
 import { PROJECT_TYPE_BY_KEY, formatNgn } from '@/lib/studio/catalog';
@@ -37,6 +38,14 @@ export default async function AdminStudioPage() {
       <PageHead
         title="Studio orders"
         description="Every order customers have placed, with the brief they filled in and the date we promised."
+        actions={
+          <Link
+            href="/admin/studio/work"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-bold text-fg hover:border-brand/60 hover:bg-surface-hover"
+          >
+            <Film className="h-4 w-4" /> Gallery
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

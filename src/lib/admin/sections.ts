@@ -20,6 +20,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'courses',     href: '/admin/courses',     label: 'Courses' },
   { key: 'enrollments', href: '/admin/enrollments', label: 'Enrolments' },
   { key: 'staff',       href: '/admin/staff',       label: 'Staff' },
+  { key: 'studio',      href: '/admin/studio',      label: 'Studio' },
   { key: 'projects',    href: '/admin/projects',    label: 'Projects' },
   { key: 'finance',     href: '/admin/finance',     label: 'Finance' },
   { key: 'reports',     href: '/admin/reports',     label: 'EOD reports' },
