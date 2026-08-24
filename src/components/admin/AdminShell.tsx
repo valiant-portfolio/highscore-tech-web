@@ -8,12 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox,
-  CircleDollarSign, ExternalLink, LogOut, Menu, X,
-  Activity, ShieldCheck, FileText, Settings, ClipboardList,
-  Briefcase, Coins, LineChart, Music,
-} from 'lucide-react';
+import { LayoutDashboard, Layers, GraduationCap, Users, IdCard, Inbox, CircleDollarSign, LogOut, Menu, X, Activity, ShieldCheck, FileText, Settings, ClipboardList, Briefcase, Coins, LineChart, Music } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { cn } from '@/lib/utils';
@@ -88,14 +83,6 @@ export function AdminShell({ user, allowedHrefs, children }: Props) {
           <p className="mt-1 text-sm font-semibold text-fg truncate">{user.fullName ?? user.email}</p>
         </div>
         <nav className="flex-1 px-3 py-4 overflow-y-auto">{navList}</nav>
-        <div className="p-3 border-t border-border space-y-1">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 h-9 rounded-md text-xs font-semibold text-fg-muted hover:text-fg hover:bg-surface-hover"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Visit site
-          </Link>
-        </div>
       </aside>
 
       {/* Mobile sheet */}
@@ -147,12 +134,6 @@ export function AdminShell({ user, allowedHrefs, children }: Props) {
             </button>
             <p className="text-sm font-semibold text-fg">Admin</p>
             <div className="ml-auto flex items-center gap-2">
-              <Link
-                href="/"
-                className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-semibold text-fg-muted hover:text-fg"
-              >
-                Visit site
-              </Link>
               <UserMenu fullName={user.fullName} email={user.email} initials={user.initials} />
             </div>
           </div>

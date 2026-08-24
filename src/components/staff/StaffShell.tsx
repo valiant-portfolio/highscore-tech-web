@@ -9,13 +9,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Home, FolderOpen, MessageSquare, UserCog,
-  ExternalLink, Menu, X, IdCard,
-  LayoutDashboard, Layers, GraduationCap, Users, Briefcase, Coins,
-  ClipboardList, Activity, LineChart, Inbox, CircleDollarSign, FileText,
-  ShieldCheck, Settings,
-} from 'lucide-react';
+import { Home, FolderOpen, MessageSquare, UserCog, Menu, X, IdCard, LayoutDashboard, Layers, GraduationCap, Users, Briefcase, Coins, ClipboardList, Activity, LineChart, Inbox, CircleDollarSign, FileText, ShieldCheck, Settings } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { cn } from '@/lib/utils';
@@ -173,14 +167,6 @@ export function StaffShell({ user, staff, children }: Props) {
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto">{navList}</nav>
 
-        <div className="p-3 border-t border-border space-y-1">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 h-9 rounded-md text-xs font-semibold text-fg-muted hover:text-fg hover:bg-surface-hover"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Visit site
-          </Link>
-        </div>
       </aside>
 
       {/* Mobile sheet */}
@@ -237,12 +223,6 @@ export function StaffShell({ user, staff, children }: Props) {
             </button>
             <p className="text-sm font-semibold text-fg">Staff portal</p>
             <div className="ml-auto flex items-center gap-2">
-              <Link
-                href="/"
-                className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-semibold text-fg-muted hover:text-fg"
-              >
-                Visit site
-              </Link>
               <UserMenu
                 fullName={user.fullName}
                 email={user.email}
