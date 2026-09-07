@@ -194,8 +194,9 @@ export default async function HomePage() {
               radio, live TV, billboards, Google and paid ads.
             </p>
             <p className="mt-3 max-w-xl text-sm text-fg-muted">
-              Songs for businesses, churches, weddings, birthdays and events — from{' '}
-              <span className="font-bold text-brand">₦25,000</span>, business jingles from ₦120,000.
+              Songs for weddings, birthdays, funerals, churches and events — from{' '}
+              <span className="font-bold text-brand">₦45,000</span>. Business packages from ₦180,000,
+              with the website and the Google work included.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a

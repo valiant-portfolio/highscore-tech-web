@@ -1,39 +1,24 @@
-// The full Studio menu — every package, itemised, from the ₦25,000 personal
-// song to always-on brand retainers.
+// The full Studio menu — every package, itemised, from the ₦45,000 short song
+// to a full election campaign.
+//
+// The media-rates table near the bottom is not filler. Publishing the real
+// station rates is what proves our package price is a production fee and not
+// a markup, and it stops a client expecting television inside a ₦380,000
+// package. It is also the single most persuasive thing on the page for a
+// business owner who has been quoted "all-in" by somebody else.
 
 import type { Metadata } from 'next';
 import { ArrowRight, Download } from 'lucide-react';
-import { PACKAGES, ADDONS, formatNgn } from '@/lib/studio/catalog';
+import { PACKAGES, PACKAGE_GROUPS, ADDONS, MEDIA_RATES, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'Studio pricing — songs from ₦25,000, business jingles from ₦120,000',
+  title: 'Studio pricing — songs from ₦45,000, business packages from ₦180,000',
   description:
-    'Highscore Studio pricing: personal songs from ₦25,000, business jingles from ₦120,000, AI advert video from ₦220,000, filmed on location from ₦350,000, plus radio and live TV, Google ranking and ads management.',
+    'Highscore Studio pricing. Occasion songs from ₦45,000. Business packages from ₦180,000 — every one includes a website, your Google listing and your profiles set up properly. Campaign jingles for 2027 from ₦250,000. Real station rates published.',
   alternates: { canonical: '/studio/pricing' },
 };
-
-const GROUPS = [
-  {
-    id: 'personal',
-    eyebrow: 'Personal & occasions',
-    title: 'For the person, or the day.',
-    body: 'Birthdays, weddings, anniversaries, church programmes. Priced so anyone can order one.',
-  },
-  {
-    id: 'business',
-    eyebrow: 'Business & brands',
-    title: 'For the business that wants to be heard.',
-    body: 'Commercial work: full usage rights, scripting written around your offer and your prices, and masters built for wherever the advert runs.',
-  },
-  {
-    id: 'brand',
-    eyebrow: 'Ongoing',
-    title: 'Stay on their screens every month.',
-    body: 'Retainers, for brands that would rather be everywhere all year than appear once.',
-  },
-] as const;
 
 export default function StudioPricingPage() {
   return (
@@ -57,8 +42,9 @@ export default function StudioPricingPage() {
         </div>
       </section>
 
-      {GROUPS.map((g, i) => {
+      {PACKAGE_GROUPS.map((g, i) => {
         const items = PACKAGES.filter((p) => p.group === g.id);
+        if (items.length === 0) return null;
         return (
           <section
             key={g.id}
@@ -78,24 +64,24 @@ export default function StudioPricingPage() {
         );
       })}
 
-      {/* Broadcast add-ons — priced on top of any package. */}
+      {/* Add-ons — real services with a fixed price. Note what is NOT here. */}
       <section className="px-4 md:px-8 py-10 md:py-12 border-t border-border">
         <div className="mx-auto max-w-[1180px]">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Add broadcast</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Add to any package</p>
             <h2 className="mt-2 font-display text-xl md:text-2xl font-bold tracking-[-0.02em] text-fg">
-              Put it on air.
+              Extras, at a fixed price.
             </h2>
             <p className="mt-2 text-sm text-fg-muted leading-relaxed">
-              Added on top of any package above, at the order form.
+              Added at the order form. Airtime is not on this list, and never will be — see below.
             </p>
           </div>
-          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:max-w-3xl">
+          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {ADDONS.map((a) => (
               <div key={a.key} className="rounded-2xl border border-border bg-surface p-6">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-lg font-bold text-fg">{a.name}</h3>
-                  <p className="font-display text-2xl font-extrabold tabular-nums text-brand whitespace-nowrap">
+                  <h3 className="text-base font-bold text-fg">{a.name}</h3>
+                  <p className="font-display text-xl font-extrabold tabular-nums text-brand whitespace-nowrap">
                     +{formatNgn(a.priceNgn)}
                   </p>
                 </div>
@@ -106,15 +92,63 @@ export default function StudioPricingPage() {
         </div>
       </section>
 
+      {/* The real station rates. This is the trust-builder on the whole page. */}
+      <section className="px-4 md:px-8 py-10 md:py-12 border-t border-border">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Media, at cost</p>
+            <h2 className="mt-2 font-display text-xl md:text-2xl font-bold tracking-[-0.02em] text-fg">
+              We never hide what airtime costs.
+            </h2>
+            <p className="mt-2 text-sm text-fg-muted leading-relaxed">
+              Airtime, billboard rental and printing are never inside a package price. They are billed
+              at the station’s own rate plus 15% for the booking — and because stations already give
+              agencies 15–30% off card, that 15% comes out of the discount and costs you nothing extra.
+              These are the real numbers, so you can see for yourself that our fee is for making the
+              work, not a markup on somebody else’s airtime.
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            {MEDIA_RATES.map((block) => (
+              <div key={block.heading} className="rounded-2xl border border-border bg-surface p-6">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-brand">{block.heading}</h3>
+                <dl className="mt-4 space-y-3.5">
+                  {block.items.map((it) => (
+                    <div key={it.label} className="flex items-baseline justify-between gap-3">
+                      <dt className="text-sm text-fg-muted leading-snug">{it.label}</dt>
+                      <dd className="text-sm font-bold tabular-nums text-fg whitespace-nowrap">
+                        {it.rate}
+                        {it.note && (
+                          <span className="ml-1 font-normal text-fg-subtle">{it.note}</span>
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-5 text-xs text-fg-subtle leading-relaxed max-w-3xl">
+            Rates verified September 2026 against station cards and agency guides, and re-confirmed
+            before every booking. Political campaigns pay a 31–50% premium on published rates as
+            standard across Nigerian media — we quote the real figure up front rather than after.
+          </p>
+        </div>
+      </section>
+
       {/* What the price covers — set expectations before they pay. */}
       <section className="px-4 md:px-8 py-12 border-t border-border">
         <div className="mx-auto max-w-[820px] rounded-2xl border border-border bg-surface p-6 md:p-8">
           <h2 className="font-semibold text-fg">What the price covers</h2>
           <p className="mt-3 text-sm text-fg-muted leading-relaxed">
-            The prices above are our creative and management fees. Broadcast airtime for TV and
-            radio, billboard rental and printing, and paid ad spend are your budget and are paid
-            to the stations and platforms — we quote those per campaign so you always know what
-            goes where. Bigger or longer campaigns are custom-quoted.
+            Every price above is our fee for making the work and running it. Broadcast airtime,
+            billboard rental and printing, permit fees and paid ad spend are your budget and are paid
+            to the stations, printers and platforms — quoted per campaign so you always know what
+            goes where. Where a package includes months of ongoing work, the monthly price after
+            those months is printed on the card, not saved for later. Bigger or longer campaigns are
+            custom-quoted.
           </p>
         </div>
       </section>

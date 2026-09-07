@@ -33,11 +33,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom birthday songs, made for one person',
     title: 'Custom birthday song — written and produced for them',
     description:
-      'Order a custom birthday song with their name in it, from ₦25,000. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
+      'Order a custom birthday song with their name in it, from ₦45,000. Written, sung and produced by Highscore Studio, delivered to WhatsApp, Telegram or email in days.',
     intro:
       'A birthday message they will replay for years. We write the song around the person — their name, what they love, the way you talk about them — and produce it properly so it sounds like something off the radio.',
     projectType: 'birthday',
-    packages: ['personal_song', 'personal_ai_video', 'personal_video_edit'],
+    packages: ['short_song', 'occasion_song', 'occasion_film'],
     gets: [
       'Their name sung in the song',
       'Written from the details you give us — inside jokes, memories, the lot',
@@ -61,7 +61,7 @@ export const OCCASIONS: Occasion[] = [
     intro:
       'Your first dance should not be somebody else’s love song. We write one about you — how you met, what you call each other, the bit of the story only your friends know — and produce it ready for the day.',
     projectType: 'event',
-    packages: ['event_package', 'personal_ai_video', 'personal_video_edit'],
+    packages: ['occasion_song', 'occasion_film', 'short_song'],
     gets: [
       'A song about your actual story, not a template',
       'Ready for the first dance, the entrance or the montage',
@@ -80,11 +80,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs and jingles for churches and church programmes',
     title: 'Custom church song — anniversaries, conventions and programmes',
     description:
-      'Custom songs for church anniversaries, conventions, harvests and programmes, from ₦25,000. Themed around your scripture and produced for the service.',
+      'Custom songs for church anniversaries, conventions, harvests and programmes, from ₦45,000. Themed around your scripture and produced for the service.',
     intro:
       'For the anniversary, the convention, the harvest — a song written around your theme and your scripture, that the congregation can actually sing along to. We produce it for the room it will be played in.',
     projectType: 'church',
-    packages: ['personal_song', 'personal_ai_video', 'event_package'],
+    packages: ['short_song', 'occasion_song', 'occasion_film'],
     gets: [
       'Written around your theme or scripture',
       'Gospel, afro-gospel, worship, choir or praise — your call',
@@ -103,21 +103,21 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Custom jingles that make your business impossible to ignore',
     title: 'Business jingle — custom advert songs for your brand',
     description:
-      'Custom jingles and advert songs for businesses, from ₦120,000. Full commercial rights, radio-ready and TV-ready, with advert video, Google ranking and paid ads from Highscore Studio.',
+      'Custom jingles and advert songs for businesses, from ₦180,000 — with a website on your own domain, your Google listing and your profiles set up properly, all included. Full commercial rights, radio-ready and TV-ready.',
     intro:
       'The jingle people hum back at you in the market. We write it around what you actually sell, what you charge and why you are better — then produce it for wherever it needs to run: social, radio, live TV, or a billboard.',
     projectType: 'business',
-    packages: ['business_starter', 'business_reach', 'business_broadcast'],
+    packages: ['business_starter', 'business_brand_pack', 'business_launch'],
     gets: [
       'A jingle written around your offer, not a generic tune',
       'Your prices, location and phone number said clearly',
-      'Cut for social, with radio and live TV available as add-ons',
-      'Optional promo video, billboards, Google ranking and paid ads',
+      'A website on your own domain, your Google listing and your profiles, all included',
+      'Cut for social, with radio, live TV and billboards booked at the station’s own rate',
     ],
     faqs: [
-      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. Add radio (₦120,000) or live TV (₦250,000) at the order form and we produce the broadcast master and book the station for you. The airtime itself is your budget and is quoted per campaign.' },
+      { q: 'Can I use the jingle on radio or TV?', a: 'Yes. Add media planning and booking (₦120,000) at the order form and we write the campaign plan, negotiate the rate, book the slots and confirm every spot ran. The airtime itself is billed at the station’s own rate plus 15% for the booking — a 60-second radio spot runs from ₦20,000 on a state station to ₦85,000 on Cool FM, and we publish the real rates on our pricing page.' },
       { q: 'Do you make the video as well?', a: 'Yes, three ways: we edit footage you send us, we generate the video with AI, or we come to your place and film it. Pick whichever suits at the order form.' },
-      { q: 'Can you keep making content every month?', a: 'That is the Brand Engine: a set number of videos each month, ongoing jingles and seasonal campaigns, so you stay on people’s screens instead of appearing once.' },
+      { q: 'Can you keep making content every month?', a: 'Yes. The Brand Pack, The Launch and The Full Campaign each include a set number of months of posting and Google work, and continue at a monthly price printed on the package — ₦250,000, ₦350,000 or ₦750,000 a month. Stop any time: the website, the domain, the jingle and the profiles stay yours.' },
     ],
   },
   {
@@ -126,11 +126,11 @@ export const OCCASIONS: Occasion[] = [
     heading: 'Songs for parties, clubs and events',
     title: 'Custom party song — for parties, clubs and events',
     description:
-      'Custom songs and hype tracks for parties, club nights, launches and events, from ₦25,000. Produced by Highscore Studio and delivered before your date.',
+      'Custom songs and hype tracks for parties, club nights, launches and events, from ₦45,000. Produced by Highscore Studio and delivered before your date.',
     intro:
       'A track made for your night — the name of the event, the host, the crowd it is for. Something to open with, to hype the room, or to post in the run-up so people actually turn up.',
     projectType: 'event',
-    packages: ['personal_song', 'personal_ai_video', 'event_package'],
+    packages: ['short_song', 'occasion_song', 'occasion_film'],
     gets: [
       'A track built around your event and its name',
       'Shout-outs for hosts, sponsors or the guest list',

@@ -1,8 +1,6 @@
 // Full detail for every Studio package.
 //
-// Split out of catalog.ts because this is sales copy, not configuration, and it
-// keeps growing — websites, Google ranking and more are coming, and each one
-// needs to explain itself properly before anyone will pay for it.
+// Split out of catalog.ts because this is sales copy, not configuration.
 //
 // Every package answers the same four questions, in the order a customer asks
 // them:
@@ -12,7 +10,9 @@
 //   4. What is NOT included?      → notIncluded
 //
 // That last one matters more than it looks. Saying plainly what a price does
-// not cover is what stops an argument three weeks later.
+// not cover is what stops an argument three weeks later — and on the business
+// tiers it is where we state, every single time, that airtime is not inside
+// the fee.
 
 export interface Deliverable {
   /** Short label — this is what the compact cards show. */
@@ -24,7 +24,7 @@ export interface Deliverable {
 export interface PackageDetail {
   /** One line: who should buy this. */
   bestFor: string;
-  /** e.g. "3–5 working days from payment". */
+  /** e.g. "3 working days from payment". */
   turnaround: string;
   deliverables: Deliverable[];
   /** How the job runs, start to finish. */
@@ -34,527 +34,562 @@ export interface PackageDetail {
 }
 
 export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
-  /* ── Personal & occasions ──────────────────────────────────────────── */
+  /* ══ Personal & occasions ═══════════════════════════════════════════════
+     The physical item is deliberately not a mug or a hoodie. Souvenirs are
+     the bottom of the Nigerian event budget — ₦1,000 to ₦3,000 a guest — and
+     attaching one drags a ₦120,000 song down to feeling like a giveaway. The
+     framed spoken-word tribute is the song made solid: it hangs on a wall,
+     people photograph it, and it is the product rather than a freebie.     */
 
-  personal_song: {
-    bestFor: 'One person or one day — a birthday, an anniversary, a proposal, a thank-you.',
-    turnaround: '3–5 working days from payment',
+  short_song: {
+    bestFor:
+      'Someone who wants to surprise one person without thinking too hard about it — a birthday, a thank-you, a proposal, a well done.',
+    turnaround: '3 working days from payment',
     deliverables: [
       {
-        title: 'A song written from scratch about them',
+        title: 'A one-minute song written about them',
         detail:
-          'Not a template with a name dropped in. You tell us who they are — what they love, how they talk, the memory only you two share — and we write the lyrics around that. Their name is sung in it.',
+          'You send the name, the occasion, and three or four things about the person — how they laugh, what they always say, what they do for a living. We write a sixty-second song around that, and their name is sung in it. Not a template with a name dropped in.',
       },
       {
-        title: 'Sung and produced properly',
+        title: 'Sung by a real vocalist',
         detail:
-          'Real vocals over a full arrangement in the style you pick — Afrobeats, R&B, highlife, gospel, whatever suits them. It should sound like something off the radio, not a voice note.',
+          'One voice over a full arrangement in the style you pick. It should sound like something off the radio, not a voice note.',
       },
       {
-        title: 'Clean audio file, yours to keep',
+        title: 'A video with the words on screen',
         detail:
-          'You get a high-quality MP3 you can play at the party, post on WhatsApp status, or keep forever. No watermark, no expiry.',
+          'The song playing with the lyrics appearing as they are sung, so it can be watched with the sound off — which is how most people will first see it.',
       },
       {
-        title: 'One round of changes',
+        title: 'A private link that always works',
         detail:
-          'If a name is pronounced wrong or a line does not sit right, tell us and we fix it. One round is included.',
+          'WhatsApp crushes audio files and half the time they will not send at all. Your link never expires, never gets compressed, and is what actually gets forwarded round the family group.',
+      },
+      {
+        title: 'A keepsake card with the QR code',
+        detail:
+          'A printed card carrying their name, the occasion and a code that plays the song when scanned. It turns a link into something you can put in an envelope and hand over.',
       },
     ],
     process: [
       'You fill the brief — who it is for and what makes them them.',
-      'We write the lyrics and send them to you first, so nothing is a surprise.',
+      'We write the words and send them to you first, so nothing is a surprise.',
       'We record and produce the song.',
-      'You get it on WhatsApp, Telegram or email, on or before the date we promised.',
+      'You get the audio, the video and your private link on WhatsApp, Telegram or email.',
     ],
     notIncluded: [
-      'Video — add a package with video if you want one.',
+      'A full-length song — this one is about sixty seconds. The Occasion Song is two to three minutes.',
+      'An instrumental version, a private page, or the framed tribute.',
       'Commercial use. This is for personal celebration, not for advertising a business.',
     ],
   },
 
-  personal_video_edit: {
-    bestFor: 'You already have photos and clips of the person or the day, and want them turned into something.',
-    turnaround: '5–7 working days from payment',
+  occasion_song: {
+    bestFor:
+      'A wedding, a fiftieth, a retirement, an anniversary, a funeral — any occasion somebody has already decided matters.',
+    turnaround: '5 working days from payment',
     deliverables: [
       {
-        title: 'Everything in the Personal song',
-        detail: 'The full custom song, written, sung and produced, with one round of changes.',
-      },
-      {
-        title: 'Your own photos and clips, edited into a video',
+        title: 'A full song, two to three minutes, from their real story',
         detail:
-          'Send us what you have — phone photos, old pictures, video from the day — and we cut them together in time with the song. Colour corrected so everything looks like it belongs.',
+          'How the couple met. What the mother gave up. What the business survived to reach ten years. You tell us the whole story and we write a proper song from it — the kind you would hear on the radio, not a jingle with a name in it.',
       },
       {
-        title: 'Titles and names on screen',
-        detail: 'Their name, the date, a message at the end — whatever you want the video to say.',
-      },
-      {
-        title: 'Cut for every platform',
+        title: 'Professionally sung, fully produced',
         detail:
-          'You get the full video plus a vertical cut for WhatsApp status, Instagram and TikTok, so you are not cropping it yourself.',
+          'Real vocals with our full production behind them — the warm keys, the round bass, the horns. Mixed and mastered so it holds up on a big speaker at a venue, not just on a phone.',
+      },
+      {
+        title: 'A video to go with it',
+        detail:
+          'A finished video built around the song and ready to post anywhere, with no footage needed from you.',
+      },
+      {
+        title: 'Three cuts for three places',
+        detail:
+          'A tall version for WhatsApp status, reels and TikTok, a square one for the feed, and a wide one for a laptop or the screen in the hall. Cut properly for each, not one video squeezed into three shapes.',
+      },
+      {
+        title: 'An instrumental version',
+        detail:
+          'The same song with the vocals stripped out. Hand it to the DJ. Play it as they walk in. Run it quietly under the speeches. The song works twice on the day.',
+      },
+      {
+        title: 'A private page for the occasion',
+        detail:
+          'One link carrying the song, their photographs, and the story behind the words written out. That single link is what goes into the family group, the invitation and the programme — instead of a file nobody can open.',
+      },
+      {
+        title: 'A QR code for the day',
+        detail:
+          'Printed on the invitation, the programme, the table cards or the cake table. Guests scan it and hear the song — often before the day has even arrived.',
+      },
+      {
+        title: 'A framed spoken-word tribute',
+        detail:
+          'Not the song lyrics — a short written piece about the person. Who they are, what they survived, what they always say, what they mean to the people around them. Typeset with their name and the date, printed and framed. It goes on a wall and stays there.',
       },
     ],
     process: [
-      'You fill the brief and send your photos and clips (WhatsApp is fine).',
-      'We write the lyrics and send them for approval.',
-      'We produce the song, then edit your material to it.',
-      'You get the song and every video cut, delivered your way.',
+      'You fill the brief and tell us the story properly — the more you give, the better the song.',
+      'We write the words and the spoken-word tribute, and send both to you before we record anything.',
+      'We record, produce and mix the song, then cut the instrumental and the three social versions.',
+      'We build your private page, generate the QR code, and send the frame to print.',
+      'Everything is delivered together, on or before the date we promised.',
     ],
     notIncluded: [
-      'Filming. This package edits footage you already have.',
-      'Buying stock footage to fill gaps — if you are short of material, the AI video package is the better fit.',
+      'A film edited from your own photos and footage — that is The Occasion Film.',
+      'Release to Spotify and Apple Music — available as an add-on, or included in The Occasion Film.',
+      'Frame delivery outside Lagos. We quote shipping separately, and the frame may arrive after the song.',
+      'Commercial use. This is for celebration, not for advertising a business.',
     ],
   },
 
-  personal_ai_video: {
-    bestFor: 'You want a full video but have little or no footage to work with.',
-    turnaround: '5–7 working days from payment',
+  occasion_film: {
+    bestFor:
+      'Anyone who wants something to play on the screen when the room goes quiet — the tribute at a funeral, the montage at a wedding, the film at a seventieth.',
+    turnaround: '7 working days from payment; streaming live about two weeks after',
     deliverables: [
       {
-        title: 'Everything in the Personal song',
-        detail: 'The full custom song, written, sung and produced, with one round of changes.',
-      },
-      {
-        title: 'A complete video created with AI',
+        title: 'Everything in The Occasion Song',
         detail:
-          'We generate the visuals to match the song and the story — scenes, motion, mood. No shoot, no crew, no waiting for a free weekend.',
+          'The full song, professional vocals, the instrumental, the three social cuts, the private page, the QR code and the framed tribute — all of it, before we get to what is new here.',
       },
       {
-        title: 'Your photos brought to life',
+        title: 'A real film cut from your own pictures',
         detail:
-          'Send the pictures you do have and we turn them into moving video, so the person is genuinely in it rather than it being generic footage.',
+          'You send your photographs and phone videos — old family pictures, wedding footage, the business in its first year — and an editor sits down and builds a film that runs to the song. This is real editing by a person, not an automatic slideshow.',
       },
       {
-        title: 'Cut for every platform',
-        detail: 'Full video plus vertical cuts for status, Reels and TikTok.',
+        title: 'Cut tall and wide',
+        detail:
+          'One version shaped for phones, status and reels, and one for a laptop, a projector or the screen at the venue. Both properly graded, both delivered.',
+      },
+      {
+        title: 'Released on Spotify, Apple Music and YouTube Music',
+        detail:
+          'Published under the name you choose, so the song can be searched for and played by anybody, forever. Their mother’s song, sitting on Spotify like any other artist. This is the part nobody else in Nigeria is offering.',
+      },
+      {
+        title: 'Guest messages, collected',
+        detail:
+          'Guests scan the QR code at the event and record a short message. Afterwards it all comes back to you as one collection — the voices of everyone who came, kept.',
+      },
+      {
+        title: 'A larger framed tribute, and the tribute recorded',
+        detail:
+          'The spoken-word piece printed larger for the wall, and also read and recorded over a soft instrumental — a two-minute audio tribute that sits alongside the song.',
+      },
+      {
+        title: 'Keepsake cards for guests',
+        detail:
+          'A run of printed cards carrying the QR code, so everyone who came can take the song home with them.',
       },
     ],
     process: [
-      'You fill the brief and send any photos you want included.',
-      'We write the lyrics and send them for approval.',
-      'We produce the song, then generate and edit the video to it.',
-      'You get everything on your chosen channel.',
+      'You fill the brief and tell us the story.',
+      'We write the song and the spoken-word tribute, and send both for approval.',
+      'You send your photographs and video clips — we tell you exactly what works best.',
+      'We record the song, record the tribute, and edit the film around your material.',
+      'Everything is delivered, the frames and cards go to print, and the song is submitted to streaming.',
+      'The song appears on Spotify and Apple Music about two weeks later, and we send you the links.',
     ],
     notIncluded: [
-      'Filming or a crew.',
-      'Exact likeness guarantees — AI video is stylised by nature. If you need real footage of a real place, choose a filmed package.',
+      'Filming on the day. We edit the footage you already have; we do not send a camera crew.',
+      'Frame and card delivery outside Lagos, which we quote separately.',
+      'Any control over how quickly Spotify and Apple approve a release, which is usually one to two weeks.',
+      'Commercial use. This is for celebration, not for advertising a business.',
     ],
   },
 
-  event_package: {
-    bestFor: 'A wedding, a big birthday, a church programme or a launch — where the day itself needs content.',
-    turnaround: '10–14 working days; we lock delivery to your event date',
-    deliverables: [
-      {
-        title: 'A custom song for the day',
-        detail:
-          'Written around your story or your programme theme — your names, how you met, what the day is for. Ready for the first dance, the entrance or the opening.',
-      },
-      {
-        title: 'Multiple videos, not one',
-        detail:
-          'A main video plus separate cuts you can use at different moments — the countdown post, the entrance, the thank-you afterwards.',
-      },
-      {
-        title: 'A highlight edit',
-        detail: 'A short, punchy version built to be shared, which is the one people actually forward.',
-      },
-      {
-        title: 'Social cut-downs for the run-up and the day after',
-        detail:
-          'Short vertical clips for the weeks before, so people are talking about it before it happens, and for the day after while it is still fresh.',
-      },
-      {
-        title: 'Delivery locked to your date',
-        detail:
-          'We work backwards from the event, not forwards from the order. You have it in hand before the day, with time to say if something is wrong.',
-      },
-      {
-        title: 'One round of changes before the day',
-        detail: 'Names, pronunciation, running order — corrected before it matters.',
-      },
-    ],
-    process: [
-      'You fill the brief with the date, the names and what the day is about.',
-      'We agree a schedule working backwards from your event.',
-      'Lyrics to you for approval, then the song, then the videos.',
-      'Everything delivered with room to spare before the day.',
-    ],
-    notIncluded: [
-      'Filming on the day itself — that is quoted separately.',
-      'Printing, venue or event management.',
-    ],
-  },
-
-  /* ── Business & brands ─────────────────────────────────────────────── */
+  /* ══ Business & brands ══════════════════════════════════════════════════
+     The website is the hook. A Nigerian SME already treats ₦250,000–₦400,000
+     as the price of a website, so putting one inside a ₦180,000 package stops
+     the price being a question at all — and it costs us a few hours of work
+     we already do. "Done properly" beats "set up" everywhere below: almost
+     every business technically has WhatsApp Business and an Instagram
+     account, and almost none of them are configured. Pointing that out on the
+     call is itself the sale.                                               */
 
   business_starter: {
-    bestFor: 'Any business that wants to be seen and heard — a shop, a service, a brand starting out.',
+    bestFor: 'A business that exists but cannot be found — no website, or a website Google has never seen.',
     turnaround: '7 working days from payment',
     deliverables: [
       {
-        title: 'A jingle written around your offer',
+        title: 'A custom jingle, in three lengths',
         detail:
-          'We write it about what you actually sell, what you charge and where you are. The point is not a nice tune — it is a nice tune that makes someone call you.',
+          'Written around your name, what you sell and what makes people choose you. Delivered as sixty, thirty and fifteen-second masters, so it is ready for radio, social or a shop speaker without paying for a re-edit later.',
       },
       {
-        title: 'A finished advert video',
+        title: 'A one-page website on your own domain',
         detail:
-          'Not just audio. You get a complete advert video built around the jingle — made with AI, or from the photos and clips you send us, whichever suits your business better.',
+          'What you sell, real photographs, your prices and a WhatsApp button that opens a chat straight to you. Your own domain name, and hosting covered for the first year.',
       },
       {
-        title: 'Full commercial usage rights, forever',
+        title: 'Your domain submitted to Google, properly',
         detail:
-          'Run it anywhere for as long as you like — radio, TV, social, in your shop, on hold on your phone line. It is yours. No licence renewals, no per-play fees back to us.',
+          'Most small Nigerian websites have never been submitted to Google at all — the owner paid for a site and assumed Google would find it. We register your domain in Google Search Console and submit a sitemap, so every page actually gets indexed instead of sitting invisible.',
       },
       {
-        title: 'Your song on Instagram and Facebook',
+        title: 'Pages written for what people really search',
         detail:
-          'We load your jingle into the Instagram and Facebook audio library. After that, you or anyone on your team can open the app, search your business name and pick your own song for any Reel or Story — so every post sounds like you, forever, without asking us.',
+          'Page titles and descriptions built around the words your customers type — “tailor in Surulere”, not “Home”. Your name, address and phone number made identical everywhere Google looks, which is what local ranking runs on.',
       },
       {
-        title: 'WhatsApp status cuts',
+        title: 'Google Business Profile claimed and filled',
         detail:
-          'Short versions cut to the length WhatsApp status allows, so you can post the advert straight to status the day you get it.',
+          'Claimed, verified, and filled in with photographs, opening hours and services — so you appear on Google Maps when somebody nearby searches for what you sell.',
       },
       {
-        title: 'Cut for every platform',
+        title: 'WhatsApp Business, done properly',
         detail:
-          'Wide for Facebook and YouTube, square for feeds, vertical for status, Reels and TikTok. One job, every format — you are never cropping things yourself.',
+          'Set up if you do not have it. If you do, we fix what is missing: your products loaded into the catalogue, business hours, an away message, a greeting, and a proper profile. Almost nobody has this configured.',
       },
       {
-        title: 'Cover artwork for the song',
-        detail: 'Branded artwork that shows when the audio plays, so it looks like a real release rather than a file.',
+        title: 'Social profiles, done properly',
+        detail:
+          'Instagram, Facebook and TikTok set up or cleaned up — branded profile picture and cover art, a bio that says what you actually do, and the website link where it belongs.',
       },
       {
-        title: 'One round of changes',
-        detail: 'Get a price wrong or change your number? One round of corrections is included.',
+        title: 'A business email on your own domain',
+        detail:
+          'info@yourbusiness.com instead of a Gmail address. It costs almost nothing and it changes how a customer reads you in the first two seconds.',
+      },
+      {
+        title: 'A QR code',
+        detail:
+          'For your banner, your card, your shop door. It scans straight to the website or the WhatsApp catalogue.',
       },
     ],
     process: [
-      'You fill the brief — what you sell, your prices, your location, your customer.',
-      'We write the script and lyrics and send them for approval before recording.',
-      'We record and produce the jingle, then build the advert video around it.',
-      'You get everything, plus your song loaded into Instagram and Facebook.',
+      'You fill the brief — what you sell, where you are, and what a customer must hear.',
+      'We write the jingle words and send them for approval.',
+      'We record and produce the jingle, and build the website while it is in production.',
+      'We claim and fill your Google listing, submit the site to Search Console, and set up or fix WhatsApp and your social profiles.',
+      'Everything is handed over with the logins, and we walk you through it once on a call.',
     ],
     notIncluded: [
-      'Radio and TV airtime — add placement below and we book the stations for you.',
-      'Us coming to film on location — that is the full campaign package.',
+      'Radio, television or billboard airtime. Media is never inside a package price — it is quoted per campaign and billed at the station’s own rate plus 15% for the booking.',
+      'An advert video — that starts with The Brand Pack.',
+      'Ongoing posting or SEO work. This tier is a one-off build with nothing monthly.',
+      'Hosting after the first year, which renews at cost.',
     ],
   },
 
-  business_reach: {
-    bestFor: 'A business whose customers are on the road and on the radio, not only on the phone.',
-    turnaround: '10 working days from payment',
+  business_brand_pack: {
+    bestFor: 'A business ready to be seen, not just found — one that needs something to show, not only somewhere to be found.',
+    turnaround: '14 working days from payment, then one month of ongoing work',
     deliverables: [
       {
-        title: 'Everything in Jingle + advert video',
+        title: 'Everything in The Starter',
         detail:
-          'The full jingle, the advert video, commercial rights, your song on Instagram and Facebook, WhatsApp cuts, platform formats and cover artwork — all of it, included.',
+          'The jingle, the website on your own domain, Search Console and the sitemap, the Google listing, WhatsApp Business, the social profiles, the business email and the QR code — all of it.',
       },
       {
-        title: 'Radio-ready spots — 15, 30 and 60 seconds',
+        title: 'A 30–60 second advert video',
         detail:
-          'Your advert re-cut and mixed to the three lengths stations actually sell, levelled to broadcast standard so nothing is rejected when you take it in.',
+          'Built around your jingle, showing your product, your name and your offer. The thing you can actually put in front of somebody.',
       },
       {
-        title: 'Road banner and street signage artwork',
+        title: 'Cut for every screen',
         detail:
-          'Print-ready artwork for the banners outside your shop, along your street, or at the junction — sized properly for the printer, matching the advert so people connect the two.',
+          'Three versions of the advert — tall for status, reels and TikTok, square for the feed, and wide for YouTube or a screen inside the shop.',
       },
       {
-        title: 'Shop-front and vehicle branding artwork',
+        title: 'Print-ready banner and billboard artwork',
         detail:
-          'The same design worked up for your signboard and your bus or keke, so your brand is doing the advertising while it moves.',
+          'Artwork for a street banner, a poster or a billboard, at the correct sizes and resolution, ready to hand to any printer without them asking you for a better file.',
       },
       {
-        title: 'Extra video cuts for the campaign',
+        title: 'One month of Google and social work included',
         detail:
-          'More short versions from the same production, so you are posting something different each week instead of the same clip.',
-      },
-      {
-        title: 'Two rounds of changes',
-        detail: 'More room to get it right, because more is riding on it.',
+          'Four social posts, posts to your Google Business Profile, review prompts sent to your customers, ongoing fixes to the site, and a report at the end showing exactly what people searched to find you.',
       },
     ],
     process: [
-      'You fill the brief — what you sell, where you are, and where the banners will go.',
-      'We script and send everything for approval before we produce.',
-      'We produce the jingle, the advert video, the radio spots and the print artwork.',
-      'You get the files, the artwork print-ready, and your song on Instagram and Facebook.',
+      'Everything in The Starter runs first — jingle, website, Google, profiles.',
+      'We script the advert around your offer and send it for approval.',
+      'We produce the advert and cut the three versions.',
+      'We design the banner and billboard artwork.',
+      'The included month of posting and Google work begins the day everything goes live.',
     ],
     notIncluded: [
-      'Printing and mounting the banners — we give you print-ready artwork; your printer does the rest.',
-      'Radio and TV airtime — add placement below and we book the stations for you.',
+      'Radio, television or billboard airtime and rental. Quoted per campaign, billed at the station’s own rate plus 15% for the booking.',
+      'Printing and mounting of banners or billboards, and the LASAA and APCON permits.',
+      'Filming on location — that starts with The Launch. This advert is produced from your product photographs and supplied material.',
+      'Paid ad spend, which is your budget and is paid to the platforms.',
     ],
   },
 
-  business_broadcast: {
-    bestFor: 'A business ready for television, and one that wants customers to find them on Google too.',
-    turnaround: '12 working days from payment',
+  business_launch: {
+    bestFor: 'A business opening, relaunching, or finally taking itself seriously — where real footage of the real place matters.',
+    turnaround: '21 working days from payment, then three months of ongoing work',
     deliverables: [
       {
-        title: 'Everything in Radio & street',
+        title: 'Everything in The Brand Pack',
         detail:
-          'The jingle, the advert video, commercial rights, Instagram and Facebook audio, WhatsApp cuts, radio spots, banner and vehicle artwork — all included.',
+          'The jingle, the website, all the Google and profile work, the advert video, the three cuts and the print artwork.',
       },
       {
-        title: 'A TV-spec broadcast master',
+        title: 'A full day filming on location',
         detail:
-          'Your advert finished to the technical standard television stations require — resolution, audio levels, safe margins. This is what stops a station sending you away.',
+          'We come to you. Your shop, your staff, your product, your customers — real footage of your real business, not stock video of somebody else’s.',
       },
       {
-        title: 'Your business on Google Maps and Search',
+        title: 'Photography from the same shoot',
         detail:
-          'We set up and properly fill in your Google Business Profile — hours, services, photos, location, category. This is the listing that shows when someone nearby searches what you sell, and it is the single biggest free win most businesses leave empty.',
+          'Stills shot on the day, edited and delivered — for the website, the profiles, the banner and everything you make afterwards. You stop paying for stock photos forever.',
       },
       {
-        title: 'Google review link set up for you',
+        title: 'A real website, not a page',
         detail:
-          'A direct link you can send customers to leave a review, because reviews are what push you above competitors in local search.',
+          'Five pages instead of one, with an online store if you sell products or a booking form if you sell time. Built to take orders, not just to exist.',
       },
       {
-        title: 'Website search basics',
+        title: 'Three months of Google work',
         detail:
-          'If you have a website, we fix the titles, descriptions and speed issues that keep it off the first page. If you do not, we point your listing where the customers should land.',
+          'Doubled from The Brand Pack, because ranking is slow and one month rarely shows it. Ongoing page work, listings, reviews and monthly reporting.',
       },
       {
-        title: 'A campaign plan for the year',
+        title: 'Eight social posts a month, for three months',
         detail:
-          'A simple written plan for when to push, which channel to use for which season, and what to say — so the advert is used well instead of run once and forgotten.',
+          'Cut from your shoot footage and posted on schedule — so when the advert sends people to your page, the page is not empty.',
       },
       {
-        title: 'Two rounds of changes',
-        detail: 'Across everything, not per item.',
-      },
-    ],
-    process: [
-      'You fill the brief and we look at your current search presence.',
-      'We script and send everything for approval.',
-      'We produce the jingle, video, radio spots, TV master and print artwork.',
-      'We set up your Google listing and hand over the campaign plan.',
-    ],
-    notIncluded: [
-      'Ongoing SEO month to month — that is the Google ranking retainer.',
-      'Radio and TV airtime — add placement below and we book the stations for you.',
-      'Printing and mounting banners.',
-    ],
-  },
-
-  business_complete: {
-    bestFor: 'A business where the real place, the real product and the real people are the selling point.',
-    turnaround: '14 working days, including the shoot day',
-    deliverables: [
-      {
-        title: 'Everything in TV & Google',
+        title: 'Your ad accounts built and connected',
         detail:
-          'The jingle, advert video, commercial rights, Instagram and Facebook audio, WhatsApp cuts, radio spots, banner and vehicle artwork, TV master, Google listing and campaign plan — every bit of it.',
-      },
-      {
-        title: 'A filming day at your location',
-        detail:
-          'We come to you with our crew and equipment and shoot for the day — the premises, the product, the process, your team at work. Real footage of the real place beats anything generated.',
-      },
-      {
-        title: 'A professionally filmed and graded advert',
-        detail:
-          'Properly lit, framed and colour graded, cut to your jingle. This is the version that makes a customer trust you before they arrive.',
-      },
-      {
-        title: 'Professional photographs from the same day',
-        detail:
-          'Edited stills handed over for your social pages, your Google listing, your flyers and your website. Most businesses pay separately for these.',
-      },
-      {
-        title: 'A month of social content from the shoot',
-        detail:
-          'We cut the footage into a batch of short videos — enough to keep posting for weeks off one filming day, instead of one advert and nothing else.',
-      },
-      {
-        title: 'Priority turnaround and a direct line',
-        detail: 'Your job goes to the front of our queue, and you deal with us directly rather than through a form.',
-      },
-      {
-        title: 'Three rounds of changes',
-        detail: 'Across everything, until it is right.',
+          'Meta and Google ad accounts created properly, tracking connected to your website, and the creatives loaded, ready to run whenever you want to spend.',
       },
     ],
     process: [
       'You fill the brief and we agree a shoot date.',
-      'We script the jingle and the advert and send them for approval.',
-      'We come and film — usually half to a full day, depending on the location.',
-      'We produce, edit and grade everything, set up your Google listing, and deliver the lot.',
+      'We script the advert and write the jingle, and send both for approval.',
+      'We film for a day at your location, and shoot stills at the same time.',
+      'We edit the advert, cut the social versions, and build the five-page site around your new photographs.',
+      'We set up the ad accounts and tracking, then the three included months of posting and Google work begin.',
     ],
     notIncluded: [
-      'Travel outside Lagos — quoted before we start, never added afterwards.',
-      'Paid actors, models, or a venue we have to rent.',
-      'Radio and TV airtime — add placement below and we book the stations for you.',
+      'Radio, television or billboard airtime and rental. Quoted per campaign, billed at the station’s own rate plus 15%.',
+      'Paid ad spend. The accounts are built and ready, but the budget is yours and goes to the platforms.',
+      'Travel and accommodation outside Lagos, quoted before we start.',
+      'Actors, models, presenters or licensed music, if the advert calls for them.',
     ],
   },
 
-  /* ── Ongoing ───────────────────────────────────────────────────────── */
-
-  ads_management: {
-    bestFor: 'You have something worth advertising and want someone to actually run the ads properly.',
-    turnaround: 'Live within 5 working days of your first payment',
+  business_campaign: {
+    bestFor: 'A business that wants the whole city to know — and wants somebody else to handle the stations, the printers and the permits.',
+    turnaround: '30 working days to launch, then ongoing',
     deliverables: [
       {
-        title: 'We run your ads across Google, Meta and TikTok',
+        title: 'Everything in The Launch',
         detail:
-          'Account set up correctly, campaigns built, audiences chosen. You do not need to touch Ads Manager.',
+          'The shoot, the photography, the five-page site with a store or booking form, the jingle, the advert, all the cuts and all the Google work.',
       },
       {
-        title: 'Creatives built from your jingle and video',
+        title: 'A real campaign plan, costed before anything is booked',
         detail:
-          'We cut what we already made for you into the formats each platform actually rewards, rather than uploading one file everywhere.',
+          'Which stations, which weeks, which billboards, which streets — with the actual cost of every line written down. You approve the plan and the budget before a single naira of media is spent.',
       },
       {
-        title: 'Targeting and tracking set up properly',
+        title: 'We book and manage the media',
         detail:
-          'Pointed at the people who buy what you sell — by location, age and interest — with conversion tracking so we can tell what worked instead of guessing.',
+          'Radio, television, billboards and street banners. We negotiate the rate, book the slots, deliver the files to each station and confirm every single spot actually ran.',
       },
       {
-        title: 'Monthly optimisation',
+        title: 'Masters cut to each station’s spec',
         detail:
-          'We check what is working every month, kill what is not, and put the budget where the results are.',
+          'Every station wants a different length, format and loudness. All of it delivered correctly the first time, so nothing gets rejected on the morning it was meant to air.',
       },
       {
-        title: 'A report you can actually read',
+        title: 'Outdoor handled end to end',
         detail:
-          'What was spent, what came back, what we changed and why — in plain language, not a dashboard screenshot.',
+          'Billboard printing, mounting, and the LASAA and APCON permits — the part most businesses do not know exists until they are fined for it.',
+      },
+      {
+        title: 'Three months of everything included, with your ads run',
+        detail:
+          'Posting, Google work, and your paid advertising actually run for you across Meta and Google — not just set up.',
+      },
+      {
+        title: 'One monthly report',
+        detail:
+          'What ran, where, how many people it reached, and what came back. One page, in plain language.',
       },
     ],
     process: [
-      'We agree your monthly ad budget and what counts as a result.',
-      'We set up the accounts, tracking and first campaigns.',
-      'Ads go live; we watch and adjust.',
-      'You get a report each month and we agree the next month’s plan.',
+      'We meet, agree the objective and the total budget, and write the campaign plan.',
+      'You approve the plan, the stations and the spend before anything is committed.',
+      'Everything in The Launch is produced — the shoot, the site, the jingle, the advert.',
+      'Masters are cut to each station’s spec and delivered; billboards go to print and permits are filed.',
+      'The campaign runs, we confirm every placement, and you get a report each month.',
     ],
     notIncluded: [
-      'The ad spend itself — that is your budget and is paid to Google, Meta or TikTok directly, never through us.',
-      'Making the jingle or video, if you do not already have one.',
+      'Airtime and billboard rental themselves. These are billed at the station’s own rate plus 15% for the booking — stations already give agencies 15–30% off card, so that 15% comes out of the discount and costs you nothing extra.',
+      'Paid ad spend, which is your budget and goes to the platforms.',
+      'Travel outside Lagos, quoted before we start.',
+      'Talent fees and licensed music, if the campaign calls for them.',
     ],
   },
 
-  google_ranking: {
-    bestFor: 'A business whose customers search before they buy — and who is currently invisible when they do.',
-    turnaround: 'Work starts within 5 working days; ranking movement takes 2–3 months',
+  /* ══ Political ══════════════════════════════════════════════════════════
+     Presidential and National Assembly: 16 January 2027. Governorship and
+     State Assembly: 6 February 2027. Campaigning legally opened 150 days
+     before the poll, so this window is live now. Media houses charge
+     campaigns a 31–50% premium as standard — a full-page newspaper is
+     ₦920,000 political against ₦700,000 commercial, and Channels applies a
+     50% political surcharge — so the production carries one too.
+
+     ARCON accreditation is a hard prerequisite for placement, and a candidate
+     who uses an unaccredited agency shares the liability. It is stated in
+     notIncluded on every tier rather than buried.                          */
+
+  campaign_jingle: {
+    bestFor: 'A candidate who needs the one thing every Nigerian campaign runs on — a song people cannot stop humming.',
+    turnaround: '5 working days from payment',
     deliverables: [
       {
-        title: 'A full check of where you stand today',
+        title: 'A campaign jingle built to be remembered',
         detail:
-          'What you rank for now, what your competitors rank for, and the searches your customers actually type. You get the list, not just the conclusion.',
+          'Your name, your office, your slogan and your promise, written into a song simple enough that a crowd can sing it back after hearing it twice. That is the entire job of a campaign jingle.',
       },
       {
-        title: 'Your website fixed for search',
+        title: 'Every version you will need',
         detail:
-          'Titles, descriptions, headings, speed, mobile layout and the technical things Google reads before a human ever sees the page.',
+          'Sixty, thirty and fifteen-second masters, so the same jingle works on radio, on social and over a rally speaker without a re-edit each time.',
       },
       {
-        title: 'Content written to rank',
+        title: 'Up to two languages',
         detail:
-          'Pages and posts built around the searches worth winning, written for people first so they still convert once someone lands.',
+          'A separate recorded version in each — English, Pidgin, Yoruba, Hausa or Igbo. Not a translation of the same recording: each one is performed properly so it lands in the ear of the people who speak it.',
       },
       {
-        title: 'Google Business Profile set up and maintained',
+        title: 'Rally-ready audio',
         detail:
-          'The map listing with your hours, photos, services and reviews — often the single biggest win for a local business, and the one most people leave empty.',
+          'Mastered loud and clean for a PA system in the open air, which is a completely different mix from something made for headphones.',
       },
       {
-        title: 'A monthly ranking report',
-        detail: 'Where you moved, what came in from search, and what we are doing next.',
+        title: 'Social cuts',
+        detail:
+          'Vertical video versions with the words on screen, ready for WhatsApp, TikTok and status — where campaign songs now actually spread.',
       },
     ],
     process: [
-      'We audit your site and your competitors and agree the target searches.',
-      'We fix the site, then publish content on a schedule.',
-      'We build and maintain your Google Business Profile.',
-      'You get a report each month showing movement.',
+      'You fill the brief — the name, the office, the constituency, the promise, the languages.',
+      'We write the words and send them for approval before recording. Nothing goes out unapproved.',
+      'We record every language version and produce the jingle.',
+      'You get all masters, all lengths and the social cuts together.',
     ],
     notIncluded: [
-      'Guaranteed position one — nobody can honestly promise that, and anyone who does is selling you something.',
-      'Building the website itself, if you do not have one yet.',
+      'Radio and television airtime, which is billed at the station’s own rate plus 15% for the booking. Note that campaigns pay a 31–50% political premium on published rates.',
+      'ARCON vetting and approval, which every advertisement must pass before it can air.',
+      'Video advertising — that starts with the Campaign Pack.',
+      'Additional languages beyond two, quoted per language.',
     ],
   },
 
-  content_retainer: {
-    bestFor: 'A brand that would rather show up every week than appear once and disappear.',
-    turnaround: 'First content live within 7 working days of starting',
+  campaign_pack: {
+    bestFor: 'A campaign that needs to be seen as well as heard, across every screen in the constituency.',
+    turnaround: '14 working days from payment',
     deliverables: [
       {
-        title: 'A set number of videos every month',
+        title: 'Everything in the Campaign Jingle',
         detail:
-          'Agreed up front so you know exactly what you are getting. Made fresh each month rather than recycled.',
+          'The jingle, every length, up to two languages, rally-ready masters and the social cuts.',
       },
       {
-        title: 'Seasonal jingles and campaign refreshes',
+        title: 'A campaign advert video',
         detail:
-          'New angles for Christmas, Ramadan, back-to-school, your anniversary — so the message stays current instead of going stale.',
+          'Thirty to sixty seconds built around the jingle, cut from your rally footage, your photographs and supplied material — the record, the promise and the face, in one place.',
       },
       {
-        title: 'Cut for every platform and posted on schedule',
+        title: 'Cut for every screen and every platform',
         detail:
-          'We format for each place and keep to a posting calendar, so the pages stay alive without you thinking about it.',
+          'Tall for status and TikTok, square for the feed, wide for television and projection at rallies. Each one cut properly rather than squeezed.',
       },
       {
-        title: 'Priority turnaround',
-        detail: 'Retainer work goes to the front of our queue. If something urgent comes up, you are not waiting behind one-off orders.',
+        title: 'Poster, banner and billboard artwork',
+        detail:
+          'Print-ready at every size a printer will ask for — posters, street banners, gantries and 48-sheet billboards.',
+      },
+      {
+        title: 'Up to four languages',
+        detail:
+          'Doubled from the jingle tier. Separate recorded versions across the languages your constituency actually speaks.',
+      },
+      {
+        title: 'A social pack for your team',
+        detail:
+          'Profile art, cover images and a set of ready-to-post graphics, so every supporter page and ward group is posting the same campaign rather than nine different ones.',
       },
     ],
     process: [
-      'We agree the monthly volume and the content plan.',
-      'We produce a batch each month and share it for approval.',
-      'We post on schedule, or hand it to your team to post.',
-      'We review what performed and shape the next month around it.',
+      'We agree the message, the languages and the constituencies before anything is written.',
+      'Words and scripts go to you for approval first.',
+      'We record every language version and produce the advert.',
+      'Artwork is designed at every print size and delivered ready for the printer.',
+      'Everything is handed over as one organised pack your team can work from.',
     ],
     notIncluded: [
-      'Paid ad spend.',
-      'Broadcast airtime.',
+      'Radio, television and outdoor airtime and rental, billed at the station’s own rate plus 15%.',
+      'ARCON vetting and approval, and any regulatory clearance the advert requires.',
+      'Filming at rallies or on location — that is the Full Campaign.',
+      'Billboard printing, mounting, and LASAA permits.',
     ],
   },
 
-  brand_engine: {
-    bestFor: 'A brand that wants one team running everything, and would rather not manage five suppliers.',
-    turnaround: 'Onboarding within 7 working days; everything running inside a month',
+  campaign_full: {
+    bestFor: 'A serious campaign that wants one team producing everything and placing it, from now to polling day.',
+    turnaround: '30 working days to launch, then running to the poll',
     deliverables: [
       {
-        title: 'Everything in the Content retainer',
-        detail: 'The full monthly video volume, seasonal campaigns, formatting and scheduled posting.',
-      },
-      {
-        title: 'Ads management included',
-        detail: 'Google, Meta and TikTok campaigns run for you, using the content we are already making.',
-      },
-      {
-        title: 'Google ranking included',
-        detail: 'Ongoing SEO and your Google Business Profile maintained, so search brings people in alongside the ads.',
-      },
-      {
-        title: 'Outdoor branding artwork',
+        title: 'Everything in the Campaign Pack',
         detail:
-          'Billboards, banners, signage, vehicle and shop-front artwork — designed to match the campaign so everything looks like one brand.',
+          'The jingle in every language and length, the advert video and every cut, and all the print and social artwork.',
       },
       {
-        title: 'Broadcast campaigns planned across the year',
+        title: 'We film — rallies, walkabouts, the constituency',
         detail:
-          'Radio and TV mapped to your busy seasons rather than booked in a panic. Production included; airtime quoted per campaign.',
+          'Our crew on the ground capturing the crowds, the handshakes and the places you are promising to fix. Real footage of your real campaign, refreshed as it goes.',
       },
       {
-        title: 'A direct line to us',
-        detail: 'One point of contact, first in the queue, and a monthly call to look at what is working.',
+        title: 'A costed media plan, approved before booking',
+        detail:
+          'Which stations, which weeks, which billboards, which streets, and what each one costs — including the political premium — written down and approved before a naira is committed.',
+      },
+      {
+        title: 'We book, place and confirm everything',
+        detail:
+          'Radio, television, billboards and banners across your constituency. Rates negotiated, slots booked, files delivered to each station, and every placement confirmed as having run.',
+      },
+      {
+        title: 'Outdoor end to end',
+        detail:
+          'Billboard printing, mounting, and the LASAA and APCON permits handled — including the political surcharges most people discover far too late.',
+      },
+      {
+        title: 'Fresh content through the campaign',
+        detail:
+          'New cuts as the campaign moves — a response to an opponent, a new promise, a big rally — turned round fast rather than waiting for the next production cycle.',
+      },
+      {
+        title: 'Reporting every month',
+        detail:
+          'What ran, on which stations, in which weeks, and what it cost. One page you can hand to whoever is funding the campaign.',
       },
     ],
     process: [
-      'We start with a session on your business, your seasons and your numbers.',
-      'We build the year’s plan — content, ads, search and broadcast.',
-      'Everything runs monthly, reported in one place.',
-      'We meet monthly to adjust.',
+      'We meet, agree the objective, the constituencies, the languages and the total budget.',
+      'We write the campaign plan and cost every line. You approve it before anything is booked.',
+      'We produce the jingle, the adverts and all artwork, and begin filming.',
+      'Everything is submitted for ARCON vetting, then masters go to each station in their own spec.',
+      'The campaign runs to polling day, with fresh cuts as it moves and a report each month.',
     ],
     notIncluded: [
-      'Ad spend and broadcast airtime — your budget, paid to the platforms and stations.',
-      'Billboard rental and printing, quoted per site.',
+      'Airtime, billboard rental and print costs. Billed at the station’s and printer’s own rates plus 15% for the booking. Campaigns pay a 31–50% political premium on published media rates — we quote the real number up front.',
+      'ARCON accreditation of the campaign itself, and any legal or regulatory clearance beyond advertisement vetting.',
+      'Travel and accommodation outside the agreed constituencies.',
+      'Anything that breaches the Electoral Act or NBC rules — including partisan advertising in the 24 hours before polling day, which no station may run.',
     ],
   },
 };

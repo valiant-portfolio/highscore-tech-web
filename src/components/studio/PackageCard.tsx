@@ -1,9 +1,20 @@
 // One product on the Studio menu. Every tier lists what the client actually
 // gets — the whole selling idea is that paying more is a visibly bigger
 // deliverable, not a vague "premium" label.
+//
+// Two things on this card are deliberate and easy to mistake for clutter:
+//
+//   marketValue — what the same work costs bought separately. The business
+//   tiers only look expensive until you notice the website is inside them,
+//   and a Nigerian SME already prices a website at ₦250,000–₦400,000.
+//
+//   monthlyAfterNgn — what the ongoing work costs once the included months
+//   run out. Shown up front on purpose: a client who reads it here never
+//   feels ambushed in month two, and continuing is a far easier conversation
+//   than pitching a retainer cold.
 
 import Link from 'next/link';
-import { Check, ArrowRight } from 'lucide-react';
+import { Check, ArrowRight, Clock } from 'lucide-react';
 import { type StudioPackage, formatNgn } from '@/lib/studio/catalog';
 import { includeTitles, detailFor } from '@/lib/studio/packages';
 import { cn } from '@/lib/utils';
@@ -34,10 +45,19 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
         <span className="font-display text-3xl font-extrabold tabular-nums text-brand">
           {formatNgn(pkg.priceNgn)}
         </span>
-        {pkg.monthly && <span className="text-sm font-semibold text-fg-muted">/month</span>}
       </p>
 
+      {/* The comparison that makes the price stop being a question. */}
+      {pkg.marketValue && (
+        <p className="mt-1.5 text-xs text-fg-subtle">{pkg.marketValue}</p>
+      )}
+
       <p className="mt-2 text-sm text-fg-muted leading-relaxed">{pkg.blurb}</p>
+
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-fg-subtle">
+        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+        {pkg.turnaroundDays} working days
+      </p>
 
       {detail && (
         <p className="mt-4 text-xs text-fg-subtle leading-relaxed">
@@ -53,6 +73,16 @@ export function PackageCard({ pkg, className }: { pkg: StudioPackage; className?
           </li>
         ))}
       </ul>
+
+      {/* Said before they buy, never after. */}
+      {pkg.monthlyAfterNgn && (
+        <p className="mt-5 rounded-lg border border-border bg-surface-hover px-3 py-2.5 text-xs text-fg-muted leading-relaxed">
+          Continues at{' '}
+          <span className="font-bold text-fg">{formatNgn(pkg.monthlyAfterNgn)} a month</span>
+          {pkg.monthlyAfterNote ? ` ${pkg.monthlyAfterNote}` : ''}. Stop any time — the website,
+          the domain, the jingle and the profiles stay yours.
+        </p>
+      )}
 
       {pkg.note && (
         <p className="mt-4 border-t border-border pt-3 text-xs text-fg-subtle leading-relaxed">{pkg.note}</p>

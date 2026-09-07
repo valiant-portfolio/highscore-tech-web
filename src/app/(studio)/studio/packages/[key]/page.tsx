@@ -3,7 +3,7 @@
 // The compact cards sell the idea; this page answers the questions someone asks
 // before parting with real money — what exactly do I get, how does it run, and
 // what is NOT covered. Its own URL so it can also be sent straight to a
-// customer who asked "what does the ₦350,000 one include?".
+// customer who asked "what does the ₦380,000 one include?".
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -27,7 +27,7 @@ export async function generateMetadata(
   const { key } = await params;
   const pkg = PACKAGE_BY_KEY[key];
   if (!pkg) return {};
-  const price = `${formatNgn(pkg.priceNgn)}${pkg.monthly ? ' per month' : ''}`;
+  const price = formatNgn(pkg.priceNgn);
   return {
     title: `${pkg.name} — ${price} | Highscore Studio`,
     description: `${pkg.blurb} ${detailFor(pkg.key)?.bestFor ?? ''}`.trim().slice(0, 300),
@@ -95,15 +95,25 @@ export default async function PackagePage({ params }: { params: Promise<{ key: s
             <aside className="lg:sticky lg:top-24">
               <div className="rounded-2xl border border-brand/40 bg-surface p-6">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-fg-subtle">
-                  {pkg.monthly ? 'Monthly' : 'One-off'}
+                  One-off &middot; {pkg.turnaroundDays} working days
                 </p>
                 <p className="mt-2 flex items-baseline gap-1.5 flex-wrap">
                   {pkg.from && <span className="text-sm font-semibold text-fg-subtle">from</span>}
                   <span className="font-display text-3xl font-extrabold tabular-nums text-brand">
                     {formatNgn(pkg.priceNgn)}
                   </span>
-                  {pkg.monthly && <span className="text-sm font-semibold text-fg-muted">/month</span>}
                 </p>
+                {pkg.marketValue && (
+                  <p className="mt-1.5 text-xs text-fg-subtle">{pkg.marketValue}</p>
+                )}
+                {pkg.monthlyAfterNgn && (
+                  <p className="mt-3 rounded-lg border border-border bg-surface-hover px-3 py-2.5 text-xs text-fg-muted leading-relaxed">
+                    Continues at{' '}
+                    <span className="font-bold text-fg">{formatNgn(pkg.monthlyAfterNgn)} a month</span>
+                    {pkg.monthlyAfterNote ? ` ${pkg.monthlyAfterNote}` : ''}. Stop any time — the
+                    website, the domain, the jingle and the profiles stay yours.
+                  </p>
+                )}
                 {pkg.note && (
                   <p className="mt-3 text-xs text-fg-subtle leading-relaxed">{pkg.note}</p>
                 )}
@@ -189,17 +199,17 @@ export default async function PackagePage({ params }: { params: Promise<{ key: s
       )}
 
       {/* ── Add broadcast ────────────────────────────────────────── */}
-      {pkg.group !== 'brand' && (
+      {ADDONS.length > 0 && (
         <section className="px-4 md:px-8 py-12 border-t border-border">
           <div className="mx-auto max-w-[1100px]">
             <h2 className="font-display text-xl md:text-2xl font-bold tracking-[-0.02em] text-fg">
-              Want it on air too?
+              Add anything else you need
             </h2>
             <p className="mt-2 text-sm text-fg-muted">
-              Add either of these at the order form and we produce the broadcast master and book
-              the station. The airtime itself is your budget, quoted per campaign.
+              Added at the order form, at a fixed price. Airtime is never on this list — it is
+              billed at the station&rsquo;s own rate plus 15% for the booking, quoted per campaign.
             </p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ADDONS.map((a) => (
                 <div key={a.key} className="rounded-2xl border border-border bg-surface p-5">
                   <div className="flex items-baseline justify-between gap-3">

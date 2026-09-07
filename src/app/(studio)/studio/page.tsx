@@ -1,5 +1,6 @@
-// Highscore Studio — landing page. Sells the whole ladder: a ₦25,000 personal
-// song, business jingles from ₦120,000, up to always-on brand retainers.
+// Highscore Studio — landing page. Sells the whole ladder: a ₦45,000 short
+// song, business packages from ₦180,000 that include the website and the Google
+// work, and full election campaigns.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,7 +14,7 @@ import { LinkButton } from '@/components/ui';
 export const metadata: Metadata = {
   title: 'Highscore Studio — custom songs, jingles & promo videos',
   description:
-    'We make businesses famous. Personal songs from ₦25,000 and business jingles from ₦120,000 — AI and filmed advert video, radio and live TV, Google ranking and paid ads. Songs for birthdays, weddings, churches, parties and events across Nigeria.',
+    'We make businesses famous. Occasion songs from ₦45,000. Business packages from ₦180,000 — every one includes a website, your Google listing and your profiles set up properly, plus the jingle. Advert video, radio, live TV and outdoor. Songs for birthdays, weddings, funerals, churches and events across Nigeria.',
   alternates: { canonical: '/studio' },
 };
 
@@ -82,7 +83,7 @@ export default function StudioHomePage() {
             </LinkButton>
           </div>
           <p className="mt-6 text-sm text-fg-subtle">
-            Personal songs from <span className="font-bold text-brand">₦25,000</span> · business jingles from <span className="font-bold text-brand">₦120,000</span>
+            Occasion songs from <span className="font-bold text-brand">₦45,000</span> · business packages from <span className="font-bold text-brand">₦180,000</span>, website included
           </p>
         </div>
       </section>
@@ -224,7 +225,7 @@ export default function StudioHomePage() {
             Let’s make them hear you.
           </h2>
           <p className="mt-4 text-fg-muted leading-relaxed">
-            Start with a ₦25,000 song, or go all the way to a campaign on live TV.
+            Start with a ₦45,000 song, or go all the way to a campaign on live TV.
             Either way, it starts with one form.
           </p>
           <div className="mt-8">

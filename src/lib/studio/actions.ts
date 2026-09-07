@@ -25,9 +25,10 @@ export interface OrderFormState {
 }
 
 /** How long we commit to, by tier. Kept deliberately conservative. */
-function turnaroundDays(pkgKey: string, group: string): number {
-  if (group === 'brand') return 14;
-  return pkgKey === 'music_only' ? 3 : 7;
+// Each package declares its own turnaround, so the promised delivery date and
+// the date shown on the pricing page can never drift apart.
+function turnaroundDays(pkg: { turnaroundDays?: number }): number {
+  return pkg.turnaroundDays ?? 7;
 }
 
 function addDays(days: number): string {
@@ -120,7 +121,7 @@ export async function createStudioOrder(
     delivery_channel: deliveryChannel,
     delivery_handle: deliveryHandle,
     needed_by: neededBy || null,
-    delivery_due: addDays(turnaroundDays(pkg!.key, pkg!.group)),
+    delivery_due: addDays(turnaroundDays(pkg!)),
     payment_method: 'alatpay',
     payment_reference: reference, // one payment per order — same key both sides
     payment_status: 'pending',

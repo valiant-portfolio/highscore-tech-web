@@ -24,7 +24,7 @@ import { AlertCircle, ArrowRight, ArrowLeft, Check, Lock, Pencil, Radio, Tv } fr
 import { Button, Input, Textarea, Select } from '@/components/ui';
 import {
   PACKAGES, PACKAGE_BY_KEY, PROJECT_TYPES, PROJECT_TYPE_BY_KEY, DELIVERY_CHANNELS,
-  ADDONS, ADDON_BY_KEY, totalNgn, formatNgn,
+  ADDONS, ADDON_BY_KEY, PACKAGE_GROUPS, totalNgn, formatNgn,
   type ProjectType,
 } from '@/lib/studio/catalog';
 import { includeTitles } from '@/lib/studio/packages';
@@ -34,15 +34,11 @@ import { cn } from '@/lib/utils';
 const INITIAL: OrderFormState = { status: 'idle' };
 const LAST_STEP = 6;
 
-const GROUPS: { id: 'personal' | 'business' | 'brand'; label: string }[] = [
-  { id: 'personal', label: 'Personal & occasions' },
-  { id: 'business', label: 'Business & brands' },
-  { id: 'brand',    label: 'Ongoing, every month' },
-];
+const GROUPS = PACKAGE_GROUPS.map((g) => ({ id: g.id, label: g.eyebrow }));
 
 const ADDON_ICON: Record<string, React.ReactNode> = {
-  live_tv: <Tv className="h-5 w-5" />,
-  radio: <Radio className="h-5 w-5" />,
+  media_booking: <Radio className="h-5 w-5" />,
+  streaming_release: <Tv className="h-5 w-5" />,
 };
 
 function SubmitButton({ amount }: { amount: number | null }) {
@@ -112,8 +108,8 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
   }, [state]);
 
   const summaries: Record<number, string> = {
-    1: pkg ? `${pkg.name} · ${formatNgn(pkg.priceNgn)}${pkg.monthly ? '/mo' : ''}` : '',
-    2: addons.length ? addons.map((k) => ADDON_BY_KEY[k]?.name).filter(Boolean).join(' + ') : 'No broadcast add-ons',
+    1: pkg ? `${pkg.name} · ${formatNgn(pkg.priceNgn)}` : '',
+    2: addons.length ? addons.map((k) => ADDON_BY_KEY[k]?.name).filter(Boolean).join(' + ') : 'No extras',
     3: typeDef?.label ?? '',
     4: typeDef ? 'Brief filled in' : '',
     5: [customerName, customerEmail].filter(Boolean).join(' · '),
@@ -173,7 +169,7 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                           right={
                             <span className="font-display font-extrabold tabular-nums text-brand whitespace-nowrap text-sm">
                               {p.from && <span className="text-[10px] font-semibold text-fg-subtle mr-0.5">from</span>}
-                              {formatNgn(p.priceNgn)}{p.monthly && <span className="text-[11px] font-semibold text-fg-muted">/mo</span>}
+                              {formatNgn(p.priceNgn)}
                             </span>
                           }
                         />
@@ -373,7 +369,12 @@ export function OrderForm({ initialPackage }: { initialPackage?: string }) {
                     <p className="font-semibold text-fg">{pkg.name}</p>
                     <p className="tabular-nums font-semibold text-fg whitespace-nowrap">{formatNgn(pkg.priceNgn)}</p>
                   </div>
-                  {pkg.monthly && <p className="mt-0.5 text-xs text-fg-subtle">per month, cancel any time</p>}
+                  {pkg.monthlyAfterNgn && (
+                    <p className="mt-0.5 text-xs text-fg-subtle">
+                      Then {formatNgn(pkg.monthlyAfterNgn)} a month
+                      {pkg.monthlyAfterNote ? ` ${pkg.monthlyAfterNote}` : ''}. Stop any time.
+                    </p>
+                  )}
 
                   {addons.map((k) => {
                     const a = ADDON_BY_KEY[k];

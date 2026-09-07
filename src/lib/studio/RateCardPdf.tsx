@@ -7,7 +7,7 @@
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { registerPdfFonts } from '@/lib/pdf-fonts';
-import { PACKAGES, ADDONS, type StudioPackage } from '@/lib/studio/catalog';
+import { PACKAGES, PACKAGE_GROUPS, ADDONS, MEDIA_RATES, type StudioPackage } from '@/lib/studio/catalog';
 import { detailFor } from '@/lib/studio/packages';
 
 registerPdfFonts();
@@ -20,6 +20,17 @@ registerPdfFonts();
  * in its place, which on a document you send to a client looks like a fault.
  */
 const money = (n: number) => `NGN ${n.toLocaleString('en-NG')}`;
+
+/**
+ * Every piece of catalogue prose passes through here on its way into the PDF.
+ *
+ * Same reason as money() above: the bundled Inter is the Latin subset and has
+ * no Naira sign, so a ₦ anywhere in copy renders as a broken bar. Doing this
+ * centrally rather than at each call site is deliberate — the last time this
+ * was fixed string by string, `marketValue` and the group intros were missed
+ * and shipped a document full of "¦ 310,000".
+ */
+const t = (str: string) => str.replace(/₦\s?/g, 'NGN ');
 
 const BRAND = '#0A8EA8';
 const INK   = '#050E14';
@@ -79,31 +90,27 @@ const s = StyleSheet.create({
   // rather than falling back when a variant is missing.
   note: { fontSize: 8, color: MUTED, marginTop: 8, lineHeight: 1.4 },
 
+  cardValue: { fontSize: 7.5, color: MUTED, textAlign: 'right', marginTop: 2 },
+  after:     { backgroundColor: SOFT, borderRadius: 4, padding: 8, marginTop: 8 },
+  afterText: { fontSize: 8.5, color: INK_2, lineHeight: 1.45 },
+
+  rateHead:  { fontSize: 9, letterSpacing: 1.2, color: BRAND, fontWeight: 700, marginTop: 12, marginBottom: 6 },
+  rateRow:   { flexDirection: 'row', alignItems: 'baseline', borderBottomWidth: 1, borderBottomColor: LINE, paddingVertical: 5 },
+  rateLabel: { flex: 1, fontSize: 9, color: INK_2, paddingRight: 12 },
+  rateVal:   { fontSize: 9, fontWeight: 700, color: INK, textAlign: 'right' },
+  rateNote:  { fontSize: 7.5, color: MUTED, textAlign: 'right', marginTop: 1 },
+
   footer:     { position: 'absolute', bottom: 22, left: 40, right: 40, borderTopWidth: 1, borderTopColor: LINE, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
   footerText: { fontSize: 7.5, color: MUTED },
 });
 
-const GROUPS: { id: StudioPackage['group']; eyebrow: string; title: string; intro: string }[] = [
-  {
-    id: 'personal',
-    eyebrow: 'PERSONAL & OCCASIONS',
-    title: 'For the person, or the day',
-    intro: 'Birthdays, weddings, anniversaries and church programmes. Priced so anyone can order one.',
-  },
-  {
-    id: 'business',
-    eyebrow: 'BUSINESS & BRANDS',
-    title: 'For the business that wants to be heard',
-    intro:
-      'Each package is everything in the one before it, plus a new channel. Commercial usage rights are included throughout — the work is yours to run anywhere, forever.',
-  },
-  {
-    id: 'brand',
-    eyebrow: 'ONGOING',
-    title: 'Stay on their screens every month',
-    intro: 'Retainers, for brands that would rather be everywhere all year than appear once.',
-  },
-];
+// Headings come from the catalogue so the page and the PDF cannot drift.
+const GROUPS = PACKAGE_GROUPS.map((g) => ({
+  id: g.id,
+  eyebrow: g.eyebrow.toUpperCase(),
+  title: g.title,
+  intro: g.body,
+}));
 
 function Header({ label }: { label: string }) {
   return (
@@ -131,27 +138,31 @@ function PackageBlock({ pkg }: { pkg: StudioPackage }) {
   return (
     // wrap={false} keeps a package from splitting across a page break, which is
     // what makes the document readable rather than merely correct.
-    <View style={s.card} wrap={false}>
+    // Short packages stay whole; a nine-deliverable one has to be allowed to
+    // split, or react-pdf pushes it wholesale to the next page and leaves the
+    // group heading sitting alone on a blank one.
+    <View style={s.card} wrap={(d?.deliverables.length ?? 0) >= 7}>
       <View style={s.cardTop}>
         <Text style={s.cardName}>{pkg.name}</Text>
         <View>
           <Text style={s.cardPrice}>
             {pkg.from ? 'from ' : ''}{money(pkg.priceNgn)}
           </Text>
-          {pkg.monthly && <Text style={s.cardPer}>per month</Text>}
+          <Text style={s.cardPer}>{pkg.turnaroundDays} working days</Text>
+          {pkg.marketValue && <Text style={s.cardValue}>{t(pkg.marketValue)}</Text>}
         </View>
       </View>
-      <Text style={s.cardBlurb}>{pkg.blurb}</Text>
+      <Text style={s.cardBlurb}>{t(pkg.blurb)}</Text>
 
       {d && (
         <View style={s.metaRow}>
           <View style={{ flex: 1 }}>
             <Text style={s.metaLabel}>BEST FOR</Text>
-            <Text style={s.metaValue}>{d.bestFor}</Text>
+            <Text style={s.metaValue}>{t(d.bestFor)}</Text>
           </View>
           <View style={{ width: 150 }}>
             <Text style={s.metaLabel}>TURNAROUND</Text>
-            <Text style={s.metaValue}>{d.turnaround}</Text>
+            <Text style={s.metaValue}>{t(d.turnaround)}</Text>
           </View>
         </View>
       )}
@@ -163,8 +174,8 @@ function PackageBlock({ pkg }: { pkg: StudioPackage }) {
             <View style={s.dRow} key={item.title}>
               <View style={s.dTick} />
               <View style={s.dText}>
-                <Text style={s.dTitle}>{item.title}</Text>
-                <Text style={s.dBody}>{item.detail}</Text>
+                <Text style={s.dTitle}>{t(item.title)}</Text>
+                <Text style={s.dBody}>{t(item.detail)}</Text>
               </View>
             </View>
           ))}
@@ -175,7 +186,7 @@ function PackageBlock({ pkg }: { pkg: StudioPackage }) {
               {d.notIncluded.map((n) => (
                 <View style={s.notRow} key={n}>
                   <View style={s.notMark} />
-                  <Text style={s.notText}>{n}</Text>
+                  <Text style={s.notText}>{t(n)}</Text>
                 </View>
               ))}
             </View>
@@ -183,7 +194,17 @@ function PackageBlock({ pkg }: { pkg: StudioPackage }) {
         </>
       )}
 
-      {pkg.note && <Text style={s.note}>{pkg.note}</Text>}
+      {pkg.monthlyAfterNgn && (
+        <View style={s.after}>
+          <Text style={s.afterText}>
+            Continues at {money(pkg.monthlyAfterNgn)} a month
+            {pkg.monthlyAfterNote ? ` ${pkg.monthlyAfterNote}` : ''}. Stop any time — the website,
+            the domain, the jingle and the profiles stay yours.
+          </Text>
+        </View>
+      )}
+
+      {pkg.note && <Text style={s.note}>{t(pkg.note)}</Text>}
     </View>
   );
 }
@@ -199,8 +220,10 @@ export function RateCardPdf({ siteUrl, generatedOn }: { siteUrl: string; generat
           <Text style={s.coverSub}>STUDIO</Text>
           <Text style={s.coverTitle}>Packages{'\n'}& prices</Text>
           <Text style={s.coverLede}>
-            Custom songs, jingles, advert video, radio, television, outdoor branding and
-            Google — everything we make, what each one includes, and exactly what it costs.
+            Custom songs, jingles, advert video, websites, Google, radio, television and
+            outdoor branding. Everything we make, exactly what each one includes, what it
+            costs, and what the stations charge — published, so you can see our fee is for
+            the work and not a markup on somebody else&rsquo;s airtime.
           </Text>
           <Text style={s.coverMeta}>
             {generatedOn}{'\n'}
@@ -219,8 +242,8 @@ export function RateCardPdf({ siteUrl, generatedOn }: { siteUrl: string; generat
             <Header label={g.eyebrow} />
             <View style={s.body}>
               <Text style={s.section}>{g.eyebrow}</Text>
-              <Text style={s.h2}>{g.title}</Text>
-              <Text style={s.intro}>{g.intro}</Text>
+              <Text style={s.h2}>{t(g.title)}</Text>
+              <Text style={s.intro}>{t(g.intro)}</Text>
               {items.map((p) => <PackageBlock pkg={p} key={p.key} />)}
             </View>
             <Footer />
@@ -230,27 +253,62 @@ export function RateCardPdf({ siteUrl, generatedOn }: { siteUrl: string; generat
 
       {/* Add-ons + how it works */}
       <Page size="A4" style={s.page}>
-        <Header label="GETTING ON AIR" />
+        <Header label="EXTRAS" />
         <View style={s.body}>
           <Text style={s.section}>ADD TO ANY PACKAGE</Text>
-          <Text style={s.h2}>Getting it on air</Text>
+          <Text style={s.h2}>Extras, at a fixed price</Text>
           <Text style={s.intro}>
-            Your package produces the broadcast-ready advert. These are us actually getting it
-            on air — choosing the stations, negotiating the rate, booking the slots and running
-            the campaign. The airtime itself is always your own budget, paid to the station.
+            Added at the order form. Note what is not on this list: airtime. We do not sell
+            airtime at a fixed price because nobody honestly can — a 60-second radio spot runs
+            from NGN 20,000 on a state station to NGN 85,000 on Cool FM, and a single
+            30-second Channels slot is NGN 200,000. Media is quoted per campaign and billed at
+            the station&rsquo;s own rate, plus 15% for the booking. The real rates are on the next page.
           </Text>
 
           {ADDONS.map((a) => (
             <View style={s.card} wrap={false} key={a.key}>
               <View style={s.cardTop}>
-                <Text style={s.cardName}>{a.name}</Text>
+                <Text style={s.cardName}>{t(a.name)}</Text>
                 <Text style={s.cardPrice}>+{money(a.priceNgn)}</Text>
               </View>
-              <Text style={s.cardBlurb}>{a.blurb}</Text>
+              <Text style={s.cardBlurb}>{t(a.blurb)}</Text>
             </View>
           ))}
 
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: 14 }} break>
+            <Text style={s.section}>MEDIA, AT COST</Text>
+            <Text style={s.h2}>What airtime actually costs</Text>
+            <Text style={s.intro}>
+              Airtime, billboard rental and printing are never inside a package price. They are
+              billed at the station&rsquo;s own rate plus 15% for the booking — and because stations
+              already give agencies 15 to 30 per cent off card, that 15 per cent comes out of the
+              discount and costs you nothing extra. These are the real numbers.
+            </Text>
+
+            {MEDIA_RATES.map((block) => (
+              <View key={block.heading} wrap={false}>
+                <Text style={s.rateHead}>{block.heading.toUpperCase()}</Text>
+                {block.items.map((it) => (
+                  <View style={s.rateRow} key={it.label}>
+                    <Text style={s.rateLabel}>{t(it.label)}</Text>
+                    <View>
+                      <Text style={s.rateVal}>{t(it.rate)}</Text>
+                      {it.note && <Text style={s.rateNote}>{it.note}</Text>}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            <Text style={s.note}>
+              Rates verified September 2026 against station cards and agency guides, and
+              re-confirmed before every booking. Political campaigns pay a 31 to 50 per cent
+              premium on published rates as standard across Nigerian media — we quote the real
+              figure up front rather than after.
+            </Text>
+          </View>
+
+          <View style={{ marginTop: 14 }} break>
             <Text style={s.section}>HOW ORDERING WORKS</Text>
             <Text style={s.h2}>Four steps</Text>
             <View style={s.card}>
