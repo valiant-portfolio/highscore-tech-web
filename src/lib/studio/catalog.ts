@@ -78,7 +78,7 @@ export const PACKAGES: StudioPackage[] = [
      priced against that, not against a souvenir.                          */
   {
     key: 'short_song',
-    name: 'The Short Song',
+    name: 'The Gift',
     priceNgn: 45_000,
     group: 'personal',
     turnaroundDays: 3,
@@ -87,7 +87,7 @@ export const PACKAGES: StudioPackage[] = [
   },
   {
     key: 'occasion_song',
-    name: 'The Occasion Song',
+    name: 'The Special',
     priceNgn: 120_000,
     group: 'personal',
     turnaroundDays: 5,
@@ -98,7 +98,7 @@ export const PACKAGES: StudioPackage[] = [
   },
   {
     key: 'occasion_film',
-    name: 'The Occasion Film',
+    name: 'The Full Story',
     priceNgn: 280_000,
     group: 'personal',
     turnaroundDays: 7,
@@ -257,14 +257,14 @@ export const ADDONS: StudioAddon[] = [
     name: 'Release to Spotify & Apple Music',
     priceNgn: 25_000,
     blurb:
-      'Your song published to Spotify, Apple Music and YouTube Music under the name you choose, so it can be searched for and played by anyone, forever. Live about two weeks after delivery. Already included in The Occasion Film.',
+      'Your song published to Spotify, Apple Music and YouTube Music under the name you choose, so it can be searched for and played by anyone, forever. Live about two weeks after delivery. Already included in The Full Story.',
   },
   {
     key: 'framed_tribute',
     name: 'Framed spoken-word tribute',
     priceNgn: 20_000,
     blurb:
-      'A short written tribute about the person — who they are, what they survived, what they always say — typeset, printed and framed with their name and the date. Delivered in Lagos; elsewhere we quote shipping. Already included in The Occasion Song.',
+      'A short written tribute about the person — who they are, what they survived, what they always say — typeset, printed and framed with their name and the date. Delivered in Lagos; elsewhere we quote shipping. Already included in The Special.',
   },
 ];
 

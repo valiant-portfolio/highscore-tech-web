@@ -79,7 +79,7 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
       'You get the audio, the video and your private link on WhatsApp, Telegram or email.',
     ],
     notIncluded: [
-      'A full-length song — this one is about sixty seconds. The Occasion Song is two to three minutes.',
+      'A full-length song — this one is about sixty seconds. The Special is two to three minutes.',
       'An instrumental version, a private page, or the framed tribute.',
       'Commercial use. This is for personal celebration, not for advertising a business.',
     ],
@@ -139,8 +139,8 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
       'Everything is delivered together, on or before the date we promised.',
     ],
     notIncluded: [
-      'A film edited from your own photos and footage — that is The Occasion Film.',
-      'Release to Spotify and Apple Music — available as an add-on, or included in The Occasion Film.',
+      'A film edited from your own photos and footage — that is The Full Story.',
+      'Release to Spotify and Apple Music — available as an add-on, or included in The Full Story.',
       'Frame delivery outside Lagos. We quote shipping separately, and the frame may arrive after the song.',
       'Commercial use. This is for celebration, not for advertising a business.',
     ],
@@ -152,7 +152,7 @@ export const PACKAGE_DETAIL: Record<string, PackageDetail> = {
     turnaround: '7 working days from payment; streaming live about two weeks after',
     deliverables: [
       {
-        title: 'Everything in The Occasion Song',
+        title: 'Everything in The Special',
         detail:
           'The full song, professional vocals, the instrumental, the three social cuts, the private page, the QR code and the framed tribute — all of it, before we get to what is new here.',
       },
