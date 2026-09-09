@@ -21,13 +21,18 @@ const jetbrainsMono = JetBrains_Mono({
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Highscore Tech';
+// Never the bare word "Highscore". Three other companies answer to it, and
+// Google currently resolves the name to an edtech platform — so the city, the
+// registration and the actual work travel with it everywhere it appears.
 const DESCRIPTION =
-  'Highscore Tech is an AI & software development studio building AI systems, integrating models like Claude and Groq, and shipping web and mobile software for organisations worldwide.';
+  'Highscore Tech is a Lagos-based AI and software development company (CAC RC 7223102) '
+  + 'building AI systems, web and mobile software for clients in Nigeria and worldwide — '
+  + 'plus Highscore Studio, its music and video branch.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — AI & software development studio`,
+    default: `${SITE_NAME} — AI & software development, Lagos`,
     template: `%s · ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -43,6 +48,11 @@ export const metadata: Metadata = {
     'AI integration Claude Groq',
     'custom AI models',
     'software development Nigeria',
+    'Highscore Tech Lagos',
+    'Highscore Tech Nigeria',
+    'Highscore Studio',
+    'AI company Lagos',
+    'software company Lagos Nigeria',
     'web app development',
     'mobile app development',
     'Next.js development',
@@ -74,7 +84,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_NG',
     url: SITE_URL,
-    title: `${SITE_NAME} — AI & software development studio`,
+    title: `${SITE_NAME} — AI & software development, Lagos`,
     description: DESCRIPTION,
     siteName: SITE_NAME,
     images: [
@@ -88,7 +98,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} — AI & software development studio`,
+    title: `${SITE_NAME} — AI & software development, Lagos`,
     description: DESCRIPTION,
     images: ['/full-logo.png'],
   },

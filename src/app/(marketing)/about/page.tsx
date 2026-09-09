@@ -7,15 +7,53 @@ import { Reveal, SectionHeading } from '@/components/marketing/sections';
 import { PremiumCard } from '@/components/marketing/PremiumCard';
 import { LinkButton } from '@/components/ui';
 import { listPublicTeam } from '@/lib/stats/team';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbSchema, faqSchema, founderSchema } from '@/components/seo/structured-data';
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 
 export const metadata: Metadata = {
-  title: 'About — Highscore Tech',
+  title: 'About — AI & software company in Lagos',
   description:
-    'Highscore Tech is a fully remote Nigerian AI & software development studio (CAC RC No. 7223102), building AI systems and software for clients worldwide.',
+    'Highscore Tech is a Nigerian AI and software development company based in Lagos, registered with the Corporate Affairs Commission as RC 7223102. Founded by Victor Otung, it builds AI systems, web and mobile software, and runs Highscore Studio, its music and video branch.',
   alternates: { canonical: '/about' },
 };
 
 export const revalidate = 300;
+
+/**
+ * Plain answers to "who is this company", written because Google currently gets
+ * it wrong: an AI Overview for "Highscore Tech" describes HighScore EdTech, the
+ * JAMB tutorial platform. Three unrelated companies answer to the name, so the
+ * fix is to state ours in text a search engine can lift verbatim — the city,
+ * the registration number, the founder, and what we actually build.
+ *
+ * Written as facts, never as a comparison with the other companies. Naming a
+ * competitor in your own copy mostly teaches Google that the two belong
+ * together, which is the opposite of what this is for.
+ */
+const ABOUT_FAQS = [
+  {
+    q: 'What is Highscore Tech?',
+    a: 'Highscore Tech is an artificial intelligence and software development company based in Lagos, Nigeria, registered with the Corporate Affairs Commission as RC 7223102. It builds AI systems, web applications and mobile software for clients in Nigeria and internationally, and it runs Highscore Studio, its music and video branch, which produces custom songs, jingles and advert films.',
+  },
+  {
+    q: 'Who founded Highscore Tech?',
+    a: 'Highscore Tech was founded by Victor Otung, who is its Chief Executive Officer. The company operates from Lagos with a remote engineering team across Nigeria.',
+  },
+  {
+    q: 'Where is Highscore Tech located?',
+    a: 'Highscore Tech is based in Lagos, Nigeria. The team works remotely across the country and serves clients in Lagos, Abuja, Port Harcourt and Ibadan, as well as in the United Kingdom, the United States and Canada.',
+  },
+  {
+    q: 'What does Highscore Tech build?',
+    a: 'Two lines of work. The technology side builds AI systems — model integration, retrieval-augmented generation, multi-agent tooling — along with web platforms in Next.js and mobile applications in React Native. Highscore Studio, the creative branch, writes and produces custom songs, business jingles and advert videos, and sets up the website, Google listing and social profiles that go with them.',
+  },
+  {
+    q: 'Is Highscore Tech the same as Highscore Studio?',
+    a: 'Yes. Highscore Studio is the music and video branch of Highscore Tech, not a separate company. Both operate under the same registration, RC 7223102, and the same ownership. The Studio sells songs, jingles and adverts; the technology side builds software.',
+  },
+];
 
 const VALUES = [
   {
@@ -44,6 +82,17 @@ export default async function AboutPage() {
   const team = await listPublicTeam();
   return (
     <>
+      {/* The entity hub. Google needs somewhere to resolve "who is Highscore
+          Tech" that is not a homepage full of marketing — a named founder,
+          a registration number and a city, all cross-referable. */}
+      <JsonLd data={founderSchema(SITE_URL)} />
+      <JsonLd data={faqSchema(ABOUT_FAQS)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Highscore Tech', url: SITE_URL },
+          { name: 'About', url: `${SITE_URL}/about` },
+        ])}
+      />
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="relative px-4 md:px-8 pt-24 md:pt-36 pb-12 md:pb-20">
         <div className="mx-auto max-w-[920px] space-y-5">
@@ -143,6 +192,34 @@ export default async function AboutPage() {
               </div>
             </PremiumCard>
           ))}
+        </div>
+      </Reveal>
+
+      {/* ── Who we are, in plain terms ───────────────────────────── */}
+      {/* Visible, because FAQPage markup must match what a person can read —
+          and because this is the block an AI Overview quotes when somebody
+          asks what this company is. */}
+      <Reveal className="!py-16 md:!py-20">
+        <div className="mx-auto max-w-[820px]">
+          <h2 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
+            Questions about the company
+          </h2>
+          <div className="mt-8 divide-y divide-border">
+            {ABOUT_FAQS.map((f) => (
+              <details key={f.q} className="group py-4">
+                <summary className="flex cursor-pointer items-start justify-between gap-4 list-none">
+                  <h3 className="text-base md:text-lg font-bold text-fg">{f.q}</h3>
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 shrink-0 text-fg-subtle transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm md:text-base text-fg-muted leading-relaxed">{f.a}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </Reveal>
 

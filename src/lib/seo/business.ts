@@ -102,3 +102,80 @@ export function phoneDisplay(): string {
   const m = d.match(/^\+?234(\d{3})(\d{3})(\d{4})$/);
   return m ? `+234 ${m[1]} ${m[2]} ${m[3]}` : PHONE;
 }
+
+/* ── The agency entity ────────────────────────────────────────────────────
+   "Highscore" is a contested name. HighScore EdTech (JAMB/WAEC tutorials),
+   highscore.com (game streaming) and Malvern Panalytical's HighScore (XRD
+   software) all carry it, and Google's AI Overview currently answers a query
+   for "Highscore Tech" by describing the edtech company. That is an entity
+   problem, not a keyword problem: when a name is shared, Google's confidence in
+   assigning any signal to the right owner collapses, and no amount of content
+   fixes it.
+
+   The documented remedy is specificity applied consistently everywhere, plus
+   external identifiers it can cross-check. So the bare word never appears alone
+   below — it is always "Highscore Tech", with the CAC number, the founder and
+   the city attached.                                                          */
+
+export const AGENCY_NAME = 'Highscore Tech';
+
+/** Every form of the name a person might type or a directory might list. Gives
+ *  Google explicit permission to treat these as one entity rather than guessing. */
+export const AGENCY_ALT_NAMES = [
+  'Highscore',
+  'HighScore Tech',
+  'Highscore Technology',
+  'Highzcore',
+  'Highscore Tech Nigeria',
+] as const;
+
+/** Corporate Affairs Commission registration. A government identifier is one of
+ *  the strongest disambiguation signals available — it is unique, verifiable and
+ *  belongs to exactly one company. */
+export const CAC_NUMBER = '7223102';
+
+/** ISO date. Unset rather than guessed: a wrong founding date is a contradiction
+ *  Google can catch against other sources, which costs more than an absent one. */
+export const FOUNDED = process.env.NEXT_PUBLIC_FOUNDED ?? '';
+
+/** A named, real founder is a disambiguation anchor. None of the other
+ *  "Highscore" entities have this person attached to them. */
+export const FOUNDER = {
+  name: 'Victor Otung',
+  jobTitle: 'Founder & Chief Executive Officer',
+  sameAs: [
+    process.env.NEXT_PUBLIC_FOUNDER_LINKEDIN ?? '',
+    process.env.NEXT_PUBLIC_FOUNDER_X ?? '',
+    process.env.NEXT_PUBLIC_FOUNDER_GITHUB ?? '',
+  ].filter(Boolean),
+} as const;
+
+/** What the company is demonstrably about. `knowsAbout` is how Google links an
+ *  entity to topics, and it is what decides whether we are considered for a
+ *  query at all against competitors with weaker entity signals. */
+export const AGENCY_KNOWS_ABOUT = [
+  'Artificial intelligence development',
+  'AI systems integration',
+  'Large language model applications',
+  'Retrieval-augmented generation',
+  'Web application development',
+  'Mobile application development',
+  'Next.js development',
+  'React Native development',
+  'Custom software development',
+  'Music and jingle production',
+  'Advert video production',
+  'Search engine optimisation',
+] as const;
+
+/** Authoritative external profiles for the company. These are what Google
+ *  cross-references to decide the site, the socials and the registry entry are
+ *  one business. A Wikidata item is the single most valuable one to add. */
+export const AGENCY_PROFILES = [
+  process.env.NEXT_PUBLIC_AGENCY_LINKEDIN ?? '',
+  process.env.NEXT_PUBLIC_AGENCY_GITHUB ?? '',
+  process.env.NEXT_PUBLIC_AGENCY_X ?? '',
+  process.env.NEXT_PUBLIC_AGENCY_CRUNCHBASE ?? '',
+  process.env.NEXT_PUBLIC_AGENCY_WIKIDATA ?? '',
+  ...SOCIAL_PROFILES,
+].filter(Boolean);

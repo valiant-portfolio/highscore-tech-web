@@ -10,20 +10,73 @@
 // a mismatch between them fails entity validation and quietly costs ranking.
 
 import {
-  ADDRESS, AREAS_SERVED, BUSINESS_NAME, EMAIL, GEO, LEGAL_NAME,
-  OPENING_HOURS, PHONE, PRICE_RANGE, REGIONS_SERVED, SOCIAL_PROFILES,
+  ADDRESS, AGENCY_ALT_NAMES, AGENCY_KNOWS_ABOUT, AGENCY_NAME, AGENCY_PROFILES,
+  AREAS_SERVED, BUSINESS_NAME, CAC_NUMBER, EMAIL, FOUNDED, FOUNDER, GEO,
+  LEGAL_NAME, OPENING_HOURS, PHONE, PRICE_RANGE, REGIONS_SERVED,
+  SOCIAL_PROFILES,
 } from '@/lib/seo/business';
+
+/* Stable @id anchors. Every node below points at these rather than repeating
+   itself, which is what turns four separate JSON-LD blobs into one entity
+   Google can reason about. Without them the Organization, the WebSite and the
+   LocalBusiness read as three unrelated things that happen to share a name —
+   and with a name as contested as "Highscore", that ambiguity is the whole
+   problem. */
+export const orgId = (siteUrl: string) => `${siteUrl}/#organization`;
+export const founderId = (siteUrl: string) => `${siteUrl}/about#founder`;
+export const siteId = (siteUrl: string) => `${siteUrl}/#website`;
 
 // ── Organization ──────────────────────────────────────────────────────────
 export function organizationSchema(siteUrl: string, name: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': orgId(siteUrl),
     name,
+    legalName: `${AGENCY_NAME} Ltd`,
+    // Every spelling a person might type or a directory might record. Stating
+    // them explicitly stops Google guessing which "Highscore" a mention meant.
+    alternateName: [...AGENCY_ALT_NAMES],
     url: siteUrl,
-    logo: `${siteUrl}/full-logo.png`,
+    logo: {
+      '@type': 'ImageObject',
+      url: `${siteUrl}/full-logo.png`,
+      width: 440,
+      height: 130,
+    },
+    image: `${siteUrl}/full-logo.png`,
+    // Never the bare word. The name always travels with the city and what we
+    // actually do, because that pairing is what separates us from an edtech
+    // platform, a game-streaming service and X-ray diffraction software that
+    // all answer to "HighScore".
     description:
-      'Highscore Tech is an AI & software development studio building AI systems, integrating models like Claude and Groq into new and existing products, and shipping web and mobile software for clients worldwide.',
+      `${AGENCY_NAME} is a Lagos-based AI and software development company `
+      + `(CAC RC ${CAC_NUMBER}) building AI systems, web and mobile software for `
+      + 'clients in Nigeria and worldwide. It also runs Highscore Studio, its '
+      + 'music and video branch, which produces custom songs, jingles and advert films.',
+    slogan: 'AI systems and software, built to ship.',
+    // A government registration number is unique, externally verifiable, and
+    // belongs to exactly one company — among the strongest disambiguation
+    // signals a young brand can offer.
+    identifier: {
+      '@type': 'PropertyValue',
+      propertyID: 'Corporate Affairs Commission (Nigeria) RC number',
+      value: CAC_NUMBER,
+    },
+    ...(FOUNDED && { foundingDate: FOUNDED }),
+    foundingLocation: {
+      '@type': 'Place',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: ADDRESS.region,
+        addressCountry: ADDRESS.country,
+      },
+    },
+    // A named, real person attached to the company. None of the other
+    // "Highscore" entities have this anchor.
+    founder: { '@id': founderId(siteUrl) },
+    knowsAbout: [...AGENCY_KNOWS_ABOUT],
+    knowsLanguage: ['en-NG', 'en'],
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer support',
@@ -40,7 +93,41 @@ export function organizationSchema(siteUrl: string, name: string) {
       addressCountry: ADDRESS.country,
       ...(ADDRESS.street && { streetAddress: ADDRESS.street }),
     },
-    ...(SOCIAL_PROFILES.length > 0 && { sameAs: SOCIAL_PROFILES }),
+    areaServed: [
+      { '@type': 'Country', name: 'Nigeria' },
+      { '@type': 'Country', name: 'United Kingdom' },
+      { '@type': 'Country', name: 'United States' },
+      { '@type': 'Country', name: 'Canada' },
+    ],
+    // Declaring the sub-brand here is what stops Highscore Studio reading as a
+    // separate, competing entity that happens to share our domain.
+    brand: [
+      { '@type': 'Brand', name: AGENCY_NAME },
+      { '@type': 'Brand', name: BUSINESS_NAME, url: `${siteUrl}/studio` },
+    ],
+    ...(AGENCY_PROFILES.length > 0 && { sameAs: AGENCY_PROFILES }),
+  };
+}
+
+// ── Person — the founder ──────────────────────────────────────────────────
+/**
+ * Published so the company has a human anchor Google can verify against
+ * LinkedIn and elsewhere. `worksFor` points back at the Organization @id, which
+ * closes the loop: the person proves the company is real, and the company gives
+ * the person a role.
+ */
+export function founderSchema(siteUrl: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': founderId(siteUrl),
+    name: FOUNDER.name,
+    jobTitle: FOUNDER.jobTitle,
+    worksFor: { '@id': orgId(siteUrl) },
+    url: `${siteUrl}/about`,
+    nationality: { '@type': 'Country', name: 'Nigeria' },
+    knowsAbout: [...AGENCY_KNOWS_ABOUT],
+    ...(FOUNDER.sameAs.length > 0 && { sameAs: [...FOUNDER.sameAs] }),
   };
 }
 
@@ -109,6 +196,9 @@ export function localBusinessSchema(siteUrl: string) {
       ...REGIONS_SERVED.map((name) => ({ '@type': 'AdministrativeArea', name })),
     ],
     knowsLanguage: ['en-NG', 'en'],
+    // Studio is a branch of the agency, not a separate business. Saying so
+    // lets every signal either brand earns accrue to the same entity.
+    parentOrganization: { '@id': orgId(siteUrl) },
     ...(SOCIAL_PROFILES.length > 0 && { sameAs: SOCIAL_PROFILES }),
   };
 }
@@ -168,10 +258,14 @@ export function websiteSchema(siteUrl: string, name: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': siteId(siteUrl),
     name,
+    alternateName: [...AGENCY_ALT_NAMES],
     url: siteUrl,
-    inLanguage: 'en-US',
-    publisher: { '@type': 'Organization', name },
+    inLanguage: 'en-NG',
+    // By @id, not by repeating the name — so the site and the company are one
+    // node in Google's graph rather than two that merely agree.
+    publisher: { '@id': orgId(siteUrl) },
   };
 }
 
