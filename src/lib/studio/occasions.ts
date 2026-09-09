@@ -142,6 +142,124 @@ export const OCCASIONS: Occasion[] = [
       { q: 'Can I get short clips for promotion?', a: 'Yes — any package with video is cut for every platform, which is what you want in the week before an event.' },
     ],
   },
+
+  {
+    slug: 'funeral-song',
+    name: 'Funerals & memorials',
+    heading: 'A tribute song for someone you have lost',
+    title: 'Funeral & memorial tribute song — written for their life',
+    description:
+      'A custom tribute song for a funeral, burial or memorial in Nigeria, from ₦45,000. Their name, their life, their voice remembered — with a film cut from your own photographs.',
+    intro:
+      'A burial programme ends. The canopy comes down, the guests travel home, and what is left is photographs. We write a song about the person — what they did, how they spoke, what they were to everybody who came — and produce it properly, so there is something the family can still play in ten years.',
+    projectType: 'event',
+    packages: ['occasion_song', 'occasion_film', 'short_song'],
+    gets: [
+      'Their name and their story in the words, not a general hymn',
+      'A film cut from your own photographs of them',
+      'Something to play at the service, the reception and the wake-keep',
+      'Guest tributes collected and included, on The Full Story',
+    ],
+    faqs: [
+      { q: 'How quickly can you make a funeral song?', a: 'A short tribute song is usually ready in about three days, a full song in five. Nigerian burials are often planned weeks ahead, but if yours is sooner, message us before ordering and we will tell you honestly whether we can meet the date.' },
+      { q: 'Can you use our own photographs?', a: 'Yes. The Full Story cuts a film from the photographs and clips the family already has — which for most families is the only footage that exists.' },
+      { q: 'Can it be a gospel or hymn style?', a: 'Yes. Gospel, worship, choir and hymnal are all styles we write in, and for most Nigerian burials that is what is wanted. Tell us the church and the tradition and we write to it.' },
+      { q: 'Can family members abroad contribute?', a: 'Yes. On The Full Story we collect voice or video messages from guests and family wherever they are, and work them into the film.' },
+    ],
+  },
+  {
+    slug: 'anniversary-song',
+    name: 'Anniversaries',
+    heading: 'A song for your anniversary, about the years you have had',
+    title: 'Custom anniversary song — written about your marriage',
+    description:
+      'A custom wedding anniversary song from ₦45,000 — written from your own story, sung by a real vocalist and produced by Highscore Studio in Lagos.',
+    intro:
+      'Ten years, twenty-five, fifty. The photographs from the wedding are already framed. What nobody has is a song about what happened after it — the house, the children, the years that were hard and the ones that were not.',
+    projectType: 'event',
+    packages: ['occasion_song', 'short_song', 'occasion_film'],
+    gets: [
+      'Written from your actual years together, not a template love song',
+      'Both names sung, and the date',
+      'A film cut from the wedding photographs and everything since',
+      'Ready to play at the party, or sent privately as a surprise',
+    ],
+    faqs: [
+      { q: 'Can I keep it a surprise?', a: 'Yes, and most people do. We deliver to a private link only you can open, so nothing reaches them until you play it.' },
+      { q: 'Can you include our children?', a: 'Yes — names, ages, the things they say. Those details are usually what makes the room go quiet.' },
+      { q: 'What if we do not have many photographs?', a: 'Then take the song on its own, or add a video generated from a handful of images. We work with what exists.' },
+    ],
+  },
+  {
+    slug: 'naming-ceremony-song',
+    name: 'Naming ceremonies',
+    heading: 'A song for the naming ceremony, with the baby’s name in it',
+    title: 'Naming ceremony song — with the baby’s name sung',
+    description:
+      'A custom naming ceremony song from ₦45,000, with the baby’s name sung and the family named. Produced by Highscore Studio in Lagos and delivered before the day.',
+    intro:
+      'Eight days after a birth, the whole family gathers and the name is finally said out loud. We write a song around that name — what it means, who chose it, the family it comes from — and have it ready to play the morning of the ceremony.',
+    projectType: 'event',
+    packages: ['short_song', 'occasion_song', 'occasion_film'],
+    gets: [
+      'The baby’s name sung, and what the name means',
+      'Both families named — grandparents included',
+      'Ready before the eighth day, not on it',
+      'A keepsake card with a QR code, so guests can play it later',
+    ],
+    faqs: [
+      { q: 'The ceremony is in eight days. Can you make it?', a: 'Usually yes — a short song takes about three days. Message us before you order and we will confirm the date honestly rather than take the money and rush it.' },
+      { q: 'Can the song say what the name means?', a: 'Yes, and it is the best part of these songs. Tell us the meaning and who chose it, in whatever language, and we write it in.' },
+      { q: 'Can you sing in Yoruba, Igbo or Hausa?', a: 'We can carry names, phrases and blessings in your language inside the song. Tell us exactly what should be said and how it is pronounced.' },
+    ],
+  },
+  {
+    slug: 'campaign-jingle',
+    name: 'Political campaigns',
+    heading: 'Campaign jingles and adverts for the 2027 elections',
+    title: 'Campaign jingle Nigeria — political adverts for 2027',
+    description:
+      'Campaign jingles, adverts and full media campaigns for Nigerian elections, from ₦250,000. Rally-ready audio, films cut for every screen, up to four languages, and media booked at the station’s own rate.',
+    intro:
+      'The jingle is the part of a campaign people repeat without being asked. We write it around the name, the office and the promise, produce it in the languages the constituency actually speaks, and cut it for the rally speakers, the radio, the television and the phone.',
+    projectType: 'political',
+    packages: ['campaign_jingle', 'campaign_pack', 'campaign_full'],
+    gets: [
+      'A jingle built to be chanted back, not just heard',
+      'Up to four languages, so the whole constituency hears it',
+      'Rally-ready audio that survives an outdoor PA',
+      'Media planned and booked, with every spot confirmed as run',
+    ],
+    faqs: [
+      { q: 'How fast can a campaign jingle be produced?', a: 'The jingle on its own takes about five days. The full pack takes fourteen, and a whole managed campaign thirty. In an election season, book earlier than you think you need to.' },
+      { q: 'Can you handle radio and television placement?', a: 'Yes. We plan the campaign, cost it before anything is booked, negotiate the rate, book the slots and confirm each one ran. Airtime is billed at the station’s own rate plus 15% for the booking — we publish the real station rates on our pricing page rather than burying them in a package.' },
+      { q: 'Can it be recorded in more than one language?', a: 'Yes — two languages on the Campaign Jingle, up to four on the Campaign Pack. That is usually what decides whether a constituency hears you or hears past you.' },
+      { q: 'Do you film rallies?', a: 'On the Full Campaign, yes: rallies, walkabouts and the constituency itself, with fresh content cut through the campaign rather than one advert reused until polling day.' },
+    ],
+  },
+  {
+    slug: 'graduation-song',
+    name: 'Graduations',
+    heading: 'A song for their graduation, about the years it took',
+    title: 'Custom graduation song — a gift they will keep',
+    description:
+      'A custom graduation song from ₦45,000 — their name, their course, the years it took. Written and produced by Highscore Studio in Lagos, delivered in about three days.',
+    intro:
+      'Everybody sends a photograph and a caption. A song is the one gift nobody else in the family thought of — their name, the school, the course, and what it actually cost them to finish it.',
+    projectType: 'birthday',
+    packages: ['short_song', 'occasion_song', 'occasion_film'],
+    gets: [
+      'Their name, their school and their course in the words',
+      'The story behind the degree, not just congratulations',
+      'A video with the words on screen, ready to post',
+      'Delivered in about three days',
+    ],
+    faqs: [
+      { q: 'Can I get it before the ceremony?', a: 'Yes — a short song takes about three days. Order the week before and it is ready to play on the day.' },
+      { q: 'Can you mention the university?', a: 'Yes. The school, the course, the year, the people who paid the fees — whatever you want said.' },
+      { q: 'Can I post it on Instagram?', a: 'Yes, it is yours. Every package with video is cut for social, so it fits the feed without you having to crop it.' },
+    ],
+  },
 ];
 
 export const OCCASION_BY_SLUG: Record<string, Occasion> = Object.fromEntries(

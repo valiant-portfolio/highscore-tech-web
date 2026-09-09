@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Logo from '@/components/brand/Logo';
 import { AmbientBackdrop } from '@/components/marketing3d/AmbientBackdrop';
 import { STUDIO_URL } from '@/lib/studio/catalog';
+import { OCCASIONS } from '@/lib/studio/occasions';
+import { addressLine, CAC_RC, EMAIL, LEGAL_NAME, PHONE, phoneDisplay } from '@/lib/seo/business';
 
 interface Column {
   title: string;
@@ -25,14 +27,21 @@ const COLUMNS: Column[] = [
   {
     title: 'Studio',
     links: [
-      { href: STUDIO_URL,                            label: 'Highscore Studio' },
-      { href: `${STUDIO_URL}/pricing`,               label: 'Studio pricing' },
-      { href: `${STUDIO_URL}/songs/birthday-song`,   label: 'Birthday songs' },
-      { href: `${STUDIO_URL}/songs/wedding-song`,    label: 'Wedding songs' },
-      { href: `${STUDIO_URL}/songs/church-song`,     label: 'Church songs' },
-      { href: `${STUDIO_URL}/songs/business-jingle`, label: 'Business jingles' },
-      { href: `${STUDIO_URL}/order`,                 label: 'Order a song' },
+      { href: STUDIO_URL,              label: 'Highscore Studio' },
+      { href: `${STUDIO_URL}/pricing`, label: 'Studio pricing' },
+      { href: `${STUDIO_URL}/work`,    label: 'Our work' },
+      { href: `${STUDIO_URL}/order`,   label: 'Order a song' },
     ],
+  },
+  {
+    // Derived from the catalogue rather than hand-listed: every occasion page
+    // is linked from every page on the site the moment it is added, which is
+    // how a new landing page gets crawled in days instead of weeks.
+    title: 'Songs for',
+    links: OCCASIONS.map((o) => ({
+      href: `${STUDIO_URL}/songs/${o.slug}`,
+      label: o.name,
+    })),
   },
   {
     title: 'Company',
@@ -59,14 +68,25 @@ export function MarketingFooter() {
             <p className="text-xs text-fg-subtle">
               <a href="mailto:admin@highzcore.tech" className="hover:text-fg">admin@highzcore.tech</a>
             </p>
-            <div className="text-xs text-fg-subtle space-y-1 pt-2 border-t border-border/60 max-w-xs">
-              <p>Highscore Tech</p>
-              <p className="font-mono tabular">CAC RC No. 7223102</p>
-              <p>Lagos, Nigeria.</p>
-            </div>
+            {/* NAP. Must stay character-for-character identical to the Google
+                Business Profile and to lib/seo/business — a mismatch between
+                the two is read as two different businesses. */}
+            <address className="not-italic text-xs text-fg-subtle space-y-1 pt-2 border-t border-border/60 max-w-xs">
+              <p className="font-semibold text-fg-muted">{LEGAL_NAME}</p>
+              <p className="font-mono tabular">CAC {CAC_RC}</p>
+              <p>{addressLine()}</p>
+              {PHONE && (
+                <p>
+                  <a href={`tel:${PHONE}`} className="hover:text-fg">{phoneDisplay()}</a>
+                </p>
+              )}
+              <p>
+                <a href={`mailto:${EMAIL}`} className="hover:text-fg">{EMAIL}</a>
+              </p>
+            </address>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-6">
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <p className="text-xs uppercase tracking-[0.18em] font-semibold text-fg-subtle mb-3">

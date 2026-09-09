@@ -10,7 +10,7 @@ import { PACKAGE_BY_KEY, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
 import JsonLd from '@/components/seo/JsonLd';
-import { faqSchema, serviceSchema } from '@/components/seo/structured-data';
+import { breadcrumbSchema, faqSchema, serviceSchema } from '@/components/seo/structured-data';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 
@@ -49,6 +49,12 @@ export default async function OccasionPage({ params }: { params: Promise<{ slug:
     <>
       <JsonLd data={serviceSchema({ siteUrl: SITE_URL, name: o.title, description: o.description, path: `/studio/songs/${o.slug}`, priceFrom: cheapest })} />
       <JsonLd data={faqSchema(o.faqs)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Highscore Studio', url: `${SITE_URL}/studio` },
+          { name: o.name, url: `${SITE_URL}/studio/songs/${o.slug}` },
+        ])}
+      />
 
       {/* ── Intro ────────────────────────────────────────────────── */}
       <section className="px-4 md:px-8 pt-12 md:pt-16 pb-10">

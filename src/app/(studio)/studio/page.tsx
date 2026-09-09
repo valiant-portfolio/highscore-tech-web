@@ -10,13 +10,39 @@ import { OCCASIONS } from '@/lib/studio/occasions';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { StudioHeroBackdrop } from '@/components/studio/StudioHeroBackdrop';
 import { LinkButton } from '@/components/ui';
+import JsonLd from '@/components/seo/JsonLd';
+import { faqSchema } from '@/components/seo/structured-data';
 
 export const metadata: Metadata = {
-  title: 'Highscore Studio — custom songs, jingles & promo videos',
+  title: 'Custom songs & business jingles in Lagos, Nigeria',
   description:
     'We make businesses famous. Occasion songs from ₦45,000. Business packages from ₦180,000 — every one includes a website, your Google listing and your profiles set up properly, plus the jingle. Advert video, radio, live TV and outdoor. Songs for birthdays, weddings, funerals, churches and events across Nigeria.',
   alternates: { canonical: '/studio' },
 };
+
+/**
+ * The plain questions a stranger asks in the first thirty seconds. Kept short
+ * and factual on purpose: an AI Overview quotes a direct answer, not a
+ * paragraph of positioning.
+ */
+const HOME_FAQS = [
+  {
+    q: 'What does Highscore Studio do?',
+    a: 'Highscore Studio writes and produces custom songs, jingles and advert videos from Lagos, Nigeria. For people, that means a song written about someone for a birthday, wedding, funeral, naming ceremony or church programme. For businesses, it means a jingle and advert video, plus a website on your own domain, your Google Business Profile claimed and your social profiles set up properly.',
+  },
+  {
+    q: 'How much is a custom song?',
+    a: 'A one-minute song is ₦45,000 and takes about three days. A full song written from someone’s real story is ₦120,000 in five days. The song, film and streaming release together is ₦280,000 in seven days. Business packages start at ₦180,000 and campaign jingles at ₦250,000. Every price is published on our pricing page.',
+  },
+  {
+    q: 'Where are you based, and do you work outside Lagos?',
+    a: 'We are based in Lagos, Nigeria, and work across Lekki, Ikoyi, Victoria Island, Ikeja, Surulere, Yaba and the rest of the city. Because everything except filming is delivered digitally, we also work with clients in Abuja, Port Harcourt, Ibadan, Benin City, Enugu and Kano, and with Nigerians in the UK, the US and Canada.',
+  },
+  {
+    q: 'How do I order?',
+    a: 'Pick a package, fill in the brief and pay. The brief asks the questions that matter for your kind of project — names, dates, the story, the style of music. You get the finished work on WhatsApp, Telegram or email within the turnaround printed on the package.',
+  },
+];
 
 const WHAT_WE_DO = [
   { icon: <Music className="h-5 w-5" />,        title: 'Custom songs & jingles', body: 'A song written about your business, your event, or the person you love. Yours to keep.' },
@@ -33,6 +59,8 @@ export default function StudioHomePage() {
 
   return (
     <>
+      <JsonLd data={faqSchema(HOME_FAQS)} />
+
       {/* ── Hero ─────────────────────────────────────────────────── */}
       {/* Deep bottom padding is deliberate: it reserves a clear band for the
           spectrum below the copy, instead of the bars running through it. */}
@@ -215,6 +243,41 @@ export default function StudioHomePage() {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      {/* ── Questions ────────────────────────────────────────────── */}
+      {/* Visible on the page, not schema-only: Google requires FAQPage markup to
+          match content a human can actually read, and it is the block an AI
+          Overview quotes from when someone asks what we cost or where we are. */}
+      <section className="px-4 md:px-8 py-16 md:py-20 border-t border-border">
+        <div className="mx-auto max-w-[820px]">
+          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-fg text-center">
+            Questions.
+          </h2>
+          <div className="mt-9 divide-y divide-border">
+            {HOME_FAQS.map((f) => (
+              <details key={f.q} className="group py-4">
+                <summary className="flex cursor-pointer items-start justify-between gap-4 list-none">
+                  <h3 className="text-base md:text-lg font-bold text-fg">{f.q}</h3>
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 shrink-0 text-fg-subtle transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm md:text-base text-fg-muted leading-relaxed">{f.a}</p>
+              </details>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-fg-subtle">
+            Every price is on the{' '}
+            <Link href="/studio/pricing" className="font-semibold text-brand hover:underline">
+              pricing page
+            </Link>
+            . We do not ask anyone to message us for a quote.
+          </p>
         </div>
       </section>
 

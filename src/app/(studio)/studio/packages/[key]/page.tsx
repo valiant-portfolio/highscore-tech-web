@@ -13,7 +13,7 @@ import { PACKAGES, PACKAGE_BY_KEY, ADDONS, formatNgn } from '@/lib/studio/catalo
 import { detailFor } from '@/lib/studio/packages';
 import { LinkButton } from '@/components/ui';
 import JsonLd from '@/components/seo/JsonLd';
-import { serviceSchema } from '@/components/seo/structured-data';
+import { breadcrumbSchema, serviceSchema } from '@/components/seo/structured-data';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
 
@@ -29,7 +29,7 @@ export async function generateMetadata(
   if (!pkg) return {};
   const price = formatNgn(pkg.priceNgn);
   return {
-    title: `${pkg.name} — ${price} | Highscore Studio`,
+    title: `${pkg.name} — ${price}`,
     description: `${pkg.blurb} ${detailFor(pkg.key)?.bestFor ?? ''}`.trim().slice(0, 300),
     alternates: { canonical: `/studio/packages/${pkg.key}` },
   };
@@ -54,6 +54,13 @@ export default async function PackagePage({ params }: { params: Promise<{ key: s
           priceFrom: pkg.priceNgn,
           currency: 'NGN',
         })}
+      />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Highscore Studio', url: `${SITE_URL}/studio` },
+          { name: 'Pricing', url: `${SITE_URL}/studio/pricing` },
+          { name: pkg.name, url: `${SITE_URL}/studio/packages/${pkg.key}` },
+        ])}
       />
 
       <section className="px-4 md:px-8 pt-10 md:pt-14 pb-10">

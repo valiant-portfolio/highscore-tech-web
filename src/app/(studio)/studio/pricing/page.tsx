@@ -12,9 +12,55 @@ import { ArrowRight, Download } from 'lucide-react';
 import { PACKAGES, PACKAGE_GROUPS, ADDONS, MEDIA_RATES, formatNgn } from '@/lib/studio/catalog';
 import { PackageCard } from '@/components/studio/PackageCard';
 import { LinkButton } from '@/components/ui';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbSchema, faqSchema, offerCatalogSchema } from '@/components/seo/structured-data';
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highzcore.tech';
+
+/**
+ * The questions people actually type before they buy, answered in full on the
+ * page rather than hidden behind a DM. Two reasons this is here and not in a
+ * blog post: an answer in FAQPage schema can be quoted directly inside a Google
+ * AI Overview, and a rival whose whole pricing strategy is "DM for price" has
+ * nothing for that overview to quote.
+ */
+const PRICING_FAQS = [
+  {
+    q: 'How much does a custom song cost in Nigeria?',
+    a: 'At Highscore Studio a one-minute custom song is ₦45,000 and takes about three days. A full song written from someone’s real story, professionally sung and produced, is ₦120,000 in five days. The Full Story — song, film, and release to Spotify and Apple Music — is ₦280,000 in seven days. Every price is published on this page; we do not ask anyone to message us for a quote.',
+  },
+  {
+    q: 'How much does a business jingle cost in Nigeria?',
+    a: 'Business packages start at ₦180,000 for The Starter, which includes a custom jingle in three lengths plus a website on your own domain, your domain submitted to Google, your Google Business Profile claimed and WhatsApp Business set up properly. The Brand Pack is ₦380,000 and adds a 30–60 second advert video and a month of Google and social work. The Launch is ₦750,000 and The Full Campaign starts at ₦1,500,000.',
+  },
+  {
+    q: 'Is radio or TV airtime included in the price?',
+    a: 'No, and we say so plainly rather than burying it. Airtime is billed at the station’s own rate plus 15% for booking and managing it. A 60-second radio spot runs from about ₦20,000 on a state station to ₦85,000 on Cool FM or Beat FM; 30 seconds on Channels TV is about ₦200,000; a mainland 48-sheet billboard is ₦300,000 to ₦600,000 a month. The real rates are published further up this page.',
+  },
+  {
+    q: 'How long does it take to get a song or jingle?',
+    a: 'Three days for a one-minute song, five for a full song or a campaign jingle, seven for The Starter or The Full Story, fourteen for The Brand Pack, twenty-one for The Launch and thirty for a full managed campaign. Turnaround runs from the day payment clears, and it is printed on every package.',
+  },
+  {
+    q: 'Do you work with businesses outside Lagos?',
+    a: 'Yes. Everything except filming is delivered digitally, so we work with businesses and families across Nigeria — Abuja, Port Harcourt, Ibadan, Benin City, Enugu, Kano — and with Nigerians abroad in the UK, the US and Canada. Filming on location is included in The Launch and above, with travel outside Lagos quoted separately.',
+  },
+  {
+    q: 'Does a business package really include a website?',
+    a: 'Yes, every one of them. We are a technology company as well as a studio, so a business package includes a website on your own domain with hosting for the first year, your domain registered in Google Search Console with a sitemap submitted, your Google Business Profile claimed and filled in, your WhatsApp Business catalogue set up, your social profiles cleaned up and a business email on your own domain.',
+  },
+  {
+    q: 'How much does a campaign jingle cost for the 2027 elections?',
+    a: 'A campaign jingle is ₦250,000 and takes five days. The Campaign Pack — jingle, advert films cut for every screen, poster and billboard artwork, up to four languages — is ₦850,000 in fourteen days. A full managed campaign, with media planned, costed, booked and confirmed, starts at ₦2,000,000.',
+  },
+  {
+    q: 'Do I own the song afterwards?',
+    a: 'Yes. The song, the video, the domain, the website and the profiles are yours to keep and to use however you like, including commercially. If you stop a monthly plan, none of it is taken back.',
+  },
+];
 
 export const metadata: Metadata = {
-  title: 'Studio pricing — songs from ₦45,000, business packages from ₦180,000',
+  title: 'Pricing — songs from ₦45,000, business from ₦180,000',
   description:
     'Highscore Studio pricing. Occasion songs from ₦45,000. Business packages from ₦180,000 — every one includes a website, your Google listing and your profiles set up properly. Campaign jingles for 2027 from ₦250,000. Real station rates published.',
   alternates: { canonical: '/studio/pricing' },
@@ -23,6 +69,27 @@ export const metadata: Metadata = {
 export default function StudioPricingPage() {
   return (
     <>
+      <JsonLd data={faqSchema(PRICING_FAQS)} />
+      <JsonLd
+        data={offerCatalogSchema({
+          siteUrl: SITE_URL,
+          name: 'Highscore Studio packages',
+          items: PACKAGES.map((pkg) => ({
+            name: pkg.name,
+            description: pkg.blurb,
+            priceNgn: pkg.priceNgn,
+            path: `/studio/packages/${pkg.key}`,
+            from: pkg.from,
+          })),
+        })}
+      />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Highscore Studio', url: `${SITE_URL}/studio` },
+          { name: 'Pricing', url: `${SITE_URL}/studio/pricing` },
+        ])}
+      />
+
       {/* No hero. Someone on the pricing page came to see prices, so the first
           thing on screen is the first package, not a headline about them. */}
       <section className="px-4 md:px-8 pt-10 md:pt-12 pb-2">
@@ -150,6 +217,31 @@ export default function StudioPricingPage() {
             those months is printed on the card, not saved for later. Bigger or longer campaigns are
             custom-quoted.
           </p>
+        </div>
+      </section>
+
+      {/* ── Questions people ask before they pay ─────────────────── */}
+      <section className="px-4 md:px-8 py-14 md:py-20 border-t border-border">
+        <div className="mx-auto max-w-[820px]">
+          <h2 className="font-display text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg">
+            Questions people ask before they pay
+          </h2>
+          <div className="mt-8 divide-y divide-border">
+            {PRICING_FAQS.map((f) => (
+              <details key={f.q} className="group py-4">
+                <summary className="flex cursor-pointer items-start justify-between gap-4 list-none">
+                  <h3 className="text-base md:text-lg font-bold text-fg">{f.q}</h3>
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 shrink-0 text-fg-subtle transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm md:text-base text-fg-muted leading-relaxed">{f.a}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 

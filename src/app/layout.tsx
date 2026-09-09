@@ -72,7 +72,7 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
+    locale: 'en_NG',
     url: SITE_URL,
     title: `${SITE_NAME} — AI & software development studio`,
     description: DESCRIPTION,
@@ -107,7 +107,7 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: SITE_URL,
-    languages: { 'en-US': SITE_URL },
+    languages: { 'en-NG': SITE_URL, 'x-default': SITE_URL },
   },
 };
 
@@ -129,7 +129,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="en-NG"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
