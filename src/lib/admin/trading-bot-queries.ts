@@ -72,6 +72,52 @@ export interface BotTrade {
   entry_spread: number | null;
   close_reason: string | null;
   is_dry_run: boolean;
+  /** The trade review — what the indicators read at the entry bar and again at
+   *  the exit bar. Written by the bot (db/migrations/005 in the bot repo); null
+   *  on every trade that closed before that shipped, and not backfillable. */
+  entry_snapshot: BotSnapshot | null;
+  exit_snapshot: BotSnapshot | null;
+  /** Trend as an integer, -2 (Strong Down) .. +2 (Strong Up). `htf` is the
+   *  higher timeframe the bot confirms against — H1 when trading M15. */
+  entry_trend: number | null;
+  exit_trend: number | null;
+  entry_htf_trend: number | null;
+  exit_htf_trend: number | null;
+  /** 'with trend' | 'against trend' | 'no trend', judged at entry. */
+  trend_agreement: string | null;
+  /** Best excursion in favour and worst against, in PRICE units, measured on
+   *  bar extremes. mae is the one to lead with on a winner: "came within a hair
+   *  of the stop" is the story the P&L column hides. */
+  mfe: number | null;
+  mae: number | null;
+  /** Result as a multiple of the initial risk (entry → stop). */
+  r_multiple: number | null;
+}
+
+/** One bar's indicator readings. Every value may be null where the terminal
+ *  lacked the history to compute it — render those as "—", never as zero. */
+export interface BotSnapshot {
+  time: string | null;
+  close: number | null;
+  trend: number | null;
+  ema50: number | null;
+  ema200: number | null;
+  rsi: number | null;
+  macd: number | null;
+  macd_hist: number | null;
+  adx: number | null;
+  plus_di: number | null;
+  minus_di: number | null;
+  atr: number | null;
+  bb_z: number | null;
+}
+
+export interface BotBar {
+  ts: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 }
 
 export interface BotEquity {
@@ -151,8 +197,15 @@ export interface BotOverview {
   lastUpdate: string | null;
 }
 
+// ONE string literal, deliberately: supabase-js parses this at the type level to
+// infer the row shape, and it cannot see through a concatenation — splitting it
+// for readability turns every result into GenericStringError[].
+//
+// The tail is the trade review (entry_snapshot onward), selected everywhere
+// trades are listed so a row can say whether it was taken with or against the
+// trend without a second round trip.
 const TRADE_COLS =
-  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run';
+  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run, entry_snapshot, exit_snapshot, entry_trend, exit_trend, entry_htf_trend, exit_htf_trend, trend_agreement, mfe, mae, r_multiple';
 
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
@@ -228,6 +281,56 @@ export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
     trades: (trades.data ?? []) as BotTrade[],
     predictions: (predictions.data ?? []) as BotPrediction[],
     modelRun: (modelRun.data?.[0] as BotModelRun | undefined) ?? null,
+  };
+}
+
+export interface BotTradeDetail {
+  trade: BotTrade | null;
+  /** Bars around the trade, for the chart. Empty when the window has aged out
+   *  of bot_bars' retention — the page still renders, without the chart. */
+  bars: BotBar[];
+  timeframe: string;
+  digits: number;
+}
+
+/** One trade, with the bars it lived through.
+ *
+ * Keyed by TICKET, not by row id: that is what the broker, the logs and the
+ * Telegram alerts all name a trade by, so a deep link from any of them lands
+ * here. Dry-run trades have no ticket and are not reachable this way.
+ */
+export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
+  const admin = botServiceClient();
+
+  const { data } = await admin.from('bot_trades').select(TRADE_COLS).eq('ticket', ticket).maybeSingle();
+  const trade = (data as BotTrade | null) ?? null;
+  if (!trade) return { trade: null, bars: [], timeframe: 'M15', digits: 5 };
+
+  // bot_bars only syncs M15 and H1 (backend v7). Anything else recorded on the
+  // trade would return an empty chart, so fall back rather than show nothing.
+  const timeframe = trade.timeframe === 'H1' ? 'H1' : 'M15';
+  const tfSeconds = timeframe === 'H1' ? 3600 : 900;
+
+  // Context either side of the trade: 60 bars before the entry and 40 after the
+  // exit, so the chart shows what price was doing BEFORE the bot acted — which
+  // is the part that says whether the entry made sense.
+  const openMs = new Date(trade.open_ts).getTime();
+  const closeMs = trade.close_ts ? new Date(trade.close_ts).getTime() : Date.now();
+  const from = new Date(openMs - 60 * tfSeconds * 1000).toISOString();
+  const to = new Date(closeMs + 40 * tfSeconds * 1000).toISOString();
+
+  const [bars, quote] = await Promise.all([
+    admin.from('bot_bars').select('ts,open,high,low,close')
+      .eq('symbol', trade.symbol).eq('timeframe', timeframe)
+      .gte('ts', from).lte('ts', to).order('ts', { ascending: true }).limit(1000),
+    admin.from('bot_quotes').select('digits').eq('symbol', trade.symbol).maybeSingle(),
+  ]);
+
+  return {
+    trade,
+    bars: (bars.data ?? []) as BotBar[],
+    timeframe,
+    digits: (quote.data?.digits as number | undefined) ?? 5,
   };
 }
 

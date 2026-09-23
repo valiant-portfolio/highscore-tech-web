@@ -6,6 +6,7 @@
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
@@ -628,20 +629,32 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
               <tr>
                 <Th className="text-left pl-4">Closed</Th><Th className="text-left">Market</Th><Th className="text-left">Side</Th>
                 <Th className="text-right">Lot size</Th><Th className="text-right">Entry</Th><Th className="text-right">Exit</Th>
-                <Th className="text-right">P&L</Th><Th className="text-left pr-4">Reason</Th>
+                <Th className="text-right">P&L</Th><Th className="text-left">Reason</Th>
+                <Th className="text-left pr-4">Trend</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {pageRows.map((t) => (
+                // The whole row links to the trade's post-mortem — the chart of
+                // what price did, and what the indicators read at entry vs exit.
+                // Only trades with a broker ticket have a page; a dry-run trade
+                // has none, so it stays a plain row rather than a dead link.
                 <tr key={t.id} className="hover:bg-surface-hover/30">
-                  <Td className="pl-4 text-fg-muted whitespace-nowrap">{t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</Td>
+                  <Td className="pl-4 text-fg-muted whitespace-nowrap">
+                    {t.ticket
+                      ? <Link href={`/admin/trading-bot/trade/${t.ticket}`} className="underline-offset-2 hover:underline">
+                          {t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </Link>
+                      : (t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')}
+                  </Td>
                   <Td className="font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
                   <Td><SideTag side={t.side} /></Td>
                   <Td className="text-right tabular">{t.volume}</Td>
                   <Td className="text-right tabular">{px(t.open_price)}</Td>
                   <Td className="text-right tabular">{px(t.close_price)}</Td>
                   <Td className={`text-right tabular font-bold ${pnlTone(t.pnl)}`}>{t.pnl == null ? '—' : signed(t.pnl)}</Td>
-                  <Td className="pr-4 text-fg-muted">{t.close_reason ?? '—'}</Td>
+                  <Td className="text-fg-muted">{t.close_reason ?? '—'}</Td>
+                  <Td className="pr-4"><TrendAgreement verdict={t.trend_agreement} /></Td>
                 </tr>
               ))}
             </tbody>
@@ -826,6 +839,15 @@ function SideTag({ side }: { side: string }) {
 }
 function DryTag() {
   return <span className="ml-1.5 rounded bg-surface-hover px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-fg-subtle align-middle">demo</span>;
+}
+// Whether the bot took the trade with the trend, against it, or into a range —
+// judged at ENTRY, by the bot itself. Blank for trades that closed before the
+// review shipped; those cannot be backfilled.
+function TrendAgreement({ verdict }: { verdict: string | null }) {
+  if (!verdict) return <span className="text-fg-subtle">—</span>;
+  const tone = verdict === 'with trend' ? 'text-success'
+    : verdict === 'against trend' ? 'text-danger' : 'text-fg-muted';
+  return <span className={`text-xs font-semibold ${tone}`}>{verdict}</span>;
 }
 
 // Re-export so the page can render the live status badge in its header.

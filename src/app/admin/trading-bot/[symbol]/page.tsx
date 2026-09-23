@@ -3,6 +3,7 @@
 // and the latest model run's out-of-sample scorecard. Read-only.
 
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo } from '@/components/admin/bot/BotBits';
 import { getBotMarket } from '@/lib/admin/trading-bot-queries';
@@ -120,7 +121,16 @@ export default async function BotMarketPage({ params }: PageProps) {
                 <tbody className="divide-y divide-border">
                   {trades.map((t) => (
                     <tr key={t.id} className="hover:bg-surface-hover/30">
-                      <Td className="pl-4 text-fg-muted whitespace-nowrap">{new Date(t.open_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Td>
+                      {/* Opens the trade's post-mortem: the chart of what price
+                          did, and the indicator readings at entry vs exit.
+                          Dry-run trades have no ticket and so have no page. */}
+                      <Td className="pl-4 text-fg-muted whitespace-nowrap">
+                        {t.ticket ? (
+                          <Link href={`/admin/trading-bot/trade/${t.ticket}`} className="underline-offset-2 hover:underline">
+                            {new Date(t.open_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </Link>
+                        ) : new Date(t.open_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </Td>
                       <Td className={`font-bold ${t.side === 'buy' ? 'text-success' : 'text-danger'}`}>{t.side.toUpperCase()}</Td>
                       <Td className="text-right tabular">{t.volume}</Td>
                       <Td className="text-right tabular">{px(t.open_price)}</Td>
