@@ -660,14 +660,7 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
                   <Td className="text-right tabular">{px(t.close_price)}</Td>
                   <Td className={`text-right tabular font-bold ${pnlTone(t.pnl)}`}>{t.pnl == null ? '—' : signed(t.pnl)}</Td>
                   <Td className="text-fg-muted">{t.close_reason ?? '—'}</Td>
-                  <Td className="pr-4">
-                    <span className="flex items-center justify-between gap-2">
-                      <TrendAgreement verdict={t.trend_agreement} />
-                      {/* The only affordance: a chevron saying this row opens
-                          something. Nothing else in the row changes. */}
-                      {t.ticket && <ChevronRight className="h-4 w-4 shrink-0 text-fg-subtle" />}
-                    </span>
-                  </Td>
+                  <Td className="pr-4"><TrendAgreement verdict={t.trend_agreement} /></Td>
                 </tr>
               ))}
             </tbody>
