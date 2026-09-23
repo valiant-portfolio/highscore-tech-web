@@ -6,7 +6,7 @@
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
@@ -551,6 +551,9 @@ function Positions({
 const PAGE_SIZE = 15;
 
 function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade[]; markets: BotMarket[]; total: number }) {
+  // Rows navigate on tap — the date link alone was too small a target on a
+  // phone, which is where these get read.
+  const router = useRouter();
   const capped = total > closedTrades.length;
   const [market, setMarket] = useState<string>('all');
   const [order, setOrder] = useState<'newest' | 'oldest'>('newest');
@@ -639,13 +642,16 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
                 // what price did, and what the indicators read at entry vs exit.
                 // Only trades with a broker ticket have a page; a dry-run trade
                 // has none, so it stays a plain row rather than a dead link.
-                <tr key={t.id} className="hover:bg-surface-hover/30">
+                <tr
+                  key={t.id}
+                  onClick={t.ticket ? () => router.push(`/admin/trading-bot/trade/${t.ticket}`) : undefined}
+                  className={`hover:bg-surface-hover/30 ${t.ticket ? 'cursor-pointer' : ''}`}
+                >
+                  {/* The date stays a plain date. The ROW is the target — a
+                      whole row is easier to hit than a few words, and there is
+                      no hover on the phone this gets read on. */}
                   <Td className="pl-4 text-fg-muted whitespace-nowrap">
-                    {t.ticket
-                      ? <Link href={`/admin/trading-bot/trade/${t.ticket}`} className="underline-offset-2 hover:underline">
-                          {t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
-                        </Link>
-                      : (t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')}
+                    {t.close_ts ? new Date(t.close_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                   </Td>
                   <Td className="font-semibold text-fg">{t.symbol}{t.is_dry_run && <DryTag />}</Td>
                   <Td><SideTag side={t.side} /></Td>
@@ -654,7 +660,14 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
                   <Td className="text-right tabular">{px(t.close_price)}</Td>
                   <Td className={`text-right tabular font-bold ${pnlTone(t.pnl)}`}>{t.pnl == null ? '—' : signed(t.pnl)}</Td>
                   <Td className="text-fg-muted">{t.close_reason ?? '—'}</Td>
-                  <Td className="pr-4"><TrendAgreement verdict={t.trend_agreement} /></Td>
+                  <Td className="pr-4">
+                    <span className="flex items-center justify-between gap-2">
+                      <TrendAgreement verdict={t.trend_agreement} />
+                      {/* The only affordance: a chevron saying this row opens
+                          something. Nothing else in the row changes. */}
+                      {t.ticket && <ChevronRight className="h-4 w-4 shrink-0 text-fg-subtle" />}
+                    </span>
+                  </Td>
                 </tr>
               ))}
             </tbody>
