@@ -61,6 +61,41 @@ export async function setLotSizeAction(symbol: string, lot: number | null): Prom
 }
 
 /**
+ * Set a market's dollar profit target (BACKEND_V9). When an open trade's
+ * floating P&L reaches this many dollars, the bot closes it at market and
+ * stamps `close_reason = 'profit_target'`.
+ *
+ * `null` turns it off. Zero and negatives are coerced to `null` rather than
+ * rejected, because the backend treats them as off and "close at a loss" is
+ * never what an admin typing 0 into a profit field meant.
+ *
+ * Unlike lot size, this applies to trades that are ALREADY open, and takes
+ * effect within about a minute. There is no broker spec to clamp against — the
+ * bot compares it directly against the same number the P&L cell shows.
+ */
+export async function setCloseAtProfitAction(
+  symbol: string, target: number | null,
+): Promise<Result<number | null>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  let saved: number | null = null;
+  if (target != null) {
+    if (!Number.isFinite(target)) return { ok: false, error: 'Enter a dollar amount.' };
+    saved = target > 0 ? Number(target.toFixed(2)) : null;
+  }
+
+  const { error } = await admin
+    .from('bot_symbol_config')
+    .update({ close_at_profit: saved, updated_at: new Date().toISOString() })
+    .eq('symbol', symbol);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/trading-bot');
+  return { ok: true, value: saved };
+}
+
+/**
  * Toggle whether the bot may trade a market. Writes bot_symbol_config.enabled.
  * Per BACKEND_V1 the bot treats `enabled` as reserved (it currently trades any
  * market with a strategy) — so this records intent and takes effect once the

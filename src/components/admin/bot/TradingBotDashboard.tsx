@@ -11,6 +11,7 @@ import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, Tre
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
+import { CloseAtProfitCell } from './CloseAtProfitCell';
 import { PositionActions } from './PositionActions';
 import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
@@ -320,13 +321,13 @@ function Markets({
   return (
     <AdminCard>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1000px] text-sm">
+        <table className="w-full min-w-[1120px] text-sm">
           <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
             <tr>
               <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend (H1)</Th><Th className="text-left">M15</Th>
               <Th className="text-left">State</Th><Th className="text-left">Reason</Th><Th className="text-left">Latest signal</Th>
               <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
-              <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th>
+              <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th><Th className="text-left">Close at $</Th>
               <Th className="text-center">On</Th><Th className="text-right pr-4">Updated</Th>
             </tr>
           </thead>
@@ -354,6 +355,9 @@ function Markets({
                       max={spec ? Number(spec.volume_max) : null}
                       step={spec ? Number(spec.volume_step) : null}
                     />
+                  </Td>
+                  <Td>
+                    <CloseAtProfitCell symbol={m.symbol} target={cfg?.close_at_profit ?? null} />
                   </Td>
                   <Td className="text-center"><MarketEnableToggle symbol={m.symbol} enabled={cfg?.enabled ?? true} /></Td>
                   {/* Staleness is flagged here rather than by dimming the row: the

@@ -168,6 +168,9 @@ export interface BotConfig {
   symbol: string;
   alias: string;
   lot_size: number | null; // null = broker minimum
+  /** BACKEND_V9: close an open trade once its floating P&L reaches this many
+   *  dollars. null = off, and the trade runs on its SL/TP and profit ladder. */
+  close_at_profit: number | null;
   enabled: boolean;
   updated_at: string;
 }
@@ -212,7 +215,7 @@ export async function getBotOverview(): Promise<BotOverview> {
 
   const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
-    admin.from('bot_symbol_config').select('symbol, alias, lot_size, enabled, updated_at'),
+    admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
     admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
