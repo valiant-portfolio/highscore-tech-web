@@ -215,3 +215,29 @@ export async function closeAllPositionsAction(): Promise<Result<number>> {
   revalidatePath('/admin/trading-bot');
   return { ok: true, value: symbols.length };
 }
+
+/**
+ * The trading switch — one global flag, read by the bot every cycle.
+ *
+ * Off means the bot opens nothing new. It keeps running, keeps publishing, and
+ * keeps managing everything already placed: positions stay under their stops
+ * and profit ladder, and orders already resting with the broker are left
+ * exactly where they are (Victor, 25 Sep 2026).
+ *
+ * Global rather than per market — "nobody is watching" is a fact about the
+ * room, not about a symbol. `bot_settings` holds one row and the table's own
+ * `check (id = 1)` keeps it that way.
+ */
+export async function setTradingEnabledAction(enabled: boolean): Promise<Result<boolean>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const { error } = await admin
+    .from('bot_settings')
+    .update({ trading_enabled: enabled, updated_at: new Date().toISOString(), updated_by: await issuer() })
+    .eq('id', 1);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/trading-bot');
+  return { ok: true, value: enabled };
+}

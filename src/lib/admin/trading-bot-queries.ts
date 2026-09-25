@@ -185,6 +185,14 @@ export interface BotSymbolSpec {
   volume_step: number;
 }
 
+/** The trading switch (bot_settings, one row). Off = the bot opens nothing new;
+ *  it keeps running and keeps managing everything already placed. */
+export interface BotSettings {
+  trading_enabled: boolean;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 export interface BotOverview {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -198,6 +206,10 @@ export interface BotOverview {
   equityCurve: BotEquity[];
   /** Newest market write across all symbols — drives the online/stale badge. */
   lastUpdate: string | null;
+  /** The trading switch. Null when migration 006 has not been applied — the
+   *  dashboard then hides the control rather than showing one the bot cannot
+   *  read, which would be a button that silently does nothing. */
+  settings: BotSettings | null;
 }
 
 // ONE string literal, deliberately: supabase-js parses this at the type level to
@@ -213,7 +225,7 @@ const TRADE_COLS =
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
 
-  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve] = await Promise.all([
+  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
@@ -221,6 +233,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
+    admin.from('bot_settings').select('trading_enabled, updated_at, updated_by').eq('id', 1).maybeSingle(),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];
@@ -255,6 +268,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     equity: (equity.data?.[0] as BotEquity | undefined) ?? null,
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
+    settings: (settings.data as BotSettings | null) ?? null,
   };
 }
 

@@ -15,8 +15,9 @@ import { CloseAtProfitCell } from './CloseAtProfitCell';
 import { PositionActions } from './PositionActions';
 import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
+import { TradingSwitchButton } from './TradingSwitchButton';
 import { MarketChart } from './MarketChart';
-import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity } from '@/lib/admin/trading-bot-queries';
+import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings } from '@/lib/admin/trading-bot-queries';
 
 type Tab = 'overview' | 'chart' | 'markets' | 'positions' | 'transactions' | 'performance';
 
@@ -116,7 +117,7 @@ function moneyAtLevel(
 }
 
 export function TradingBotDashboard({
-  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate,
+  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -127,6 +128,7 @@ export function TradingBotDashboard({
   equity: BotEquity | null;
   equityCurve: BotEquity[];
   lastUpdate: string | null;
+  settings: BotSettings | null;
 }) {
   // Persist the active tab so a refresh keeps you where you were.
   const [tab, setTab] = useState<Tab>('overview');
@@ -198,6 +200,18 @@ export function TradingBotDashboard({
             </button>
           ))}
         </div>
+        {/* The switch sits beside the kill switch: one stands the desk down,
+            the other gets you out. Hidden when migration 006 has not been
+            applied — a button the bot cannot read is worse than none. */}
+        {settings && (
+          <div className="shrink-0 pb-1.5 pl-1">
+            <TradingSwitchButton
+              enabled={settings.trading_enabled}
+              updatedAt={settings.updated_at}
+              updatedBy={settings.updated_by}
+            />
+          </div>
+        )}
         <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
       </div>
 
