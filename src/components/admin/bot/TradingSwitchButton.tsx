@@ -23,9 +23,16 @@ interface Props {
   enabled: boolean;
   updatedAt: string | null;
   updatedBy: string | null;
+  /** When the bot last read the flag. Null or stale means it is not obeying
+   *  this button, and the button must say so rather than look like it works. */
+  seenByBotAt: string | null;
 }
 
-export function TradingSwitchButton({ enabled, updatedAt, updatedBy }: Props) {
+// The bot stamps every minute. Three minutes allows for a slow cycle and a
+// missed write without crying wolf; beyond that, something is actually wrong.
+const STALE_AFTER_MS = 3 * 60_000;
+
+export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -42,6 +49,12 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy }: Props) {
   // "When a day looks thin, the first question is whether the bot was allowed
   // to trade at all" — so the switch shows who moved it and when, and nobody
   // has to keep that in a notebook.
+  // A switch nobody is reading is the one failure this control must never
+  // hide: the desk stands down, the screen says "off", and the bot keeps
+  // trading because it is on older code or not running at all.
+  const heardFrom = seenByBotAt ? Date.now() - new Date(seenByBotAt).getTime() : null;
+  const obeyed = heardFrom != null && heardFrom < STALE_AFTER_MS;
+
   const since = updatedAt
     ? new Date(updatedAt).toLocaleString('en-GB', {
         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -53,7 +66,7 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy }: Props) {
     <div className="flex flex-col items-end gap-1">
       <button
         type="button"
-        disabled={pending}
+        disabled={pending || !obeyed}
         onClick={() => (enabled ? apply(false).catch(() => {}) : setConfirming(true))}
         title={provenance ?? undefined}
         className={
@@ -67,7 +80,15 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy }: Props) {
           : <><Play className="h-4 w-4" /> Trading is off</>}
       </button>
 
-      {provenance && <span className="text-[10px] text-fg-subtle">{provenance}</span>}
+      {!obeyed ? (
+        <span className="text-[10px] font-semibold text-danger">
+          {seenByBotAt
+            ? 'the bot has not read this in minutes — not obeying'
+            : 'the bot has never read this switch'}
+        </span>
+      ) : provenance ? (
+        <span className="text-[10px] text-fg-subtle">{provenance}</span>
+      ) : null}
       {error && <span className="text-[10px] text-danger">{error}</span>}
 
       <ConfirmDialog

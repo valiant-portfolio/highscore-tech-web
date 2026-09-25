@@ -237,6 +237,7 @@ export function TradingBotDashboard({
               enabled={settings.trading_enabled}
               updatedAt={settings.updated_at}
               updatedBy={settings.updated_by}
+              seenByBotAt={settings.seen_by_bot_at}
             />
           </div>
         )}
