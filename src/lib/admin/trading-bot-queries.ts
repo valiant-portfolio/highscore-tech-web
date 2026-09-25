@@ -222,6 +222,9 @@ export interface BotSymbolSpec {
  *  it keeps running and keeps managing everything already placed. */
 export interface BotSettings {
   trading_enabled: boolean;
+  /** True = the bot proposes and places nothing until a person approves
+   *  (migration 015). False = it places its own orders, as it always has. */
+  require_approval: boolean;
   updated_at: string;
   updated_by: string | null;
   /** Trades before this date are the OLD strategy's record. Kept, not
@@ -233,6 +236,25 @@ export interface BotSettings {
    *  has — on older code, not running, or unable to reach Supabase. A switch
    *  that cannot be verified is worse than none, because you stop watching. */
   seen_by_bot_at: string | null;
+}
+
+/** A setup the bot wants to take, waiting on a person (migration 015).
+ *  Nothing is at the broker while this is pending — that is the point. */
+export interface BotProposal {
+  id: string;
+  symbol: string;
+  alias: string | null;
+  side: string;              // 'buy_limit' | 'sell_limit'
+  level: number;
+  sl: number | null;
+  tp: number | null;
+  rr: number | null;
+  bar_time: string;
+  snapshot: BotSnapshot | null;
+  htf_trend: number | null;
+  trend_agreement: string | null;
+  status: string;            // pending | approved | placed | rejected | expired | missed
+  created_at: string;
 }
 
 export interface BotOverview {
@@ -248,6 +270,8 @@ export interface BotOverview {
   equityCurve: BotEquity[];
   /** Newest market write across all symbols — drives the online/stale badge. */
   lastUpdate: string | null;
+  /** Setups waiting on a person. Empty unless approval mode is on. */
+  proposals: BotProposal[];
   /** Analyst readings for the tickets currently live, keyed by ticket. Empty
    *  until migration 007. */
   analyses: Record<number, BotTradeAnalysisView>;
@@ -305,7 +329,7 @@ async function analysesFor(
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
 
-  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings] = await Promise.all([
+  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings, proposals] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
@@ -313,7 +337,12 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
-    admin.from('bot_settings').select('trading_enabled, updated_at, updated_by, seen_by_bot_at, cutover_at').eq('id', 1).maybeSingle(),
+    admin.from('bot_settings').select('trading_enabled, require_approval, updated_at, updated_by, seen_by_bot_at, cutover_at').eq('id', 1).maybeSingle(),
+    // Only what is still a question. A settled proposal belongs to history,
+    // and the desk wants the ones it has to answer.
+    admin.from('bot_proposals')
+      .select('id, symbol, alias, side, level, sl, tp, rr, bar_time, snapshot, htf_trend, trend_agreement, status, created_at')
+      .eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];
@@ -349,6 +378,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
     settings: (settings.data as BotSettings | null) ?? null,
+    proposals: (proposals.data ?? []) as BotProposal[],
     // Only what is live: a note matters while the order it describes is still
     // resting or running. Closed trades read theirs on their own page.
     analyses: await analysesFor(

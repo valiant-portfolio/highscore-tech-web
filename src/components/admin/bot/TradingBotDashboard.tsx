@@ -20,9 +20,11 @@ import { TradeAnalysis } from './TradeAnalysis';
 import { IndicatorTable } from './IndicatorTable';
 import { CutoverBar } from './CutoverBar';
 import { CancelOrderButton } from './CancelOrderButton';
+import { ProposalCard } from './ProposalCard';
+import { ApprovalModeToggle } from './ApprovalModeToggle';
 import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
-import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
+import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView, BotProposal } from '@/lib/admin/trading-bot-queries';
 
 // Four tabs, named for what you are DOING rather than which table you are
 // reading. Desk is the screen you leave up; Pending is the analyst's daily job;
@@ -170,7 +172,7 @@ const tabStore = {
 };
 
 export function TradingBotDashboard({
-  markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses,
+  markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses, proposals,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -183,6 +185,7 @@ export function TradingBotDashboard({
   lastUpdate: string | null;
   settings: BotSettings | null;
   analyses: Record<number, BotTradeAnalysisView>;
+  proposals: BotProposal[];
 }) {
   // Floating P&L and market state arrive over Realtime; the server render is
   // only the first paint. Every number below reads from these rows, so the
@@ -250,7 +253,7 @@ export function TradingBotDashboard({
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'desk', label: 'Desk', icon: <LayoutGrid className="h-4 w-4" /> },
     { key: 'active', label: 'Active', icon: <TrendingUp className="h-4 w-4" />, badge: liveCount },
-    { key: 'pending', label: 'Pending', icon: <Layers className="h-4 w-4" />, badge: pendingCount },
+    { key: 'pending', label: 'Pending', icon: <Layers className="h-4 w-4" />, badge: proposals.length + pendingCount },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
     { key: 'history', label: 'History', icon: <Receipt className="h-4 w-4" /> },
   ];
@@ -295,6 +298,7 @@ export function TradingBotDashboard({
             is pushed out of line by it. */}
         <div className="flex shrink-0 flex-col items-end gap-1 pb-1.5 pl-2">
           {settings && <SwitchCaption settings={settings} />}
+          {settings && <ApprovalModeToggle required={settings.require_approval} />}
           <div className="flex items-center gap-2">
             {settings && (
               <TradingSwitchButton
@@ -370,7 +374,24 @@ export function TradingBotDashboard({
         />
       )}
       {tab === 'pending' && (
-        <TradeCards mode="pending" markets={markets} analyses={analyses} onOpenChart={openChartFor} />
+        <div className="space-y-6">
+          {/* Questions first. A proposal expires if nobody answers, so it has
+              a deadline that a resting order does not. */}
+          {proposals.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-fg">
+                Waiting for you
+                <span className="text-sm font-normal text-fg-muted">
+                  {' '}· {proposals.length} setup{proposals.length === 1 ? '' : 's'} the bot will not take without your say-so
+                </span>
+              </h3>
+              {proposals.map((p) => (
+                <ProposalCard key={p.id} proposal={p} onOpenChart={openChartFor} />
+              ))}
+            </div>
+          )}
+          <TradeCards mode="pending" markets={markets} analyses={analyses} onOpenChart={openChartFor} />
+        </div>
       )}
       {/* History: what has already been decided — the trades, then what they
           add up to. Filtered to the current strategy by default; the previous

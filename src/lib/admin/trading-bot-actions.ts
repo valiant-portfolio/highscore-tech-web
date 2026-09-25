@@ -372,3 +372,64 @@ export async function cancelPendingAction(symbol: string, ticket: number | null)
   revalidatePath('/bot');
   return { ok: true };
 }
+
+/**
+ * Approve or reject a setup the bot is asking about.
+ *
+ * Writing the answer is all this does: the bot places the order itself, on its
+ * next cycle, through the same path every other order takes. The dashboard
+ * authorises a trade; it never sends one.
+ *
+ * A rejection can carry a reason. "It bought into resistance at 1.2840" is the
+ * shape that fixes the bot later; "no" on its own teaches nobody anything.
+ */
+export async function decideProposalAction(
+  id: string,
+  approved: boolean,
+  note?: string,
+): Promise<Result<undefined>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const { data, error } = await admin
+    .from('bot_proposals')
+    .update({
+      status: approved ? 'approved' : 'rejected',
+      decided_by: await issuer(),
+      decided_at: new Date().toISOString(),
+      note: note?.trim() || null,
+    })
+    // Only ever answers one still pending — a click racing the Telegram button
+    // must not re-approve something already settled, or revive one that expired
+    // while the page sat open.
+    .eq('id', id).eq('status', 'pending')
+    .select('id');
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) {
+    return { ok: false, error: 'That setup is no longer waiting — it was already answered, or it expired.' };
+  }
+
+  revalidatePath('/bot');
+  return { ok: true };
+}
+
+/**
+ * Turn approval mode on or off.
+ *
+ * On: the bot proposes and places nothing until someone approves. Off: it
+ * places its own orders, which is the right behaviour when nobody is at the
+ * desk to answer — that is why this is a switch and not a deploy.
+ */
+export async function setApprovalModeAction(required: boolean): Promise<Result<boolean>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const { error } = await admin
+    .from('bot_settings')
+    .update({ require_approval: required, updated_at: new Date().toISOString(), updated_by: await issuer() })
+    .eq('id', 1);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/bot');
+  return { ok: true, value: required };
+}
