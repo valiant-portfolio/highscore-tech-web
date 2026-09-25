@@ -266,19 +266,30 @@ export async function saveTradeAnalysisAction(
   note: string,
   image: File | null,
   context?: { side?: string | null; level?: number | null; sl?: number | null; tp?: number | null },
+  /** 'keep' | 'close' — recorded explicitly, because "kept" and "nobody got to
+   *  it" look identical otherwise, and they are the difference between a
+   *  decision and an omission. */
+  verdict?: 'keep' | 'close' | null,
+  /** What the bot got wrong. Opens an issue that stays open until someone
+   *  writes what was done about it. */
+  issue?: string | null,
 ): Promise<Result<undefined>> {
   await requireSection('trading-bot');
   const admin = botServiceClient();
 
   const text = note.trim();
   if (!Number.isFinite(ticket) || ticket <= 0) return { ok: false, error: 'This order has no ticket yet.' };
-  if (!text && !image) return { ok: false, error: 'Write a sentence or attach a chart.' };
+  if (!text && !image && !issue?.trim() && !verdict) {
+    return { ok: false, error: 'Write a sentence, attach a chart, or record a verdict.' };
+  }
   if (text.length > 2000) return { ok: false, error: 'Keep it to a couple of sentences.' };
 
   const row: Record<string, unknown> = {
     ticket,
     symbol,
     note: text || null,
+    verdict: verdict ?? null,
+    issue: issue?.trim() || null,
     side: context?.side ?? null,
     level: context?.level ?? null,
     sl: context?.sl ?? null,
@@ -432,4 +443,35 @@ export async function setApprovalModeAction(required: boolean): Promise<Result<b
 
   revalidatePath('/bot');
   return { ok: true, value: required };
+}
+
+/**
+ * Record what was DONE about an issue the analysts raised.
+ *
+ * The third part of "decide whether to keep it or close, then solve the issue
+ * we've found" — and the part that makes the other two cumulative. An issue
+ * with no fix stays open however long ago it was written, so the same problem
+ * cannot be rediscovered next week as though it were new.
+ *
+ * Passing an empty fix reopens it, which is the honest thing to do when a fix
+ * turns out not to have worked.
+ */
+export async function recordFixAction(ticket: number, fix: string): Promise<Result<undefined>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const text = fix.trim();
+  const { error } = await admin
+    .from('bot_trade_analysis')
+    .update({
+      fix: text || null,
+      fixed_at: text ? new Date().toISOString() : null,
+      fixed_by: text ? await issuer() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('ticket', ticket);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/bot');
+  return { ok: true };
 }

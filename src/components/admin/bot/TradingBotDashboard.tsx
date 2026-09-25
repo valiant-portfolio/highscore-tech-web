@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, Layers, Receipt, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid, Layers, Receipt, CandlestickChart, GraduationCap, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS, useStale, useNow } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
@@ -20,8 +20,10 @@ import { TradeAnalysis } from './TradeAnalysis';
 import { IndicatorTable } from './IndicatorTable';
 import { CutoverBar } from './CutoverBar';
 import { CancelOrderButton } from './CancelOrderButton';
+import { cancelPendingAction } from '@/lib/admin/trading-bot-actions';
 import { ProposalCard } from './ProposalCard';
 import { ApprovalModeToggle } from './ApprovalModeToggle';
+import { TrainingLog } from './TrainingLog';
 import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView, BotProposal } from '@/lib/admin/trading-bot-queries';
@@ -29,7 +31,7 @@ import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSetti
 // Four tabs, named for what you are DOING rather than which table you are
 // reading. Desk is the screen you leave up; Pending is the analyst's daily job;
 // Chart is the market; History is everything already decided.
-type Tab = 'desk' | 'active' | 'pending' | 'chart' | 'history';
+type Tab = 'desk' | 'active' | 'pending' | 'chart' | 'training' | 'history';
 
 // Tabs were renamed; a saved value from the old set would leave the dashboard
 // on a tab that no longer exists, showing nothing.
@@ -157,7 +159,7 @@ const tabStore = {
     try {
       const saved = localStorage.getItem(TAB_KEY);
       if (!saved) return 'desk';
-      return (['desk', 'active', 'pending', 'chart', 'history'] as string[]).includes(saved)
+      return (['desk', 'active', 'pending', 'chart', 'training', 'history'] as string[]).includes(saved)
         ? (saved as Tab)
         : OLD_TAB[saved] ?? 'desk';
     } catch {
@@ -172,7 +174,7 @@ const tabStore = {
 };
 
 export function TradingBotDashboard({
-  markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses, proposals,
+  markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses, proposals, issues,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -186,6 +188,7 @@ export function TradingBotDashboard({
   settings: BotSettings | null;
   analyses: Record<number, BotTradeAnalysisView>;
   proposals: BotProposal[];
+  issues: BotTradeAnalysisView[];
 }) {
   // Floating P&L and market state arrive over Realtime; the server render is
   // only the first paint. Every number below reads from these rows, so the
@@ -250,11 +253,15 @@ export function TradingBotDashboard({
   // from the broker has no trade row, and that badge read 0 while a trade was
   // open. Pending carries a badge because an unread order is a job to do.
   const pendingCount = markets.filter((m) => m.state === 'ready').length;
+  const openIssues = issues.filter((i) => !i.fix).length;
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'desk', label: 'Desk', icon: <LayoutGrid className="h-4 w-4" /> },
     { key: 'active', label: 'Active', icon: <TrendingUp className="h-4 w-4" />, badge: liveCount },
     { key: 'pending', label: 'Pending', icon: <Layers className="h-4 w-4" />, badge: proposals.length + pendingCount },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
+    // Open issues carry a badge: an unfixed one is work, and it should be
+    // visible from any tab without going looking for it.
+    { key: 'training', label: 'Training', icon: <GraduationCap className="h-4 w-4" />, badge: openIssues },
     { key: 'history', label: 'History', icon: <Receipt className="h-4 w-4" /> },
   ];
 
@@ -393,6 +400,8 @@ export function TradingBotDashboard({
           <TradeCards mode="pending" markets={markets} analyses={analyses} onOpenChart={openChartFor} />
         </div>
       )}
+      {tab === 'training' && <TrainingLog issues={issues} />}
+
       {/* History: what has already been decided — the trades, then what they
           add up to. Filtered to the current strategy by default; the previous
           record is kept, not deleted, and is one click away. */}
@@ -822,7 +831,13 @@ function TradeCards({
                 imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
                 at={analyses[m.pending_ticket]?.updated_at ?? null}
                 by={analyses[m.pending_ticket]?.created_by ?? null}
+                verdict={analyses[m.pending_ticket]?.verdict ?? null}
+                issue={analyses[m.pending_ticket]?.issue ?? null}
                 context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
+                onClose={async () => {
+                  const res = await cancelPendingAction(m.symbol, m.pending_ticket);
+                  if (!res.ok) throw new Error(res.error);
+                }}
               />
             ) : (
               <p className="px-5 pb-4 text-xs text-fg-subtle">

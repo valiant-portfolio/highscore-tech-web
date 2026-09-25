@@ -4,11 +4,14 @@
 // header chrome is intentionally minimal so the tab content gets the space.
 
 import { TradingBotDashboard } from '@/components/admin/bot/TradingBotDashboard';
-import { getBotOverview } from '@/lib/admin/trading-bot-queries';
+import { getBotOverview, getTrainingIssues } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TradingBotPage() {
-  const data = await getBotOverview();
-  return <TradingBotDashboard {...data} />;
+  // Fetched alongside the overview rather than inside it: the training list is
+  // the one view that is not about right now, and it has no business slowing
+  // the desk's first paint any more than it already does.
+  const [data, issues] = await Promise.all([getBotOverview(), getTrainingIssues()]);
+  return <TradingBotDashboard {...data} issues={issues} />;
 }

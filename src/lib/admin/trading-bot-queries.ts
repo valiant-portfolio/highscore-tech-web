@@ -71,6 +71,16 @@ export interface BotTradeAnalysis {
   symbol: string;
   note: string | null;
   image_path: string | null;
+  /** 'keep' | 'close' — decided while the order was still pending. Null means
+   *  nobody reached it before it filled (migration 016). */
+  verdict: string | null;
+  /** What the bot got wrong, in the analyst's words. */
+  issue: string | null;
+  /** What was changed about the bot because of it. An issue stays OPEN until
+   *  this is written — that is the difference between noticing and doing. */
+  fix: string | null;
+  fixed_at: string | null;
+  fixed_by: string | null;
   side: string | null;
   level: number | null;
   sl: number | null;
@@ -308,12 +318,24 @@ async function analysesFor(
   if (tickets.length === 0) return {};
   const { data, error } = await admin
     .from('bot_trade_analysis')
-    .select('ticket, symbol, note, image_path, side, level, sl, tp, created_at, updated_at, created_by')
+    .select('ticket, symbol, note, image_path, side, level, sl, tp, verdict, issue, fix, fixed_at, fixed_by, created_at, updated_at, created_by')
     .in('ticket', tickets);
-  if (error || !data) return {};
+
+  // PostgREST rejects the whole select if one column is unknown, so before
+  // migration 016 is applied this would drop every existing reading rather
+  // than just the new fields. Read the older shape instead.
+  let rows = (data ?? []) as BotTradeAnalysis[];
+  if (error) {
+    const { data: basic } = await admin
+      .from('bot_trade_analysis')
+      .select('ticket, symbol, note, image_path, side, level, sl, tp, created_at, updated_at, created_by')
+      .in('ticket', tickets);
+    if (!basic) return {};
+    rows = basic as BotTradeAnalysis[];
+  }
 
   const out: Record<number, BotTradeAnalysisView> = {};
-  for (const row of data as BotTradeAnalysis[]) {
+  for (const row of rows) {
     let imageUrl: string | null = null;
     if (row.image_path) {
       const { data: signed } = await admin.storage
@@ -476,4 +498,39 @@ export async function listBotSymbols(): Promise<string[]> {
   const admin = botServiceClient();
   const { data } = await admin.from('bot_market_state').select('symbol');
   return (data ?? []).map((r: { symbol: string }) => r.symbol);
+}
+
+/**
+ * Every issue the analysts have raised, unresolved first.
+ *
+ * This is what turns a stream of screenshots into training: one list of what
+ * the bot got wrong, and what was done about each one. An issue with no `fix`
+ * is still open, however long ago it was written.
+ */
+export async function getTrainingIssues(): Promise<BotTradeAnalysisView[]> {
+  const admin = botServiceClient();
+  const { data, error } = await admin
+    .from('bot_trade_analysis')
+    .select('ticket, symbol, note, image_path, side, level, sl, tp, verdict, issue, fix, fixed_at, fixed_by, created_at, updated_at, created_by')
+    .not('issue', 'is', null)
+    // Unresolved first: the open ones are the work, the resolved ones are the
+    // record. Stated explicitly rather than relying on the default.
+    .order('fixed_at', { ascending: true, nullsFirst: true })
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  if (error || !data) return [];
+
+  const rows = data as BotTradeAnalysis[];
+  const out: BotTradeAnalysisView[] = [];
+  for (const row of rows) {
+    let imageUrl: string | null = null;
+    if (row.image_path) {
+      const { data: signed } = await admin.storage
+        .from('trade-analysis')
+        .createSignedUrl(row.image_path, 600);
+      imageUrl = signed?.signedUrl ?? null;
+    }
+    out.push({ ...row, imageUrl });
+  }
+  return out;
 }

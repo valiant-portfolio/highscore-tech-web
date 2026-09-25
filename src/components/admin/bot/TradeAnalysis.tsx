@@ -20,6 +20,14 @@ interface Props {
   ticket: number;
   symbol: string;
   note: string | null;
+  /** What was decided last time, if anything. */
+  verdict?: string | null;
+  issue?: string | null;
+  /** Cancelling the order is the other half of "close" — the verdict records
+   *  the decision, this carries it out. */
+  // Rejects with a message if the cancel did not go through, so a failed
+  // cancel cannot pass for a closed order.
+  onClose?: () => Promise<void>;
   imageUrl: string | null;      // already signed by the server component
   at: string | null;
   by: string | null;
@@ -28,25 +36,47 @@ interface Props {
   context?: { side?: string | null; level?: number | null; sl?: number | null; tp?: number | null };
 }
 
-export function TradeAnalysis({ ticket, symbol, note, imageUrl, at, by, context }: Props) {
+export function TradeAnalysis({
+  ticket, symbol, note, imageUrl, at, by, context, verdict, issue, onClose,
+}: Props) {
   const [text, setText] = useState(note ?? '');
+  const [issueText, setIssueText] = useState(issue ?? '');
+  const [decision, setDecision] = useState<'keep' | 'close' | null>(
+    verdict === 'keep' || verdict === 'close' ? verdict : null,
+  );
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const dirty = text.trim() !== (note ?? '').trim() || file != null;
+  const dirty = text.trim() !== (note ?? '').trim()
+    || issueText.trim() !== (issue ?? '').trim()
+    || decision !== (verdict ?? null)
+    || file != null;
 
   const save = () => {
     setError(null);
     setSaved(false);
     start(async () => {
-      const res = await saveTradeAnalysisAction(ticket, symbol, text, file, context);
+      const res = await saveTradeAnalysisAction(
+        ticket, symbol, text, file, context, decision, issueText,
+      );
       if (res.ok) {
         setSaved(true);
         setFile(null);
         if (fileRef.current) fileRef.current.value = '';
+        // "Close" is a decision AND an instruction. Recording it without
+        // acting on it would leave an order resting that someone believes
+        // they have dealt with.
+        if (decision === 'close' && onClose) {
+          try {
+            await onClose();
+          } catch (e) {
+            setSaved(false);
+            setError(`Saved, but the order was not cancelled: ${e instanceof Error ? e.message : 'unknown error'}`);
+          }
+        }
       } else {
         setError(res.error);
       }
@@ -87,6 +117,45 @@ export function TradeAnalysis({ ticket, symbol, note, imageUrl, at, by, context 
         placeholder="It sold into support at 0.56600 — H1 was down but price was already at the level."
         className="mt-2 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none"
       />
+
+      {/* The issue is separate from the reading on purpose. A note describes
+          this trade; an issue describes something to FIX in the bot, and it
+          stays open until someone records what was done about it. */}
+      <label htmlFor={`issue-${ticket}`} className="mt-4 block text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+        Is there something to fix in the bot? <span className="font-normal normal-case tracking-normal text-fg-subtle">(optional)</span>
+      </label>
+      <textarea
+        id={`issue-${ticket}`}
+        rows={2}
+        value={issueText}
+        onChange={(e) => { setIssueText(e.target.value); setSaved(false); }}
+        placeholder="It places into the level instead of waiting for the retest."
+        className="mt-2 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none"
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Verdict</span>
+        {(['keep', 'close'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => { setDecision(decision === v ? null : v); setSaved(false); }}
+            className={
+              'rounded-md border px-3 py-1 text-xs font-bold '
+              + (decision === v
+                ? (v === 'keep'
+                  ? 'border-success/50 bg-success/10 text-success'
+                  : 'border-danger/50 bg-danger/10 text-danger')
+                : 'border-border text-fg-muted hover:bg-surface-hover')
+            }
+          >
+            {v === 'keep' ? 'Keep it' : 'Close it'}
+          </button>
+        ))}
+        {decision === 'close' && onClose && (
+          <span className="text-[11px] text-fg-subtle">Saving also cancels the order.</span>
+        )}
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover">
