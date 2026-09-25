@@ -9,6 +9,7 @@
 // (botServiceClient), while auth — who is issuing the command — lives in the
 // main app project (createClient).
 
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { botServiceClient } from '@/lib/supabase/bot';
@@ -240,4 +241,60 @@ export async function setTradingEnabledAction(enabled: boolean): Promise<Result<
 
   revalidatePath('/admin/trading-bot');
   return { ok: true, value: enabled };
+}
+
+/**
+ * Olivia's reading of a trade: one sentence, and optionally her marked-up chart.
+ *
+ * Saved onto the trade itself (migration 007) so it sits beside the bot's own
+ * indicator snapshot — the comparison is the point of the routine, and it only
+ * works if both readings live on the same row.
+ *
+ * The image goes to a PRIVATE bucket and only its path is stored; the trade
+ * page signs a short-lived URL when it renders. A public URL for the desk's own
+ * analysis keeps working for anyone who ever sees it.
+ */
+export async function saveTradeAnalysisAction(
+  ticket: number,
+  note: string,
+  image: File | null,
+): Promise<Result<undefined>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const text = note.trim();
+  if (!text && !image) return { ok: false, error: 'Write a sentence or attach a chart.' };
+  if (text.length > 2000) return { ok: false, error: 'Keep it to a couple of sentences.' };
+
+  const patch: Record<string, unknown> = {
+    analyst_note: text || null,
+    analyst_at: new Date().toISOString(),
+    analyst_by: await issuer(),
+  };
+
+  if (image) {
+    if (!image.type.startsWith('image/')) return { ok: false, error: 'That file is not an image.' };
+    // 10MB is far above any screenshot and far below anything that would
+    // wedge the upload — a phone photo of a screen is ~3MB.
+    if (image.size > 10 * 1024 * 1024) return { ok: false, error: 'Image is over 10MB.' };
+
+    const raw = Buffer.from(await image.arrayBuffer());
+    const ext = (image.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    // Ticket-prefixed so everything about one trade sits together in the
+    // bucket, and a UUID so re-attaching never overwrites the first attempt —
+    // an analyst correcting themselves should not destroy what they first saw.
+    const path = `${ticket}/${randomUUID()}.${ext}`;
+    const { error: upErr } = await admin.storage
+      .from('trade-analysis')
+      .upload(path, raw, { contentType: image.type, upsert: false });
+    if (upErr) return { ok: false, error: upErr.message };
+    patch.analyst_image_path = path;
+  }
+
+  const { error } = await admin.from('bot_trades').update(patch).eq('ticket', ticket);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/admin/trading-bot/trade/${ticket}`);
+  revalidatePath('/admin/trading-bot');
+  return { ok: true };
 }

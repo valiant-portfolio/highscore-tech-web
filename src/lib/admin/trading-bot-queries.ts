@@ -92,6 +92,13 @@ export interface BotTrade {
   mae: number | null;
   /** Result as a multiple of the initial risk (entry → stop). */
   r_multiple: number | null;
+  /** Olivia's reading of the trade (migration 007): her one sentence, and the
+   *  storage path of her marked-up chart. The path is signed at render time —
+   *  the bucket is private. */
+  analyst_note: string | null;
+  analyst_image_path: string | null;
+  analyst_at: string | null;
+  analyst_by: string | null;
 }
 
 /** One bar's indicator readings. Every value may be null where the terminal
@@ -220,7 +227,7 @@ export interface BotOverview {
 // trades are listed so a row can say whether it was taken with or against the
 // trend without a second round trip.
 const TRADE_COLS =
-  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run, entry_snapshot, exit_snapshot, entry_trend, exit_trend, entry_htf_trend, exit_htf_trend, trend_agreement, mfe, mae, r_multiple';
+  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run, entry_snapshot, exit_snapshot, entry_trend, exit_trend, entry_htf_trend, exit_htf_trend, trend_agreement, mfe, mae, r_multiple, analyst_note, analyst_image_path, analyst_at, analyst_by';
 
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
@@ -303,6 +310,9 @@ export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
 
 export interface BotTradeDetail {
   trade: BotTrade | null;
+  /** Short-lived signed URL for the analyst's chart, or null. Signed here
+   *  rather than stored, so a link cannot outlive the page that showed it. */
+  analystImageUrl: string | null;
   /** Bars around the trade, for the chart. Empty when the window has aged out
    *  of bot_bars' retention — the page still renders, without the chart. */
   bars: BotBar[];
@@ -321,7 +331,7 @@ export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
 
   const { data } = await admin.from('bot_trades').select(TRADE_COLS).eq('ticket', ticket).maybeSingle();
   const trade = (data as BotTrade | null) ?? null;
-  if (!trade) return { trade: null, bars: [], timeframe: 'M15', digits: 5 };
+  if (!trade) return { trade: null, analystImageUrl: null, bars: [], timeframe: 'M15', digits: 5 };
 
   // bot_bars only syncs M15 and H1 (backend v7). Anything else recorded on the
   // trade would return an empty chart, so fall back rather than show nothing.
@@ -343,8 +353,19 @@ export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
     admin.from('bot_quotes').select('digits').eq('symbol', trade.symbol).maybeSingle(),
   ]);
 
+  // 10 minutes: long enough to read the page and open the image full size,
+  // short enough that a copied link is not a permanent one.
+  let analystImageUrl: string | null = null;
+  if (trade.analyst_image_path) {
+    const { data: signed } = await admin.storage
+      .from('trade-analysis')
+      .createSignedUrl(trade.analyst_image_path, 600);
+    analystImageUrl = signed?.signedUrl ?? null;
+  }
+
   return {
     trade,
+    analystImageUrl,
     bars: (bars.data ?? []) as BotBar[],
     timeframe,
     digits: (quote.data?.digits as number | undefined) ?? 5,

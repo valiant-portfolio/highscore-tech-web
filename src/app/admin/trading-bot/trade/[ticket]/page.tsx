@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import TradeChart from '@/components/admin/bot/TradeChart';
+import { TradeAnalysis } from '@/components/admin/bot/TradeAnalysis';
 import { getBotTrade, type BotSnapshot, type BotTrade } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +63,7 @@ export default async function BotTradePage({ params }: PageProps) {
   const n = Number(ticket);
   if (!Number.isFinite(n)) notFound();
 
-  const { trade, bars, timeframe, digits } = await getBotTrade(n);
+  const { trade, analystImageUrl, bars, timeframe, digits } = await getBotTrade(n);
   if (!trade) notFound();
 
   const px = (v: number | null | undefined) =>
@@ -159,6 +160,27 @@ export default async function BotTradePage({ params }: PageProps) {
           ) : (
             <Indicators trade={trade} entry={entry} exit={exit} digits={digits} />
           )}
+        </AdminCard>
+      </div>
+
+      {/* ── The analyst's reading ────────────────────────────────────── */}
+      <div className="mt-6">
+        <h3 className="mb-3 font-semibold text-fg">
+          What we saw
+          <span className="text-xs font-normal text-fg-subtle"> · the chart marked up by hand, and the gap in one sentence</span>
+        </h3>
+        <AdminCard>
+          {/* Deliberately below the bot's reading: mark the chart first, read
+              the bot second, write the gap third. The routine only works in
+              that order — "once you have read what the bot thought, you
+              cannot unsee it". */}
+          <TradeAnalysis
+            ticket={Number(trade.ticket)}
+            note={trade.analyst_note}
+            imageUrl={analystImageUrl}
+            at={trade.analyst_at}
+            by={trade.analyst_by}
+          />
         </AdminCard>
       </div>
 
