@@ -17,6 +17,7 @@ import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
 import { TradingSwitchButton } from './TradingSwitchButton';
 import { TradeAnalysis } from './TradeAnalysis';
+import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
 
@@ -118,7 +119,7 @@ function moneyAtLevel(
 }
 
 export function TradingBotDashboard({
-  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses,
+  markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -132,6 +133,11 @@ export function TradingBotDashboard({
   settings: BotSettings | null;
   analyses: Record<number, BotTradeAnalysisView>;
 }) {
+  // Floating P&L and market state arrive over Realtime; the server render is
+  // only the first paint. Every number below reads from these rows, so the
+  // P&L tile, the positions table and the pending cards all move together.
+  const { markets, lastEvent, connected } = useLiveMarkets(initialMarkets);
+
   // Persist the active tab so a refresh keeps you where you were.
   const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => {
@@ -184,7 +190,14 @@ export function TradingBotDashboard({
           switch. No page title/description — the tab content owns the space, and
           the strip swipes left/right on small screens instead of wrapping. */}
       <div className="mb-5 flex items-center gap-2 border-b border-border">
-        <BotStatus lastUpdate={lastUpdate} compact />
+        <BotStatus lastUpdate={lastEvent ?? lastUpdate} compact />
+        {/* A dashboard that has quietly stopped listening looks exactly like a
+            quiet market, so say which it is. */}
+        {!connected && (
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle" title="Reconnecting to the live feed">
+            offline
+          </span>
+        )}
         <div className="flex-1 flex items-center gap-1 overflow-x-auto -mb-px [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((t) => (
             <button
