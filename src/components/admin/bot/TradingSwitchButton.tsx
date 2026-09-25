@@ -18,6 +18,7 @@ import { useState, useTransition } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { setTradingEnabledAction } from '@/lib/admin/trading-bot-actions';
+import { useStale } from './BotBits';
 
 interface Props {
   enabled: boolean;
@@ -52,8 +53,7 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
   // A switch nobody is reading is the one failure this control must never
   // hide: the desk stands down, the screen says "off", and the bot keeps
   // trading because it is on older code or not running at all.
-  const heardFrom = seenByBotAt ? Date.now() - new Date(seenByBotAt).getTime() : null;
-  const obeyed = heardFrom != null && heardFrom < STALE_AFTER_MS;
+  const obeyed = !useStale(seenByBotAt, STALE_AFTER_MS);
 
   const since = updatedAt
     ? new Date(updatedAt).toLocaleString('en-GB', {
@@ -63,23 +63,10 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
   const provenance = since ? `${enabled ? 'On' : 'Off'} since ${since}${updatedBy ? ` · ${updatedBy}` : ''}` : null;
 
   return (
-    // One row, not a stack. This sits beside "Close all" in the header, and a
-    // two-line control next to a one-line one makes the whole row look
-    // accidental. The status reads left of the button, where a label belongs,
-    // and drops away on narrow screens rather than wrapping the row.
-    <div className="inline-flex items-center gap-2">
-      <span className="hidden text-[10px] leading-tight text-right sm:inline-block">
-        {!obeyed ? (
-          <span className="font-semibold text-danger">
-            {seenByBotAt ? 'bot not reading this' : 'bot has never read this'}
-          </span>
-        ) : error ? (
-          <span className="text-danger">{error}</span>
-        ) : provenance ? (
-          <span className="text-fg-subtle">{provenance}</span>
-        ) : null}
-      </span>
-
+    // Just the control. The caption above it belongs to the whole group —
+    // the switch and "Close all" sit side by side, and a caption attached to
+    // one of them pushes the other out of line.
+    <>
       <button
         type="button"
         disabled={pending || !obeyed}
@@ -118,6 +105,6 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
         }
         confirmLabel="Start trading"
       />
-    </div>
+    </>
   );
 }

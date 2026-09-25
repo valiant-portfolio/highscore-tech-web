@@ -41,6 +41,31 @@ export function AsOfTag({ iso }: { iso: string | null | undefined }) {
 }
 
 /** Live "12s ago" that updates itself every second. */
+/**
+ * Has `iso` gone quiet for longer than `staleMs`?
+ *
+ * Ticks on its own, because the answer changes with the clock and not with
+ * any prop: a heartbeat that stopped a second ago looks identical to one
+ * still arriving until time passes. Reading Date.now() straight in render
+ * would freeze the answer at whatever the last render happened to see.
+ */
+export function useStale(iso: string | null | undefined, staleMs: number): boolean {
+  const [stale, setStale] = useState(() => {
+    const ms = since(iso);
+    return ms === null || ms >= staleMs;
+  });
+  useEffect(() => {
+    const check = () => {
+      const ms = since(iso);
+      setStale(ms === null || ms >= staleMs);
+    };
+    check();
+    const id = setInterval(check, 10_000);
+    return () => clearInterval(id);
+  }, [iso, staleMs]);
+  return stale;
+}
+
 export function TimeAgo({ iso, className = '' }: { iso: string | null | undefined; className?: string }) {
   const [, tick] = useState(0);
   useEffect(() => {

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid, Layers, Receipt, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
+import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS, useStale } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { CloseAtProfitCell } from './CloseAtProfitCell';
 import { PositionActions } from './PositionActions';
@@ -255,18 +255,23 @@ export function TradingBotDashboard({
         {/* The switch sits beside the kill switch: one stands the desk down,
             the other gets you out. Hidden when migration 006 has not been
             applied — a button the bot cannot read is worse than none. */}
-        {/* Both controls in one group so they read as a pair: stop adding
-            risk, and get out of the risk already carried. */}
-        <div className="flex shrink-0 items-center gap-2 pb-1.5 pl-2">
-          {settings && (
-            <TradingSwitchButton
-              enabled={settings.trading_enabled}
-              updatedAt={settings.updated_at}
-              updatedBy={settings.updated_by}
-              seenByBotAt={settings.seen_by_bot_at}
-            />
-          )}
-          <FlattenAllButton openCount={liveCount} />
+        {/* Caption above, controls beneath: what the switch currently says,
+            then the pair that changes it — stop adding risk, and get out of
+            the risk already carried. The caption spans both so neither button
+            is pushed out of line by it. */}
+        <div className="flex shrink-0 flex-col items-end gap-1 pb-1.5 pl-2">
+          {settings && <SwitchCaption settings={settings} />}
+          <div className="flex items-center gap-2">
+            {settings && (
+              <TradingSwitchButton
+                enabled={settings.trading_enabled}
+                updatedAt={settings.updated_at}
+                updatedBy={settings.updated_by}
+                seenByBotAt={settings.seen_by_bot_at}
+              />
+            )}
+            <FlattenAllButton openCount={liveCount} />
+          </div>
         </div>
       </div>
 
@@ -338,6 +343,9 @@ export function TradingBotDashboard({
           record is kept, not deleted, and is one click away. */}
       {tab === 'history' && (
         <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-fg">
+            History <span className="text-sm font-normal text-fg-muted">· what has already been decided</span>
+          </h2>
           <CutoverBar
             cutoverAt={settings?.cutover_at ?? null}
             showingAll={showAll}
@@ -349,6 +357,9 @@ export function TradingBotDashboard({
             closedTrades={historyTrades} markets={markets}
             total={showAll ? closedCount : sinceCutover.length}
           />
+          <h3 className="pt-2 font-semibold text-fg">
+            Performance <span className="text-sm font-normal text-fg-muted">· what those trades add up to</span>
+          </h3>
           <Performance closedTrades={historyTrades} equityCurve={historyEquity} />
         </div>
       )}
@@ -833,6 +844,13 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
 
   return (
     <AdminCard>
+      {/* Named, because the tab holds two sections and an unlabelled table
+          opening straight into dropdowns reads as a control panel. */}
+      <div className="border-b border-border px-5 py-3">
+        <span className="text-sm font-semibold text-fg">
+          Trade history <span className="font-normal text-fg-muted">· every trade the bot has closed</span>
+        </span>
+      </div>
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
         <label className="inline-flex items-center gap-2 text-xs font-semibold text-fg-muted">
           Market
@@ -1138,5 +1156,36 @@ function LivePnl({ value }: { value: number }) {
         <p className="mt-1 text-xs text-fg-subtle">floating on open positions · live</p>
       </div>
     </AdminCard>
+  );
+}
+
+/**
+ * What the switch currently says, above the controls.
+ *
+ * "When a day looks thin, the first question is whether the bot was allowed to
+ * trade at all" — so this states it plainly, with who decided and when, and
+ * nobody has to keep that in a notebook.
+ *
+ * When the bot has not read the flag recently it says THAT instead, because a
+ * switch nobody is obeying is the one thing this line must never let look
+ * normal.
+ */
+function SwitchCaption({ settings }: { settings: BotSettings }) {
+  const unread = useStale(settings.seen_by_bot_at, 3 * 60_000);
+  if (unread) {
+    return (
+      <span className="text-[11px] font-semibold text-danger">
+        {settings.seen_by_bot_at ? 'the bot is not reading this switch' : 'the bot has never read this switch'}
+      </span>
+    );
+  }
+  const when = new Date(settings.updated_at).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+  return (
+    <span className="text-[11px] text-fg-subtle">
+      {settings.trading_enabled ? 'On' : 'Off'} since {when}
+      {settings.updated_by ? ` · ${settings.updated_by}` : ''}
+    </span>
   );
 }
