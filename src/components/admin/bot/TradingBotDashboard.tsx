@@ -808,7 +808,13 @@ function TradeCards({
               </p>
             )}
 
-            {m.pending_ticket ? (
+            {/* Analysis happens while the order is PENDING. Once it fills we
+                only monitor: the issues were found before, and inviting a
+                fresh verdict on a live trade invites interfering with one.
+                What was written earlier still shows — read-only. */}
+            {live && m.pending_ticket ? (
+              <AnalysisRecord record={analyses[m.pending_ticket]} />
+            ) : m.pending_ticket ? (
               <TradeAnalysis
                 ticket={m.pending_ticket}
                 symbol={m.symbol}
@@ -1268,5 +1274,50 @@ function SwitchCaption({ settings }: { settings: BotSettings }) {
       {settings.trading_enabled ? 'On' : 'Off'} since {when}
       {settings.updated_by ? ` · ${settings.updated_by}` : ''}
     </span>
+  );
+}
+
+/**
+ * What was said about this trade while it was still an order — read only.
+ *
+ * "When an order gets to active position we only monitor it." The analysis
+ * belongs to the pending stage; showing an editable form on a live trade
+ * invites a second opinion at the one moment nobody should be acting on one.
+ */
+function AnalysisRecord({ record }: { record: BotTradeAnalysisView | undefined }) {
+  if (!record?.note && !record?.imageUrl) {
+    return (
+      <p className="px-5 pb-4 pt-4 text-xs text-fg-subtle">
+        Nothing was written about this one before it filled.
+      </p>
+    );
+  }
+  const when = record.updated_at
+    ? new Date(record.updated_at).toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      })
+    : null;
+  return (
+    <div className="px-5 py-4">
+      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+        Read before it filled
+      </p>
+      {record.imageUrl && (
+        <a href={record.imageUrl} target="_blank" rel="noreferrer" className="mt-3 block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={record.imageUrl}
+            alt="Analyst markup"
+            className="w-full rounded-md border border-border object-contain"
+          />
+        </a>
+      )}
+      {record.note && <p className="mt-3 text-sm text-fg">{record.note}</p>}
+      {when && (
+        <p className="mt-2 text-[11px] text-fg-subtle">
+          {when}{record.created_by ? ` · ${record.created_by}` : ''}
+        </p>
+      )}
+    </div>
   );
 }
