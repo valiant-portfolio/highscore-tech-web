@@ -632,98 +632,121 @@ function PendingOrders({
   onOpenChart: (symbol: string) => void;
 }) {
   const pending = markets.filter((m) => m.state === 'ready');
+  // Collapsed by default. Each order carries a full indicator table and an
+  // analysis form, and three of those open at once is a wall of numbers to
+  // scroll past looking for the one you came to read. One line each until you
+  // choose one.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (symbol: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(symbol)) next.delete(symbol); else next.add(symbol);
+      return next;
+    });
 
   return (
     <div className="space-y-6">
-      {/* ── Pending orders ─────────────────────────────────────────────── */}
-      {/* One card per order rather than a table row, because each carries the
-          analyst's reading of it — the routine that matters happens HERE,
-          while the order is still pending, not after it has closed. */}
       <AdminCard>
         <div className="border-b border-border px-5 py-3">
           <span className="text-sm font-semibold text-fg">
             Pending orders <span className="font-normal text-fg-muted">· {pending.length} waiting to fill</span>
           </span>
           <p className="mt-1 text-xs text-fg-subtle">
-            Mark the chart yourself first, then read what the bot decided, then write the gap.
+            Mark the chart yourself first, then open one to read what the bot saw.
           </p>
         </div>
         {pending.length === 0 ? (
           <Empty>No pending orders.</Empty>
         ) : (
           <div className="divide-y divide-border">
-            {pending.map((m) => (
-              <div key={m.symbol}>
-                <div
-                  onClick={() => onOpenChart(m.symbol)}
-                  title="Open this market in the chart"
-                  className="cursor-pointer px-5 py-4 hover:bg-surface-hover/30"
-                >
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <span className="inline-flex items-center gap-1.5 font-semibold text-fg">
-                      <CandlestickChart className="h-4 w-4 text-fg-subtle" />
-                      {m.alias}{m.is_dry_run && <DryTag />}
-                    </span>
+            {pending.map((m) => {
+              const expanded = open.has(m.symbol);
+              return (
+                <div key={m.symbol}>
+                  {/* The summary line: enough to decide whether to look, and
+                      nothing that needs scrolling past if you are not. */}
+                  <button
+                    type="button"
+                    onClick={() => toggle(m.symbol)}
+                    aria-expanded={expanded}
+                    className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-left hover:bg-surface-hover/30"
+                  >
+                    <ChevronRight
+                      className={`h-4 w-4 shrink-0 text-fg-subtle transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    />
+                    <span className="font-semibold text-fg">{m.alias}{m.is_dry_run && <DryTag />}</span>
                     <span className="tabular text-sm text-fg-muted">{m.latest_signal ?? '—'}</span>
                     <TrendChip trend={m.htf_trend} label={`${m.htf ?? 'H1'} `} />
                     <TrendChip trend={m.entry_trend} label={`${m.timeframe ?? 'M15'} `} />
                     <span className="ml-auto text-[11px] text-fg-subtle"><TimeAgo iso={m.updated_at} /></span>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
-                    <Mini label="Entry level" value={px(m.level)} />
-                    <Mini label="Price now" value={px(m.price)} />
-                    <Mini label="Stop" value={px(m.sl)} />
-                    <Mini label="Target" value={px(m.tp)} />
-                  </dl>
-                </div>
-                {/* Step 3 of the routine: having marked the chart yourself,
-                    read what the bot sees. A two-word trend label is not a
-                    reading — ADX at 16 is. */}
-                {m.snapshot ? (
-                  <div className="border-t border-border">
-                    <IndicatorTable
-                      snapshot={m.snapshot}
-                      side={m.latest_signal}
-                      htfTrend={m.htf_trend}
-                      timeframe={m.timeframe}
-                      htf={m.htf}
-                    />
-                  </div>
-                ) : (
-                  <p className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
-                    Indicator readings appear once db/migrations/012 is applied and
-                    the bot has published a cycle.
-                  </p>
-                )}
+                  </button>
 
-                {/* The form is outside the click target above — typing a note
-                    should not also swap the chart out from under you. */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  {m.pending_ticket ? (
-                    <TradeAnalysis
-                      ticket={m.pending_ticket}
-                      symbol={m.symbol}
-                      note={analyses[m.pending_ticket]?.note ?? null}
-                      imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
-                      at={analyses[m.pending_ticket]?.updated_at ?? null}
-                      by={analyses[m.pending_ticket]?.created_by ?? null}
-                      context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
-                    />
-                  ) : (
-                    <p className="px-5 pb-4 text-xs text-fg-subtle">
-                      Waiting for the bot to publish this order&apos;s ticket — run
-                      db/migrations/007 if this persists.
-                    </p>
+                  {expanded && (
+                    <div className="border-t border-border">
+                      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
+                        <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                          <Mini label="Entry level" value={px(m.level)} />
+                          <Mini label="Price now" value={px(m.price)} />
+                          <Mini label="Stop" value={px(m.sl)} />
+                          <Mini label="Target" value={px(m.tp)} />
+                        </dl>
+                        <button
+                          type="button"
+                          onClick={() => onOpenChart(m.symbol)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover"
+                        >
+                          <CandlestickChart className="h-4 w-4" /> Open chart
+                        </button>
+                      </div>
+
+                      {/* Step 3: having marked the chart yourself, read what
+                          the bot sees. A two-word trend label is not a
+                          reading — ADX at 16 is. */}
+                      {m.snapshot ? (
+                        <div className="border-t border-border">
+                          <IndicatorTable
+                            snapshot={m.snapshot}
+                            side={m.latest_signal}
+                            htfTrend={m.htf_trend}
+                            timeframe={m.timeframe}
+                            htf={m.htf}
+                          />
+                        </div>
+                      ) : (
+                        <p className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
+                          Indicator readings appear once db/migrations/012 is applied and
+                          the bot has published a cycle.
+                        </p>
+                      )}
+
+                      {m.pending_ticket ? (
+                        <TradeAnalysis
+                          ticket={m.pending_ticket}
+                          symbol={m.symbol}
+                          note={analyses[m.pending_ticket]?.note ?? null}
+                          imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
+                          at={analyses[m.pending_ticket]?.updated_at ?? null}
+                          by={analyses[m.pending_ticket]?.created_by ?? null}
+                          context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
+                        />
+                      ) : (
+                        <p className="px-5 pb-4 text-xs text-fg-subtle">
+                          Waiting for the bot to publish this order&apos;s ticket — run
+                          db/migrations/010 if this persists.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </AdminCard>
     </div>
   );
 }
+
 /* ── Transactions ─────────────────────────────────────────────────────── */
 
 const PAGE_SIZE = 15;

@@ -64,11 +64,30 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
 
   return (
     <div className="flex flex-col items-end gap-1">
+      {/* Status above, control below: you read what the switch currently says
+          before you reach for the thing that changes it. */}
+      {!obeyed ? (
+        <span className="text-[10px] font-semibold text-danger">
+          {seenByBotAt
+            ? 'the bot has not read this in minutes — not obeying'
+            : 'the bot has never read this switch'}
+        </span>
+      ) : provenance ? (
+        <span className="text-[10px] text-fg-subtle">{provenance}</span>
+      ) : null}
+
       <button
         type="button"
         disabled={pending || !obeyed}
         onClick={() => (enabled ? apply(false).catch(() => {}) : setConfirming(true))}
-        title={provenance ?? undefined}
+        title={
+          // Spelled out because this sits beside "Close all", and the two do
+          // opposite halves of the same job: one stops adding risk, the other
+          // gets rid of the risk you already carry.
+          enabled
+            ? 'Open no new trades. Positions already open keep running and stay managed; nothing is closed.'
+            : 'Let the bot open new trades again.'
+        }
         className={
           enabled
             ? 'inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover/40 px-3 py-1.5 text-xs font-bold text-fg hover:bg-surface-hover disabled:opacity-40'
@@ -80,15 +99,6 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
           : <><Play className="h-4 w-4" /> Trading is off</>}
       </button>
 
-      {!obeyed ? (
-        <span className="text-[10px] font-semibold text-danger">
-          {seenByBotAt
-            ? 'the bot has not read this in minutes — not obeying'
-            : 'the bot has never read this switch'}
-        </span>
-      ) : provenance ? (
-        <span className="text-[10px] text-fg-subtle">{provenance}</span>
-      ) : null}
       {error && <span className="text-[10px] text-danger">{error}</span>}
 
       <ConfirmDialog
