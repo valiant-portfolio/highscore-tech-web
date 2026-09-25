@@ -5,11 +5,11 @@
 // the tab state, the interactive controls (lot size, close), and the
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid, Layers, Receipt, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
-import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS, useStale } from './BotBits';
+import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS, useStale, useNow } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
 import { CloseAtProfitCell } from './CloseAtProfitCell';
 import { PositionActions } from './PositionActions';
@@ -130,6 +130,44 @@ function moneyAtLevel(
   return Number.isFinite(at) ? at : null;
 }
 
+/**
+ * The active tab, kept in localStorage so a refresh leaves you where you were.
+ *
+ * An external store rather than state restored in an effect: the effect
+ * version painted the Desk on every visit and then jumped, and React's own
+ * guidance is that a value living outside React should be subscribed to, not
+ * copied in after the fact.
+ */
+const TAB_KEY = 'bot-tab';
+const tabStore = {
+  listeners: new Set<() => void>(),
+  subscribe(listener: () => void) {
+    tabStore.listeners.add(listener);
+    // Another tab of the same dashboard changing tabs should not be ignored.
+    window.addEventListener('storage', listener);
+    return () => {
+      tabStore.listeners.delete(listener);
+      window.removeEventListener('storage', listener);
+    };
+  },
+  get(): Tab {
+    try {
+      const saved = localStorage.getItem(TAB_KEY);
+      if (!saved) return 'desk';
+      return (['desk', 'active', 'pending', 'chart', 'history'] as string[]).includes(saved)
+        ? (saved as Tab)
+        : OLD_TAB[saved] ?? 'desk';
+    } catch {
+      return 'desk';
+    }
+  },
+  set(t: Tab) {
+    try { localStorage.setItem(TAB_KEY, t); } catch { /* private mode */ }
+    // localStorage does not notify the tab that wrote it.
+    tabStore.listeners.forEach((l) => l());
+  },
+};
+
 export function TradingBotDashboard({
   markets: initialMarkets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses,
 }: {
@@ -150,19 +188,14 @@ export function TradingBotDashboard({
   // P&L tile, the positions table and the pending cards all move together.
   const { markets, lastEvent, connected } = useLiveMarkets(initialMarkets);
 
-  // Persist the active tab so a refresh keeps you where you were.
-  const [tab, setTab] = useState<Tab>('desk');
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('bot-tab');
-      if (!saved) return;
-      const resolved = (['desk', 'active', 'pending', 'chart', 'history'] as string[]).includes(saved)
-        ? (saved as Tab)
-        : OLD_TAB[saved];
-      if (resolved) setTab(resolved);
-    } catch { /* ignore */ }
-  }, []);
-  const selectTab = (t: Tab) => { setTab(t); try { localStorage.setItem('bot-tab', t); } catch { /* ignore */ } };
+  // The active tab, read straight from localStorage as an external store.
+  //
+  // Restoring it with useEffect+setState meant every visit painted the Desk
+  // first and then jumped to wherever you actually were. Subscribing instead
+  // renders the right tab on the first client paint, and the server snapshot
+  // keeps the markup it rendered ('desk') so hydration still matches.
+  const tab = useSyncExternalStore(tabStore.subscribe, tabStore.get, () => 'desk' as Tab);
+  const selectTab = (t: Tab) => tabStore.set(t);
 
   // Jump to the chart focused on a market. MarketChart reads its selection from
   // this localStorage key on mount, and it remounts when we switch to the tab —
@@ -457,6 +490,9 @@ function Markets({
 }: {
   markets: BotMarket[]; cfgBySymbol: Map<string, BotConfig>; specByName: Map<string, BotSymbolSpec>;
 }) {
+  // One clock for the whole table — a hook per row is not possible, and each
+  // row is asking the same question anyway.
+  const now = useNow();
   if (markets.length === 0) return <AdminCard><Empty>No market data yet.</Empty></AdminCard>;
   return (
     <AdminCard>
@@ -475,7 +511,7 @@ function Markets({
             {markets.map((m) => {
               const cfg = cfgBySymbol.get(m.symbol);
               const spec = specByName.get(m.symbol);
-              const stale = m.updated_at ? Date.now() - new Date(m.updated_at).getTime() > STALE_MS : true;
+              const stale = m.updated_at ? now - new Date(m.updated_at).getTime() > STALE_MS : true;
               return (
                 <tr key={m.symbol} className="hover:bg-surface-hover/40">
                   <Td className="pl-4"><span className="font-semibold text-fg">{m.alias}</span><p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p></Td>
@@ -751,8 +787,11 @@ function TradeCards({
               />
             ) : (
               <p className="px-5 pb-4 text-xs text-fg-subtle">
-                Waiting for the bot to publish this order&apos;s ticket — run
-                db/migrations/010 if this persists.
+                {live
+                  ? 'No ticket on this position yet — the bot publishes one each cycle.'
+                  : 'No order at the broker to attach an analysis to. The bot found this level '
+                    + 'but has not placed on it, usually because price had already reached it. '
+                    + 'Once it places, this becomes the order you read.'}
               </p>
             )}
           </div>
@@ -834,7 +873,16 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
   // Paginate, 15 per view. Reset to page 1 whenever the filter/sort changes the
   // result set, and clamp if the current page fell off the end.
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  useEffect(() => { setPage(1); }, [market, order]);
+  // Adjusted during render rather than in an effect: React re-runs this
+  // component before touching the DOM, so the page never paints at the wrong
+  // number. An effect would paint page 9 of a 2-page result first, then
+  // correct itself.
+  const filterKey = `${market}|${order}`;
+  const [prevFilter, setPrevFilter] = useState(filterKey);
+  if (filterKey !== prevFilter) {
+    setPrevFilter(filterKey);
+    setPage(1);
+  }
   const safePage = Math.min(page, pageCount);
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const firstShown = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;

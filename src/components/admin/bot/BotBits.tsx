@@ -42,6 +42,22 @@ export function AsOfTag({ iso }: { iso: string | null | undefined }) {
 
 /** Live "12s ago" that updates itself every second. */
 /**
+ * The current time, re-read on a timer rather than during render.
+ *
+ * For "is this row stale" checks inside a map, where a hook per row is not
+ * possible. Reading Date.now() in render makes the output depend on when React
+ * happened to render, which is neither reproducible nor guaranteed to update.
+ */
+export function useNow(intervalMs = 10_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+/**
  * Has `iso` gone quiet for longer than `staleMs`?
  *
  * Ticks on its own, because the answer changes with the clock and not with
