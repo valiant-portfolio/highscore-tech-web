@@ -63,7 +63,7 @@ export default async function BotTradePage({ params }: PageProps) {
   const n = Number(ticket);
   if (!Number.isFinite(n)) notFound();
 
-  const { trade, analystImageUrl, bars, timeframe, digits } = await getBotTrade(n);
+  const { trade, analysis, bars, timeframe, digits } = await getBotTrade(n);
   if (!trade) notFound();
 
   const px = (v: number | null | undefined) =>
@@ -167,7 +167,7 @@ export default async function BotTradePage({ params }: PageProps) {
       <div className="mt-6">
         <h3 className="mb-3 font-semibold text-fg">
           What we saw
-          <span className="text-xs font-normal text-fg-subtle"> · the chart marked up by hand, and the gap in one sentence</span>
+          <span className="text-xs font-normal text-fg-subtle"> · read while the order was pending, kept with the trade</span>
         </h3>
         <AdminCard>
           {/* Deliberately below the bot's reading: mark the chart first, read
@@ -176,10 +176,11 @@ export default async function BotTradePage({ params }: PageProps) {
               cannot unsee it". */}
           <TradeAnalysis
             ticket={Number(trade.ticket)}
-            note={trade.analyst_note}
-            imageUrl={analystImageUrl}
-            at={trade.analyst_at}
-            by={trade.analyst_by}
+            symbol={trade.symbol}
+            note={analysis?.note ?? null}
+            imageUrl={analysis?.imageUrl ?? null}
+            at={analysis?.updated_at ?? null}
+            by={analysis?.created_by ?? null}
           />
         </AdminCard>
       </div>

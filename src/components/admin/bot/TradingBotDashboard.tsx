@@ -16,8 +16,9 @@ import { PositionActions } from './PositionActions';
 import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
 import { TradingSwitchButton } from './TradingSwitchButton';
+import { TradeAnalysis } from './TradeAnalysis';
 import { MarketChart } from './MarketChart';
-import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings } from '@/lib/admin/trading-bot-queries';
+import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
 
 type Tab = 'overview' | 'chart' | 'markets' | 'positions' | 'transactions' | 'performance';
 
@@ -117,7 +118,7 @@ function moneyAtLevel(
 }
 
 export function TradingBotDashboard({
-  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings,
+  markets, configs, specs, openTrades, closedTrades, closedCount, equity, equityCurve, lastUpdate, settings, analyses,
 }: {
   markets: BotMarket[];
   configs: BotConfig[];
@@ -129,6 +130,7 @@ export function TradingBotDashboard({
   equityCurve: BotEquity[];
   lastUpdate: string | null;
   settings: BotSettings | null;
+  analyses: Record<number, BotTradeAnalysisView>;
 }) {
   // Persist the active tab so a refresh keeps you where you were.
   const [tab, setTab] = useState<Tab>('overview');
@@ -239,7 +241,7 @@ export function TradingBotDashboard({
         />
       )}
       {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
-      {tab === 'positions' && <Positions markets={markets} openTrades={openTrades} floating={floating} onOpenChart={openChartFor} />}
+      {tab === 'positions' && <Positions markets={markets} openTrades={openTrades} floating={floating} analyses={analyses} onOpenChart={openChartFor} />}
       {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
       {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
     </div>
@@ -403,9 +405,10 @@ function Markets({
 /* ── Open positions ───────────────────────────────────────────────────── */
 
 function Positions({
-  markets, openTrades, floating, onOpenChart,
+  markets, openTrades, floating, analyses, onOpenChart,
 }: {
   markets: BotMarket[]; openTrades: BotTrade[]; floating: number;
+  analyses: Record<number, BotTradeAnalysisView>;
   onOpenChart: (symbol: string) => void;
 }) {
   // bot_market_state is the authority on what is live at the broker. The bot
@@ -516,47 +519,68 @@ function Positions({
       </AdminCard>
 
       {/* ── Pending orders ─────────────────────────────────────────────── */}
+      {/* One card per order rather than a table row, because each carries the
+          analyst's reading of it — the routine that matters happens HERE,
+          while the order is still pending, not after it has closed. */}
       <AdminCard>
         <div className="border-b border-border px-5 py-3">
           <span className="text-sm font-semibold text-fg">
             Pending orders <span className="font-normal text-fg-muted">· {pending.length} waiting to fill</span>
           </span>
+          <p className="mt-1 text-xs text-fg-subtle">
+            Mark the chart yourself first, then read what the bot decided, then write the gap.
+          </p>
         </div>
         {pending.length === 0 ? (
           <Empty>No pending orders.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
-                <tr>
-                  <Th className="text-left pl-4">Market</Th><Th className="text-left">Signal</Th>
-                  <Th className="text-left">Reason</Th><Th className="text-right">Entry level</Th>
-                  <Th className="text-right">Price now</Th><Th className="text-right pr-4">Updated</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pending.map((m) => (
-                  <tr
-                    key={m.symbol}
-                    onClick={() => onOpenChart(m.symbol)}
-                    title="Open this market in the chart"
-                    className="cursor-pointer hover:bg-surface-hover/30"
-                  >
-                    <Td className="pl-4 font-semibold text-fg">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CandlestickChart className="h-3.5 w-3.5 text-fg-subtle" />
-                        {m.alias}{m.is_dry_run && <DryTag />}
-                      </span>
-                    </Td>
-                    <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
-                    <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
-                    <Td className="text-right tabular font-semibold">{px(m.level)}</Td>
-                    <Td className="text-right tabular text-fg-muted">{px(m.price)}</Td>
-                    <Td className="text-right pr-4 text-fg-subtle whitespace-nowrap"><TimeAgo iso={m.updated_at} /></Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-border">
+            {pending.map((m) => (
+              <div key={m.symbol}>
+                <div
+                  onClick={() => onOpenChart(m.symbol)}
+                  title="Open this market in the chart"
+                  className="cursor-pointer px-5 py-4 hover:bg-surface-hover/30"
+                >
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-fg">
+                      <CandlestickChart className="h-4 w-4 text-fg-subtle" />
+                      {m.alias}{m.is_dry_run && <DryTag />}
+                    </span>
+                    <span className="tabular text-sm text-fg-muted">{m.latest_signal ?? '—'}</span>
+                    <TrendChip trend={m.htf_trend} label={`${m.htf ?? 'H1'} `} />
+                    <TrendChip trend={m.entry_trend} label={`${m.timeframe ?? 'M15'} `} />
+                    <span className="ml-auto text-[11px] text-fg-subtle"><TimeAgo iso={m.updated_at} /></span>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                    <Mini label="Entry level" value={px(m.level)} />
+                    <Mini label="Price now" value={px(m.price)} />
+                    <Mini label="Stop" value={px(m.sl)} />
+                    <Mini label="Target" value={px(m.tp)} />
+                  </dl>
+                </div>
+                {/* The form is outside the click target above — typing a note
+                    should not also swap the chart out from under you. */}
+                <div onClick={(e) => e.stopPropagation()}>
+                  {m.pending_ticket ? (
+                    <TradeAnalysis
+                      ticket={m.pending_ticket}
+                      symbol={m.symbol}
+                      note={analyses[m.pending_ticket]?.note ?? null}
+                      imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
+                      at={analyses[m.pending_ticket]?.updated_at ?? null}
+                      by={analyses[m.pending_ticket]?.created_by ?? null}
+                      context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
+                    />
+                  ) : (
+                    <p className="px-5 pb-4 text-xs text-fg-subtle">
+                      Waiting for the bot to publish this order&apos;s ticket — run
+                      db/migrations/007 if this persists.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </AdminCard>
@@ -876,3 +900,13 @@ function TrendAgreement({ verdict }: { verdict: string | null }) {
 
 // Re-export so the page can render the live status badge in its header.
 export { BotStatus };
+
+/** Label over value, for the compact facts on a pending-order card. */
+function Mini({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-[0.14em] font-bold text-fg-subtle">{label}</dt>
+      <dd className="tabular text-fg">{value}</dd>
+    </div>
+  );
+}

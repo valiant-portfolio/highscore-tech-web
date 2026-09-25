@@ -8,6 +8,8 @@
 
 import 'server-only';
 import { botServiceClient } from '@/lib/supabase/bot';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** v7: three trend states only. htf_trend (H1) decides trades; entry_trend (M15)
  *  is context. `Sideways` = no trend. */
@@ -50,6 +52,32 @@ export interface BotMarket {
   strategy: string | null;
   is_dry_run: boolean;
   updated_at: string;
+  /** Ticket of whatever is live on this market — the resting order's, or the
+   *  open position's. The same number across a fill in MT5, which is what lets
+   *  an analyst's note survive the trigger. Null when the market is flat, and
+   *  null everywhere until migration 007. */
+  pending_ticket: number | null;
+}
+
+/** An analyst's reading of one order (bot_trade_analysis, migration 007).
+ *  Written while the order is PENDING — that is when it is worth writing. */
+export interface BotTradeAnalysis {
+  ticket: number;
+  symbol: string;
+  note: string | null;
+  image_path: string | null;
+  side: string | null;
+  level: number | null;
+  sl: number | null;
+  tp: number | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+/** An analysis with its image already signed for display. */
+export interface BotTradeAnalysisView extends BotTradeAnalysis {
+  imageUrl: string | null;
 }
 
 export interface BotTrade {
@@ -92,13 +120,6 @@ export interface BotTrade {
   mae: number | null;
   /** Result as a multiple of the initial risk (entry → stop). */
   r_multiple: number | null;
-  /** Olivia's reading of the trade (migration 007): her one sentence, and the
-   *  storage path of her marked-up chart. The path is signed at render time —
-   *  the bucket is private. */
-  analyst_note: string | null;
-  analyst_image_path: string | null;
-  analyst_at: string | null;
-  analyst_by: string | null;
 }
 
 /** One bar's indicator readings. Every value may be null where the terminal
@@ -213,6 +234,9 @@ export interface BotOverview {
   equityCurve: BotEquity[];
   /** Newest market write across all symbols — drives the online/stale badge. */
   lastUpdate: string | null;
+  /** Analyst readings for the tickets currently live, keyed by ticket. Empty
+   *  until migration 007. */
+  analyses: Record<number, BotTradeAnalysisView>;
   /** The trading switch. Null when migration 006 has not been applied — the
    *  dashboard then hides the control rather than showing one the bot cannot
    *  read, which would be a button that silently does nothing. */
@@ -227,7 +251,42 @@ export interface BotOverview {
 // trades are listed so a row can say whether it was taken with or against the
 // trend without a second round trip.
 const TRADE_COLS =
-  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run, entry_snapshot, exit_snapshot, entry_trend, exit_trend, entry_htf_trend, exit_htf_trend, trend_agreement, mfe, mae, r_multiple, analyst_note, analyst_image_path, analyst_at, analyst_by';
+  'id, ticket, symbol, timeframe, strategy, side, volume, open_ts, open_price, close_ts, close_price, sl, tp, pnl, commission, swap, entry_spread, close_reason, is_dry_run, entry_snapshot, exit_snapshot, entry_trend, exit_trend, entry_htf_trend, exit_htf_trend, trend_agreement, mfe, mae, r_multiple';
+
+/**
+ * Analyst readings for a set of tickets, with their images signed for display.
+ *
+ * Signed per render (ten minutes) rather than stored: the bucket is private,
+ * and a URL that outlives the page it was shown on is a link anyone can keep.
+ *
+ * Returns {} rather than throwing when migration 007 has not been applied —
+ * the dashboard then simply has no analysis to show, which is true.
+ */
+async function analysesFor(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: SupabaseClient<any>,
+  tickets: number[],
+): Promise<Record<number, BotTradeAnalysisView>> {
+  if (tickets.length === 0) return {};
+  const { data, error } = await admin
+    .from('bot_trade_analysis')
+    .select('ticket, symbol, note, image_path, side, level, sl, tp, created_at, updated_at, created_by')
+    .in('ticket', tickets);
+  if (error || !data) return {};
+
+  const out: Record<number, BotTradeAnalysisView> = {};
+  for (const row of data as BotTradeAnalysis[]) {
+    let imageUrl: string | null = null;
+    if (row.image_path) {
+      const { data: signed } = await admin.storage
+        .from('trade-analysis')
+        .createSignedUrl(row.image_path, 600);
+      imageUrl = signed?.signedUrl ?? null;
+    }
+    out[row.ticket] = { ...row, imageUrl };
+  }
+  return out;
+}
 
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
@@ -276,6 +335,12 @@ export async function getBotOverview(): Promise<BotOverview> {
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
     settings: (settings.data as BotSettings | null) ?? null,
+    // Only what is live: a note matters while the order it describes is still
+    // resting or running. Closed trades read theirs on their own page.
+    analyses: await analysesFor(
+      admin,
+      marketRows.map((m) => m.pending_ticket).filter((t): t is number => t != null),
+    ),
   };
 }
 
@@ -310,9 +375,9 @@ export async function getBotMarket(symbol: string): Promise<BotMarketDetail> {
 
 export interface BotTradeDetail {
   trade: BotTrade | null;
-  /** Short-lived signed URL for the analyst's chart, or null. Signed here
-   *  rather than stored, so a link cannot outlive the page that showed it. */
-  analystImageUrl: string | null;
+  /** The analyst's reading of this ticket, image already signed. Written while
+   *  the order was pending; it stays attached through the fill and the close. */
+  analysis: BotTradeAnalysisView | null;
   /** Bars around the trade, for the chart. Empty when the window has aged out
    *  of bot_bars' retention — the page still renders, without the chart. */
   bars: BotBar[];
@@ -331,7 +396,7 @@ export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
 
   const { data } = await admin.from('bot_trades').select(TRADE_COLS).eq('ticket', ticket).maybeSingle();
   const trade = (data as BotTrade | null) ?? null;
-  if (!trade) return { trade: null, analystImageUrl: null, bars: [], timeframe: 'M15', digits: 5 };
+  if (!trade) return { trade: null, analysis: null, bars: [], timeframe: 'M15', digits: 5 };
 
   // bot_bars only syncs M15 and H1 (backend v7). Anything else recorded on the
   // trade would return an empty chart, so fall back rather than show nothing.
@@ -353,19 +418,9 @@ export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
     admin.from('bot_quotes').select('digits').eq('symbol', trade.symbol).maybeSingle(),
   ]);
 
-  // 10 minutes: long enough to read the page and open the image full size,
-  // short enough that a copied link is not a permanent one.
-  let analystImageUrl: string | null = null;
-  if (trade.analyst_image_path) {
-    const { data: signed } = await admin.storage
-      .from('trade-analysis')
-      .createSignedUrl(trade.analyst_image_path, 600);
-    analystImageUrl = signed?.signedUrl ?? null;
-  }
-
   return {
     trade,
-    analystImageUrl,
+    analysis: (await analysesFor(admin, [ticket]))[ticket] ?? null,
     bars: (bars.data ?? []) as BotBar[],
     timeframe,
     digits: (quote.data?.digits as number | undefined) ?? 5,

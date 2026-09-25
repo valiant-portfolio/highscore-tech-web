@@ -18,13 +18,17 @@ import { saveTradeAnalysisAction } from '@/lib/admin/trading-bot-actions';
 
 interface Props {
   ticket: number;
+  symbol: string;
   note: string | null;
   imageUrl: string | null;      // already signed by the server component
   at: string | null;
   by: string | null;
+  /** What the order was when it was read — stored with the note so it can be
+   *  judged against the setup it describes, not against what happened later. */
+  context?: { side?: string | null; level?: number | null; sl?: number | null; tp?: number | null };
 }
 
-export function TradeAnalysis({ ticket, note, imageUrl, at, by }: Props) {
+export function TradeAnalysis({ ticket, symbol, note, imageUrl, at, by, context }: Props) {
   const [text, setText] = useState(note ?? '');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +42,7 @@ export function TradeAnalysis({ ticket, note, imageUrl, at, by }: Props) {
     setError(null);
     setSaved(false);
     start(async () => {
-      const res = await saveTradeAnalysisAction(ticket, text, file);
+      const res = await saveTradeAnalysisAction(ticket, symbol, text, file, context);
       if (res.ok) {
         setSaved(true);
         setFile(null);
