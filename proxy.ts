@@ -1,3 +1,10 @@
+// Next 16 renamed this convention from `middleware` to `proxy`, and the old
+// name is not merely deprecated — it is IGNORED. Every subdomain rewrite in
+// here silently stopped happening: admin., studio. and bot. all served the
+// marketing site instead, with no warning in the build or the dev log.
+//
+// Renamed per the codemod (npx @next/codemod middleware-to-proxy).
+
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -10,7 +17,7 @@ const AUTH_PATHS = ['/login', '/signup', '/forgot-password'];
 const startsWithPath = (pathname: string, prefix: string) =>
   pathname === prefix || pathname.startsWith(`${prefix}/`);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const host = request.headers.get('host')?.split(':')[0].toLowerCase() ?? '';
   const { pathname } = request.nextUrl;
 
@@ -98,19 +105,19 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Fail open: middleware runs on every route, so a thrown error here would
+  // Fail open: this runs on every route, so a thrown error here would
   // crash the whole site (Netlify shows "edge function invocation failed").
   // If session handling throws, let the request through — every protected
   // page/layout still re-checks access server-side, so nothing leaks.
   try {
     return await updateSession(request);
   } catch (err) {
-    console.error('[middleware] updateSession threw, passing request through:', err);
+      console.error('[proxy] updateSession threw, passing request through:', err);
     return NextResponse.next();
   }
 }
 
-// Skip middleware on static assets and image-optimised paths.
+// Skip static assets and image-optimised paths.
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf)$).*)',
