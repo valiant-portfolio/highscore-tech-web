@@ -31,7 +31,9 @@ export default async function AdminLayout({
     // login page or in middleware could never win, because the rewrite happens
     // first and this redirect is written afterwards.
     const host = (await headers()).get('host')?.split(':')[0].toLowerCase() ?? '';
-    const landing = host.startsWith('bot.') ? '/admin/trading-bot' : '/admin';
+    // On the bot host the dashboard IS the root; it is no longer a page
+    // inside the admin panel.
+    const landing = host.startsWith('bot.') ? '/' : '/admin';
     redirect(`/login?next=${encodeURIComponent(landing)}`);
   }
   const isAdmin = user.role === 'admin';

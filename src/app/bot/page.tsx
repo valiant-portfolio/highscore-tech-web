@@ -1,4 +1,4 @@
-// /admin/trading-bot — tabbed monitor + the two allowed controls (lot size,
+// bot.highzcore.tech — tabbed monitor + the two allowed controls (lot size,
 // close a trade). The server fetches everything; the client dashboard owns the
 // tabs, the compact status/auto-refresh, and the interactive controls. The
 // header chrome is intentionally minimal so the tab content gets the space.

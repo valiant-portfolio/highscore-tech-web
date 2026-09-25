@@ -944,7 +944,7 @@ function Transactions({ closedTrades, markets, total }: { closedTrades: BotTrade
                 // has none, so it stays a plain row rather than a dead link.
                 <tr
                   key={t.id}
-                  onClick={t.ticket ? () => router.push(`/admin/trading-bot/trade/${t.ticket}`) : undefined}
+                  onClick={t.ticket ? () => router.push(`/trade/${t.ticket}`) : undefined}
                   className={`hover:bg-surface-hover/30 ${t.ticket ? 'cursor-pointer' : ''}`}
                 >
                   {/* The date stays a plain date. The ROW is the target — a

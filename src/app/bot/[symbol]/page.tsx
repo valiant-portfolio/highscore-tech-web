@@ -1,4 +1,4 @@
-// /admin/trading-bot/[symbol] — full detail for one market: its live state,
+// /[symbol] on bot.highzcore.tech — full detail for one market: its live state,
 // this market's trade history, recent model predictions (including vetoed ones),
 // and the latest model run's out-of-sample scorecard. Read-only.
 
@@ -45,7 +45,7 @@ export default async function BotMarketPage({ params }: PageProps) {
       <PageHead
         title={market.alias}
         description={market.symbol}
-        back={{ href: '/admin/trading-bot', label: 'Back to monitor' }}
+        back={{ href: '/', label: 'Back to the desk' }}
         actions={<BotStatus lastUpdate={market.updated_at} />}
       />
 
@@ -126,7 +126,7 @@ export default async function BotMarketPage({ params }: PageProps) {
                           Dry-run trades have no ticket and so have no page. */}
                       <Td className="pl-4 text-fg-muted whitespace-nowrap">
                         {t.ticket ? (
-                          <Link href={`/admin/trading-bot/trade/${t.ticket}`} className="underline-offset-2 hover:underline">
+                          <Link href={`/trade/${t.ticket}`} className="underline-offset-2 hover:underline">
                             {new Date(t.open_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </Link>
                         ) : new Date(t.open_ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}

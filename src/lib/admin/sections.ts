@@ -12,6 +12,10 @@ export interface AdminSection {
   key: string;
   href: string;
   label: string;
+  /** Lives outside the admin panel — the nav opens it as a plain link rather
+   *  than a client-side route. Only the trading bot, which has its own
+   *  subdomain. */
+  external?: boolean;
 }
 
 export const ADMIN_SECTIONS: AdminSection[] = [
@@ -25,7 +29,10 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'finance',     href: '/admin/finance',     label: 'Finance' },
   { key: 'reports',     href: '/admin/reports',     label: 'EOD reports' },
   { key: 'performance', href: '/admin/performance', label: 'Performance' },
-  { key: 'trading-bot', href: '/admin/trading-bot', label: 'Trading Bot' },
+  // The bot lives on its own subdomain, not under /admin. The KEY stays —
+  // that is the permission every check reads (HS-BOT-v3: "do not build a
+  // second way in") — but the href leaves the panel.
+  { key: 'trading-bot', href: 'https://bot.highzcore.tech', label: 'Trading Bot', external: true },
   { key: 'contact',     href: '/admin/contact',     label: 'Contact' },
   { key: 'ledger',      href: '/admin/ledger',      label: 'Ledger' },
   { key: 'nin-docs',    href: '/admin/nin-docs',    label: 'NIN docs' },

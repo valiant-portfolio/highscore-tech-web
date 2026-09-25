@@ -57,7 +57,7 @@ export async function setLotSizeAction(symbol: string, lot: number | null): Prom
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true, value: saved };
 }
 
@@ -92,7 +92,7 @@ export async function setCloseAtProfitAction(
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true, value: saved };
 }
 
@@ -110,7 +110,7 @@ export async function setMarketEnabledAction(symbol: string, enabled: boolean): 
     .update({ enabled, updated_at: new Date().toISOString() })
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true };
 }
 
@@ -142,7 +142,7 @@ async function queueCommand(
   });
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true };
 }
 
@@ -213,7 +213,7 @@ export async function closeAllPositionsAction(): Promise<Result<number>> {
   );
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true, value: symbols.length };
 }
 
@@ -239,7 +239,7 @@ export async function setTradingEnabledAction(enabled: boolean): Promise<Result<
     .eq('id', 1);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true, value: enabled };
 }
 
@@ -309,8 +309,8 @@ export async function saveTradeAnalysisAction(
   const { error } = await admin.from('bot_trade_analysis').upsert(row, { onConflict: 'ticket' });
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath(`/admin/trading-bot/trade/${ticket}`);
-  revalidatePath('/admin/trading-bot');
+  revalidatePath(`/bot/trade/${ticket}`);
+  revalidatePath('/bot');
   return { ok: true };
 }
 
@@ -342,6 +342,6 @@ export async function setCutoverAction(iso: string | null): Promise<Result<strin
     .eq('id', 1);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/trading-bot');
+  revalidatePath('/bot');
   return { ok: true, value };
 }

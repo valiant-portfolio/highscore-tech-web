@@ -13,7 +13,7 @@ import AdminProjectsPage from '@/app/admin/projects/page';
 import AdminFinancePage from '@/app/admin/finance/page';
 import AdminReportsPage from '@/app/admin/reports/page';
 import AdminPerformancePage from '@/app/admin/performance/page';
-import TradingBotPage from '@/app/admin/trading-bot/page';
+import TradingBotPage from '@/app/bot/page';
 import AdminContactPage from '@/app/admin/contact/page';
 import AdminLedgerPage from '@/app/admin/ledger/page';
 import AdminNinDocsPage from '@/app/admin/nin-docs/page';

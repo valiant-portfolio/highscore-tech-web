@@ -1,4 +1,4 @@
-// /admin/trading-bot/trade/[ticket] — the post-mortem for one trade.
+// /trade/[ticket] on bot.highzcore.tech — the post-mortem for one trade.
 //
 // The P&L column says what happened. This page answers why: the chart of what
 // price actually did, and what every indicator read at the entry bar versus the
@@ -63,7 +63,7 @@ export default async function BotTradePage({ params }: PageProps) {
       <PageHead
         title={`${trade.side.toUpperCase()} ${trade.symbol}`}
         description={`Ticket ${trade.ticket} · ${trade.strategy ?? 'unknown strategy'} · ${trade.timeframe ?? timeframe}`}
-        back={{ href: `/admin/trading-bot/${encodeURIComponent(trade.symbol)}`, label: 'Back to market' }}
+        back={{ href: `/${encodeURIComponent(trade.symbol)}`, label: 'Back to market' }}
       />
 
       {/* ── Result ───────────────────────────────────────────────────── */}
@@ -181,7 +181,7 @@ export default async function BotTradePage({ params }: PageProps) {
       <p className="mt-4 text-xs text-fg-subtle">
         Readings come from the bot at the moment it acted, using the same
         strictly-causal indicators it trades on — not recomputed here.{' '}
-        <Link className="underline" href={`/admin/trading-bot/${encodeURIComponent(trade.symbol)}`}>
+        <Link className="underline" href={`/${encodeURIComponent(trade.symbol)}`}>
           See every trade on {trade.symbol}
         </Link>.
       </p>

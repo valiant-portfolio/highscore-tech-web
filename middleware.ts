@@ -33,29 +33,47 @@ export async function middleware(request: NextRequest) {
   // you are signed in; when you are not, /admin's own guard bounces you to
   // /login on this same host. Rewrite rather than redirect so the subdomain
   // stays in the address bar.
-  // The dashboard answers on bot. and NOWHERE else. Reaching it at
-  // admin.highzcore.tech/admin/trading-bot would be a second front door to the
-  // money screen — a different URL to share, to bookmark, and to forget when
-  // access is being reviewed. Redirect rather than 404 so an old bookmark
-  // still lands somewhere useful, on the host it should have been using.
-  if (isLiveHost && !isBotHost && startsWithPath(pathname, '/admin/trading-bot')) {
+  // bot.highzcore.tech IS the trading bot — the whole subdomain, not one page
+  // inside something else. Every path is served from /bot, so the desk sees
+  // bot.highzcore.tech/ and /trade/9813924405 rather than a route that says it
+  // is a corner of the admin panel.
+  //
+  // Shared paths are left alone: /login has to resolve on THIS host (signing in
+  // must not bounce you off the dashboard's own domain), and /api and /_next
+  // belong to the framework.
+  if (isBotHost) {
+    const shared = pathname.startsWith('/api') || pathname.startsWith('/_next')
+      || pathname.startsWith('/bot') || pathname.startsWith('/login')
+      || pathname.startsWith('/profile');
+    if (!shared) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/bot${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // The dashboard answers on bot. and NOWHERE else. /bot or the old
+  // /admin/trading-bot on another host would be a second front door to the
+  // money screen — another URL to share, to bookmark, and to forget when
+  // access is reviewed. Redirected, not 404'd, so old links still land
+  // somewhere useful on the host they should have used.
+  if (isLiveHost && !isBotHost
+      && (startsWithPath(pathname, '/bot') || startsWithPath(pathname, '/admin/trading-bot'))) {
     const url = new URL(request.url);
     url.hostname = `bot.${ROOT_DOMAIN}`;
     url.port = '';
+    // The pages moved out of /admin; send an old link to the new shape rather
+    // than to a path that no longer exists.
+    url.pathname = pathname.replace(/^\/admin\/trading-bot/, '').replace(/^\/bot/, '') || '/';
     return NextResponse.redirect(url);
   }
 
-  if (isAdminHost || isBotHost) {
+  if (isAdminHost) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
-      url.pathname = isBotHost ? '/admin/trading-bot' : '/admin';
+      url.pathname = '/admin';
       return NextResponse.rewrite(url);
     }
-    // Everything else passes through untouched — including /login, which MUST
-    // stay on this host. The branch below sends /login on the public site to
-    // the admin subdomain; letting it catch bot. as well would bounce you off
-    // the dashboard's own domain to sign in, which is the one thing the brief
-    // says not to do.
   } else if (isLiveHost && AUTH_PATHS.some((p) => startsWithPath(pathname, p))) {
     // Someone found /login on the public site — send them to the portal,
     // keeping any ?next= so they still land where they were headed.
