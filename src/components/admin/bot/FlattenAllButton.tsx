@@ -32,7 +32,7 @@ export function FlattenAllButton({ openCount }: { openCount: number }) {
         title={disabled
           ? 'No open positions'
           : 'Exit every open position now, at market. Not the same as "Stop new trades", which only prevents new ones.'}
-        className="inline-flex items-center gap-1.5 rounded-md border border-danger/40 bg-danger/5 px-3 py-1.5 text-xs font-bold text-danger hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger/40 bg-danger/5 px-3 text-xs font-bold text-danger hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ShieldAlert className="h-4 w-4" /> Close all{openCount > 0 ? ` (${openCount})` : ''}
       </button>

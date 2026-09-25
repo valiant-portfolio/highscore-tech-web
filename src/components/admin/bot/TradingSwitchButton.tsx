@@ -63,18 +63,22 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
   const provenance = since ? `${enabled ? 'On' : 'Off'} since ${since}${updatedBy ? ` · ${updatedBy}` : ''}` : null;
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      {/* Status above, control below: you read what the switch currently says
-          before you reach for the thing that changes it. */}
-      {!obeyed ? (
-        <span className="text-[10px] font-semibold text-danger">
-          {seenByBotAt
-            ? 'the bot has not read this in minutes — not obeying'
-            : 'the bot has never read this switch'}
-        </span>
-      ) : provenance ? (
-        <span className="text-[10px] text-fg-subtle">{provenance}</span>
-      ) : null}
+    // One row, not a stack. This sits beside "Close all" in the header, and a
+    // two-line control next to a one-line one makes the whole row look
+    // accidental. The status reads left of the button, where a label belongs,
+    // and drops away on narrow screens rather than wrapping the row.
+    <div className="inline-flex items-center gap-2">
+      <span className="hidden text-[10px] leading-tight text-right sm:inline-block">
+        {!obeyed ? (
+          <span className="font-semibold text-danger">
+            {seenByBotAt ? 'bot not reading this' : 'bot has never read this'}
+          </span>
+        ) : error ? (
+          <span className="text-danger">{error}</span>
+        ) : provenance ? (
+          <span className="text-fg-subtle">{provenance}</span>
+        ) : null}
+      </span>
 
       <button
         type="button"
@@ -89,17 +93,16 @@ export function TradingSwitchButton({ enabled, updatedAt, updatedBy, seenByBotAt
             : 'Let the bot open new trades again.'
         }
         className={
-          enabled
-            ? 'inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover/40 px-3 py-1.5 text-xs font-bold text-fg hover:bg-surface-hover disabled:opacity-40'
-            : 'inline-flex items-center gap-1.5 rounded-md border border-success/40 bg-success/10 px-3 py-1.5 text-xs font-bold text-success hover:bg-success/20 disabled:opacity-40'
+          'inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-bold disabled:opacity-40 '
+          + (enabled
+            ? 'border-border bg-surface-hover/40 text-fg hover:bg-surface-hover'
+            : 'border-success/40 bg-success/10 text-success hover:bg-success/20')
         }
       >
         {enabled
           ? <><Pause className="h-4 w-4" /> Stop new trades</>
           : <><Play className="h-4 w-4" /> Trading is off</>}
       </button>
-
-      {error && <span className="text-[10px] text-danger">{error}</span>}
 
       <ConfirmDialog
         open={confirming}

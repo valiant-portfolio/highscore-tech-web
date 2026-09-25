@@ -26,12 +26,12 @@ import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSetti
 // Four tabs, named for what you are DOING rather than which table you are
 // reading. Desk is the screen you leave up; Pending is the analyst's daily job;
 // Chart is the market; History is everything already decided.
-type Tab = 'desk' | 'pending' | 'chart' | 'history';
+type Tab = 'desk' | 'active' | 'pending' | 'chart' | 'history';
 
 // Tabs were renamed; a saved value from the old set would leave the dashboard
 // on a tab that no longer exists, showing nothing.
 const OLD_TAB: Record<string, Tab> = {
-  overview: 'desk', markets: 'desk', positions: 'desk',
+  overview: 'desk', markets: 'desk', positions: 'active',
   transactions: 'history', performance: 'history', chart: 'chart',
 };
 
@@ -156,7 +156,7 @@ export function TradingBotDashboard({
     try {
       const saved = localStorage.getItem('bot-tab');
       if (!saved) return;
-      const resolved = (['desk', 'pending', 'chart', 'history'] as string[]).includes(saved)
+      const resolved = (['desk', 'active', 'pending', 'chart', 'history'] as string[]).includes(saved)
         ? (saved as Tab)
         : OLD_TAB[saved];
       if (resolved) setTab(resolved);
@@ -214,7 +214,8 @@ export function TradingBotDashboard({
   // open. Pending carries a badge because an unread order is a job to do.
   const pendingCount = markets.filter((m) => m.state === 'ready').length;
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'desk', label: 'Desk', icon: <LayoutGrid className="h-4 w-4" />, badge: liveCount },
+    { key: 'desk', label: 'Desk', icon: <LayoutGrid className="h-4 w-4" /> },
+    { key: 'active', label: 'Active', icon: <TrendingUp className="h-4 w-4" />, badge: liveCount },
     { key: 'pending', label: 'Pending', icon: <Layers className="h-4 w-4" />, badge: pendingCount },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
     { key: 'history', label: 'History', icon: <Receipt className="h-4 w-4" /> },
@@ -254,17 +255,19 @@ export function TradingBotDashboard({
         {/* The switch sits beside the kill switch: one stands the desk down,
             the other gets you out. Hidden when migration 006 has not been
             applied — a button the bot cannot read is worse than none. */}
-        {settings && (
-          <div className="shrink-0 pb-1.5 pl-1">
+        {/* Both controls in one group so they read as a pair: stop adding
+            risk, and get out of the risk already carried. */}
+        <div className="flex shrink-0 items-center gap-2 pb-1.5 pl-2">
+          {settings && (
             <TradingSwitchButton
               enabled={settings.trading_enabled}
               updatedAt={settings.updated_at}
               updatedBy={settings.updated_by}
               seenByBotAt={settings.seen_by_bot_at}
             />
-          </div>
-        )}
-        <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
+          )}
+          <FlattenAllButton openCount={liveCount} />
+        </div>
       </div>
 
       {/* Trading being off explains an otherwise inexplicable screen: setups
@@ -286,19 +289,28 @@ export function TradingBotDashboard({
         </div>
       )}
 
-      {/* Desk: everything about NOW, in the order you look at it — the money,
-          what is running, then what the bot is watching. */}
+      {/* Desk: the money and what the bot is watching. What is RUNNING has
+          its own tab now — this is the standing picture, not the live one. */}
       {tab === 'desk' && (
         <div className="space-y-6">
           <Overview
             markets={markets} equity={equity} equityCurve={equityCurve}
             floating={floating} todayRealized={todayRealized}
           />
+          <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />
+        </div>
+      )}
+
+      {/* Active: what is carrying money right now. The table keeps the manage
+          actions; the cards below carry each trade's reading and the analysis
+          written while it was still pending — same ticket, same record. */}
+      {tab === 'active' && (
+        <div className="space-y-6">
           <OpenPositions
             markets={markets} openTrades={openTrades}
             floating={floating} onOpenChart={openChartFor}
           />
-          <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />
+          <TradeCards mode="active" markets={markets} analyses={analyses} onOpenChart={openChartFor} />
         </div>
       )}
       {/* Ongoing-trade chips come from bot_market_state, not bot_trades: the bot
@@ -319,7 +331,7 @@ export function TradingBotDashboard({
         />
       )}
       {tab === 'pending' && (
-        <PendingOrders markets={markets} analyses={analyses} onOpenChart={openChartFor} />
+        <TradeCards mode="pending" markets={markets} analyses={analyses} onOpenChart={openChartFor} />
       )}
       {/* History: what has already been decided — the trades, then what they
           add up to. Filtered to the current strategy by default; the previous
@@ -622,16 +634,24 @@ function OpenPositions({
   );
 }
 
-/* ── Pending orders — the analyst's tab ──────────────────────────────── */
+/* ── Live trades and pending orders — the analyst's cards ────────────── */
 
-function PendingOrders({
-  markets, analyses, onOpenChart,
+function TradeCards({
+  mode, markets, analyses, onOpenChart,
 }: {
+  /** 'active' = filled and carrying money; 'pending' = resting, still the
+   *  thing to analyse. Same card either way: the ticket does not change when
+   *  an order becomes a position, so neither does its record. */
+  mode: 'active' | 'pending';
   markets: BotMarket[];
   analyses: Record<number, BotTradeAnalysisView>;
   onOpenChart: (symbol: string) => void;
 }) {
   const pending = markets.filter((m) => m.state === 'ready');
+  // Live trades get the same card. The analysis written while the order was
+  // pending carries over on the ticket, so this is where you check what was
+  // said before it filled — and add to it now that it is running.
+  const active = markets.filter((m) => m.state === 'active');
   // Collapsed by default. Each order carries a full indicator table and an
   // analysis form, and three of those open at once is a wall of numbers to
   // scroll past looking for the one you came to read. One line each until you
@@ -644,102 +664,115 @@ function PendingOrders({
       return next;
     });
 
+  const card = (m: BotMarket, live: boolean) => {
+    const expanded = open.has(m.symbol);
+    return (
+      <div key={m.symbol}>
+        <button
+          type="button"
+          onClick={() => toggle(m.symbol)}
+          aria-expanded={expanded}
+          className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-left hover:bg-surface-hover/30"
+        >
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 text-fg-subtle transition-transform ${expanded ? 'rotate-90' : ''}`}
+          />
+          <span className="font-semibold text-fg">{m.alias}{m.is_dry_run && <DryTag />}</span>
+          <span className="tabular text-sm text-fg-muted">{m.latest_signal ?? '—'}</span>
+          {live && m.pnl != null && (
+            <span className={`tabular text-sm font-bold ${pnlTone(m.pnl)}`}>{signed(m.pnl)}</span>
+          )}
+          <TrendChip trend={m.htf_trend} label={`${m.htf ?? 'H1'} `} />
+          <TrendChip trend={m.entry_trend} label={`${m.timeframe ?? 'M15'} `} />
+          {/* An order nobody has read yet is the job; say so on the line. */}
+          {m.pending_ticket && !analyses[m.pending_ticket] && (
+            <span className="rounded bg-brand/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+              unread
+            </span>
+          )}
+          <span className="ml-auto text-[11px] text-fg-subtle"><TimeAgo iso={m.updated_at} /></span>
+        </button>
+
+        {expanded && (
+          <div className="border-t border-border">
+            <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
+              <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                <Mini label={live ? 'Entry' : 'Entry level'} value={px(m.level)} />
+                <Mini label="Price now" value={px(m.price)} />
+                <Mini label="Stop" value={px(m.sl)} />
+                <Mini label="Target" value={px(m.tp)} />
+              </dl>
+              <button
+                type="button"
+                onClick={() => onOpenChart(m.symbol)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover"
+              >
+                <CandlestickChart className="h-4 w-4" /> Open chart
+              </button>
+            </div>
+
+            {m.snapshot ? (
+              <div className="border-t border-border">
+                <IndicatorTable
+                  snapshot={m.snapshot}
+                  side={m.latest_signal}
+                  htfTrend={m.htf_trend}
+                  timeframe={m.timeframe}
+                  htf={m.htf}
+                />
+              </div>
+            ) : (
+              <p className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
+                Indicator readings appear once db/migrations/012 is applied and
+                the bot has published a cycle.
+              </p>
+            )}
+
+            {m.pending_ticket ? (
+              <TradeAnalysis
+                ticket={m.pending_ticket}
+                symbol={m.symbol}
+                note={analyses[m.pending_ticket]?.note ?? null}
+                imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
+                at={analyses[m.pending_ticket]?.updated_at ?? null}
+                by={analyses[m.pending_ticket]?.created_by ?? null}
+                context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
+              />
+            ) : (
+              <p className="px-5 pb-4 text-xs text-fg-subtle">
+                Waiting for the bot to publish this order&apos;s ticket — run
+                db/migrations/010 if this persists.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const rows = mode === 'active' ? active : pending;
+
   return (
     <div className="space-y-6">
       <AdminCard>
         <div className="border-b border-border px-5 py-3">
           <span className="text-sm font-semibold text-fg">
-            Pending orders <span className="font-normal text-fg-muted">· {pending.length} waiting to fill</span>
+            {mode === 'active' ? 'Live trades' : 'Pending orders'}
+            <span className="font-normal text-fg-muted">
+              {mode === 'active' ? ` · ${rows.length} running` : ` · ${rows.length} waiting to fill`}
+            </span>
           </span>
           <p className="mt-1 text-xs text-fg-subtle">
-            Mark the chart yourself first, then open one to read what the bot saw.
+            {mode === 'active'
+              ? 'The reading each trade was taken on, and what was said about it before it filled.'
+              : 'Mark the chart yourself first, then open one to read what the bot saw.'}
           </p>
         </div>
-        {pending.length === 0 ? (
-          <Empty>No pending orders.</Empty>
+        {rows.length === 0 ? (
+          <Empty>{mode === 'active' ? 'Nothing open right now.' : 'No pending orders.'}</Empty>
         ) : (
           <div className="divide-y divide-border">
-            {pending.map((m) => {
-              const expanded = open.has(m.symbol);
-              return (
-                <div key={m.symbol}>
-                  {/* The summary line: enough to decide whether to look, and
-                      nothing that needs scrolling past if you are not. */}
-                  <button
-                    type="button"
-                    onClick={() => toggle(m.symbol)}
-                    aria-expanded={expanded}
-                    className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-left hover:bg-surface-hover/30"
-                  >
-                    <ChevronRight
-                      className={`h-4 w-4 shrink-0 text-fg-subtle transition-transform ${expanded ? 'rotate-90' : ''}`}
-                    />
-                    <span className="font-semibold text-fg">{m.alias}{m.is_dry_run && <DryTag />}</span>
-                    <span className="tabular text-sm text-fg-muted">{m.latest_signal ?? '—'}</span>
-                    <TrendChip trend={m.htf_trend} label={`${m.htf ?? 'H1'} `} />
-                    <TrendChip trend={m.entry_trend} label={`${m.timeframe ?? 'M15'} `} />
-                    <span className="ml-auto text-[11px] text-fg-subtle"><TimeAgo iso={m.updated_at} /></span>
-                  </button>
-
-                  {expanded && (
-                    <div className="border-t border-border">
-                      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
-                        <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-                          <Mini label="Entry level" value={px(m.level)} />
-                          <Mini label="Price now" value={px(m.price)} />
-                          <Mini label="Stop" value={px(m.sl)} />
-                          <Mini label="Target" value={px(m.tp)} />
-                        </dl>
-                        <button
-                          type="button"
-                          onClick={() => onOpenChart(m.symbol)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover"
-                        >
-                          <CandlestickChart className="h-4 w-4" /> Open chart
-                        </button>
-                      </div>
-
-                      {/* Step 3: having marked the chart yourself, read what
-                          the bot sees. A two-word trend label is not a
-                          reading — ADX at 16 is. */}
-                      {m.snapshot ? (
-                        <div className="border-t border-border">
-                          <IndicatorTable
-                            snapshot={m.snapshot}
-                            side={m.latest_signal}
-                            htfTrend={m.htf_trend}
-                            timeframe={m.timeframe}
-                            htf={m.htf}
-                          />
-                        </div>
-                      ) : (
-                        <p className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
-                          Indicator readings appear once db/migrations/012 is applied and
-                          the bot has published a cycle.
-                        </p>
-                      )}
-
-                      {m.pending_ticket ? (
-                        <TradeAnalysis
-                          ticket={m.pending_ticket}
-                          symbol={m.symbol}
-                          note={analyses[m.pending_ticket]?.note ?? null}
-                          imageUrl={analyses[m.pending_ticket]?.imageUrl ?? null}
-                          at={analyses[m.pending_ticket]?.updated_at ?? null}
-                          by={analyses[m.pending_ticket]?.created_by ?? null}
-                          context={{ side: m.latest_signal, level: m.level, sl: m.sl, tp: m.tp }}
-                        />
-                      ) : (
-                        <p className="px-5 pb-4 text-xs text-fg-subtle">
-                          Waiting for the bot to publish this order&apos;s ticket — run
-                          db/migrations/010 if this persists.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {rows.map((m) => card(m, mode === 'active'))}
           </div>
         )}
       </AdminCard>
