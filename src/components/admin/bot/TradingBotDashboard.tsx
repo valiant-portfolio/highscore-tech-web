@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, ListTree, Layers, Receipt, BarChart3, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid, Layers, Receipt, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
@@ -21,7 +21,17 @@ import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
 
-type Tab = 'overview' | 'chart' | 'markets' | 'positions' | 'transactions' | 'performance';
+// Four tabs, named for what you are DOING rather than which table you are
+// reading. Desk is the screen you leave up; Pending is the analyst's daily job;
+// Chart is the market; History is everything already decided.
+type Tab = 'desk' | 'pending' | 'chart' | 'history';
+
+// Tabs were renamed; a saved value from the old set would leave the dashboard
+// on a tab that no longer exists, showing nothing.
+const OLD_TAB: Record<string, Tab> = {
+  overview: 'desk', markets: 'desk', positions: 'desk',
+  transactions: 'history', performance: 'history', chart: 'chart',
+};
 
 const money = (n: number | null | undefined, dp = 2) =>
   n == null || !Number.isFinite(Number(n)) ? '—'
@@ -139,13 +149,15 @@ export function TradingBotDashboard({
   const { markets, lastEvent, connected } = useLiveMarkets(initialMarkets);
 
   // Persist the active tab so a refresh keeps you where you were.
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>('desk');
   useEffect(() => {
     try {
       const saved = localStorage.getItem('bot-tab');
-      if (saved && ['overview', 'chart', 'markets', 'positions', 'transactions', 'performance'].includes(saved)) {
-        setTab(saved as Tab);
-      }
+      if (!saved) return;
+      const resolved = (['desk', 'pending', 'chart', 'history'] as string[]).includes(saved)
+        ? (saved as Tab)
+        : OLD_TAB[saved];
+      if (resolved) setTab(resolved);
     } catch { /* ignore */ }
   }, []);
   const selectTab = (t: Tab) => { setTab(t); try { localStorage.setItem('bot-tab', t); } catch { /* ignore */ } };
@@ -173,15 +185,15 @@ export function TradingBotDashboard({
     .filter((t) => t.close_ts && t.close_ts.slice(0, 10) === todayKey)
     .reduce((s, t) => s + (Number(t.pnl) || 0), 0);
 
+  // Badges count from bot_market_state, not bot_trades — a position adopted
+  // from the broker has no trade row, and that badge read 0 while a trade was
+  // open. Pending carries a badge because an unread order is a job to do.
+  const pendingCount = markets.filter((m) => m.state === 'ready').length;
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'overview', label: 'Overview', icon: <LayoutGrid className="h-4 w-4" /> },
+    { key: 'desk', label: 'Desk', icon: <LayoutGrid className="h-4 w-4" />, badge: liveCount },
+    { key: 'pending', label: 'Pending', icon: <Layers className="h-4 w-4" />, badge: pendingCount },
     { key: 'chart', label: 'Chart', icon: <CandlestickChart className="h-4 w-4" /> },
-    { key: 'markets', label: 'Markets', icon: <ListTree className="h-4 w-4" />, badge: markets.length },
-    // Count live positions from market state, not bot_trades — a position adopted
-    // from the broker has no trade row, so this badge read 0 while a trade was open.
-    { key: 'positions', label: 'Open positions', icon: <Layers className="h-4 w-4" />, badge: liveCount },
-    { key: 'transactions', label: 'Transactions', icon: <Receipt className="h-4 w-4" /> },
-    { key: 'performance', label: 'Performance', icon: <BarChart3 className="h-4 w-4" /> },
+    { key: 'history', label: 'History', icon: <Receipt className="h-4 w-4" /> },
   ];
 
   return (
@@ -230,11 +242,20 @@ export function TradingBotDashboard({
         <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
       </div>
 
-      {tab === 'overview' && (
-        <Overview
-          markets={markets} equity={equity} equityCurve={equityCurve}
-          floating={floating} todayRealized={todayRealized}
-        />
+      {/* Desk: everything about NOW, in the order you look at it — the money,
+          what is running, then what the bot is watching. */}
+      {tab === 'desk' && (
+        <div className="space-y-6">
+          <Overview
+            markets={markets} equity={equity} equityCurve={equityCurve}
+            floating={floating} todayRealized={todayRealized}
+          />
+          <OpenPositions
+            markets={markets} openTrades={openTrades}
+            floating={floating} onOpenChart={openChartFor}
+          />
+          <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />
+        </div>
       )}
       {/* Ongoing-trade chips come from bot_market_state, not bot_trades: the bot
           only writes a trade row for orders it placed itself, so a position it
@@ -253,10 +274,17 @@ export function TradingBotDashboard({
             }))}
         />
       )}
-      {tab === 'markets' && <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />}
-      {tab === 'positions' && <Positions markets={markets} openTrades={openTrades} floating={floating} analyses={analyses} onOpenChart={openChartFor} />}
-      {tab === 'transactions' && <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />}
-      {tab === 'performance' && <Performance closedTrades={closedTrades} equityCurve={equityCurve} />}
+      {tab === 'pending' && (
+        <PendingOrders markets={markets} analyses={analyses} onOpenChart={openChartFor} />
+      )}
+      {/* History: what has already been decided — the trades, then what they
+          add up to. */}
+      {tab === 'history' && (
+        <div className="space-y-6">
+          <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />
+          <Performance closedTrades={closedTrades} equityCurve={equityCurve} />
+        </div>
+      )}
     </div>
   );
 }
@@ -417,11 +445,10 @@ function Markets({
 
 /* ── Open positions ───────────────────────────────────────────────────── */
 
-function Positions({
-  markets, openTrades, floating, analyses, onOpenChart,
+function OpenPositions({
+  markets, openTrades, floating, onOpenChart,
 }: {
   markets: BotMarket[]; openTrades: BotTrade[]; floating: number;
-  analyses: Record<number, BotTradeAnalysisView>;
   onOpenChart: (symbol: string) => void;
 }) {
   // bot_market_state is the authority on what is live at the broker. The bot
@@ -531,6 +558,23 @@ function Positions({
         )}
       </AdminCard>
 
+    </div>
+  );
+}
+
+/* ── Pending orders — the analyst's tab ──────────────────────────────── */
+
+function PendingOrders({
+  markets, analyses, onOpenChart,
+}: {
+  markets: BotMarket[];
+  analyses: Record<number, BotTradeAnalysisView>;
+  onOpenChart: (symbol: string) => void;
+}) {
+  const pending = markets.filter((m) => m.state === 'ready');
+
+  return (
+    <div className="space-y-6">
       {/* ── Pending orders ─────────────────────────────────────────────── */}
       {/* One card per order rather than a table row, because each carries the
           analyst's reading of it — the routine that matters happens HERE,
@@ -600,7 +644,6 @@ function Positions({
     </div>
   );
 }
-
 /* ── Transactions ─────────────────────────────────────────────────────── */
 
 const PAGE_SIZE = 15;
