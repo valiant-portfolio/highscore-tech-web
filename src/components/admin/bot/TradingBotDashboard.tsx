@@ -5,7 +5,7 @@
 // the tab state, the interactive controls (lot size, close), and the
 // transactions filter/sort. BotStatus auto-refreshes the server data every 30s.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid, Layers, Receipt, CandlestickChart, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
@@ -242,6 +242,25 @@ export function TradingBotDashboard({
         <div className="shrink-0 pb-1.5 pl-1"><FlattenAllButton openCount={liveCount} /></div>
       </div>
 
+      {/* Trading being off explains an otherwise inexplicable screen: setups
+          appearing, nothing being taken. It is the first thing to check when a
+          day looks thin, so it says so on every tab rather than hiding behind
+          the button that set it. */}
+      {settings && !settings.trading_enabled && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface-hover/40 px-4 py-3">
+          <span className="text-sm font-bold text-fg">Trading is off</span>
+          <span className="text-sm text-fg-muted">
+            No new trades are being opened. Open positions and resting orders are still managed.
+          </span>
+          {settings.updated_at && (
+            <span className="ml-auto text-[11px] text-fg-subtle">
+              since {new Date(settings.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {settings.updated_by ? ` · ${settings.updated_by}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Desk: everything about NOW, in the order you look at it — the money,
           what is running, then what the bot is watching. */}
       {tab === 'desk' && (
@@ -305,11 +324,16 @@ function Overview({
   const byState = (s: string) => markets.filter((m) => (m.state ?? 'monitoring') === s);
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi label="P&L today" value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>} hint="realized, closed trades" tone={todayRealized >= 0 ? 'success' : 'danger'} />
-        <Kpi label="Open P&L" value={<span className={pnlTone(floating)}>{signed(floating)}</span>} hint="floating on open positions" />
-        <Kpi label="Balance" value={equity ? money(equity.balance) : '—'} hint={equity?.is_dry_run ? 'demo account' : 'live account'} />
-        <Kpi label="Equity" value={equity ? money(equity.equity) : '—'} hint={equity ? <TimeAgo iso={equity.ts} /> : 'no snapshot'} tone="brand" />
+      {/* Open P&L gets the whole first column: it is the one number that moves
+          while you are looking at it, and the only one arriving live. The rest
+          are context and can share the row. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <LivePnl value={floating} />
+        <div className="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-3">
+          <Kpi label="P&L today" value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>} hint="realized, closed trades" tone={todayRealized >= 0 ? 'success' : 'danger'} />
+          <Kpi label="Balance" value={equity ? money(equity.balance) : '—'} hint={equity?.is_dry_run ? 'demo account' : 'live account'} />
+          <Kpi label="Equity" value={equity ? money(equity.equity) : '—'} hint={equity ? <TimeAgo iso={equity.ts} /> : 'no snapshot'} tone="brand" />
+        </div>
       </div>
 
       {/* Flow chart — how markets move through the bot's decision pipeline. */}
@@ -964,5 +988,43 @@ function Mini({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-[10px] uppercase tracking-[0.14em] font-bold text-fg-subtle">{label}</dt>
       <dd className="tabular text-fg">{value}</dd>
     </div>
+  );
+}
+
+/**
+ * Floating P&L, the one number on this screen that moves while you watch it.
+ *
+ * It arrives over Realtime roughly every three seconds, so it gets a tick of
+ * emphasis when it changes — enough to catch the eye of someone half-watching,
+ * short enough not to strobe on a busy market. Nothing flashes on first paint:
+ * arriving at a red number and having it flash tells you nothing.
+ */
+function LivePnl({ value }: { value: number }) {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (prev.current !== null && prev.current !== value) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 450);
+      return () => clearTimeout(t);
+    }
+    prev.current = value;
+  }, [value]);
+
+  const up = value >= 0;
+  return (
+    <AdminCard>
+      <div className="p-5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Open P&amp;L</span>
+          <span className={`h-1.5 w-1.5 rounded-full ${flash ? (up ? 'bg-success' : 'bg-danger') : 'bg-fg-subtle/40'} transition-colors`} />
+        </div>
+        <p className={`mt-2 font-mono tabular text-4xl font-extrabold transition-opacity ${up ? 'text-success' : 'text-danger'} ${flash ? 'opacity-100' : 'opacity-95'}`}>
+          {signed(value)}
+        </p>
+        <p className="mt-1 text-xs text-fg-subtle">floating on open positions · live</p>
+      </div>
+    </AdminCard>
   );
 }
