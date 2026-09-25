@@ -5,6 +5,7 @@
 // them to those routes, and the nav below is trimmed to what they may open.
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
 import { ADMIN_SECTION_KEYS, allowedHrefs } from '@/lib/admin/sections';
@@ -21,7 +22,18 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect('/login?next=/admin');
+  if (!user) {
+    // Sign in where you arrived. bot.highzcore.tech rewrites / to this layout,
+    // so a flat '/admin' here lands the trading desk in the admin panel after
+    // every login — on the one subdomain whose entire purpose is the dashboard.
+    //
+    // This line is the layer that emits the default. Overrides attempted in the
+    // login page or in middleware could never win, because the rewrite happens
+    // first and this redirect is written afterwards.
+    const host = (await headers()).get('host')?.split(':')[0].toLowerCase() ?? '';
+    const landing = host.startsWith('bot.') ? '/admin/trading-bot' : '/admin';
+    redirect(`/login?next=${encodeURIComponent(landing)}`);
+  }
   const isAdmin = user.role === 'admin';
   const sections = isAdmin
     ? ADMIN_SECTION_KEYS
