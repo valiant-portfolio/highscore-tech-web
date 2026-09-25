@@ -33,6 +33,18 @@ export async function middleware(request: NextRequest) {
   // you are signed in; when you are not, /admin's own guard bounces you to
   // /login on this same host. Rewrite rather than redirect so the subdomain
   // stays in the address bar.
+  // The dashboard answers on bot. and NOWHERE else. Reaching it at
+  // admin.highzcore.tech/admin/trading-bot would be a second front door to the
+  // money screen — a different URL to share, to bookmark, and to forget when
+  // access is being reviewed. Redirect rather than 404 so an old bookmark
+  // still lands somewhere useful, on the host it should have been using.
+  if (isLiveHost && !isBotHost && startsWithPath(pathname, '/admin/trading-bot')) {
+    const url = new URL(request.url);
+    url.hostname = `bot.${ROOT_DOMAIN}`;
+    url.port = '';
+    return NextResponse.redirect(url);
+  }
+
   if (isAdminHost || isBotHost) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
