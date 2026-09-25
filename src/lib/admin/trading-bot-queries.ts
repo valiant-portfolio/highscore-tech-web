@@ -52,6 +52,11 @@ export interface BotMarket {
   strategy: string | null;
   is_dry_run: boolean;
   updated_at: string;
+  /** What every indicator reads on this market right now (migration 012).
+   *  Null until that migration is applied. This is the reading that decides
+   *  whether a PENDING order should have been placed — the trade page's
+   *  entry-vs-exit table only exists once a trade does. */
+  snapshot: BotSnapshot | null;
   /** Ticket of whatever is live on this market — the resting order's, or the
    *  open position's. The same number across a fill in MT5, which is what lets
    *  an analyst's note survive the trigger. Null when the market is flat, and

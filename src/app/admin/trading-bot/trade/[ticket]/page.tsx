@@ -15,15 +15,12 @@ import Link from 'next/link';
 import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import TradeChart from '@/components/admin/bot/TradeChart';
 import { TradeAnalysis } from '@/components/admin/bot/TradeAnalysis';
-import { getBotTrade, type BotSnapshot, type BotTrade } from '@/lib/admin/trading-bot-queries';
+import { IndicatorTable, agreement, agreementTone } from '@/components/admin/bot/IndicatorTable';
+import { getBotTrade } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps { params: Promise<{ ticket: string }> }
-
-const TREND_NAME: Record<number, string> = {
-  2: 'Strong Up', 1: 'Weak Up', 0: 'Sideways', [-1]: 'Weak Down', [-2]: 'Strong Down',
-};
 
 function money(n: number | null | undefined, dp = 2): string {
   if (n == null || !Number.isFinite(Number(n))) return '—';
@@ -43,19 +40,6 @@ function when(iso: string | null): string {
   return new Date(iso).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
   }) + ' UTC';
-}
-
-/** How the trade's direction sat against a trend reading. Mirrors the bot's own
- *  wording (src/live/market_review.py) so the page and the alert never disagree. */
-function agreement(side: string, trend: number | null | undefined): string {
-  if (trend == null) return 'unknown';
-  if (trend === 0) return 'no trend';
-  const aligned = side === 'buy' ? trend > 0 : trend < 0;
-  return aligned ? 'with trend' : 'against trend';
-}
-function agreementTone(verdict: string): string {
-  return verdict === 'with trend' ? 'text-success'
-    : verdict === 'against trend' ? 'text-danger' : 'text-fg-muted';
 }
 
 export default async function BotTradePage({ params }: PageProps) {
@@ -158,7 +142,16 @@ export default async function BotTradePage({ params }: PageProps) {
               bars the terminal may no longer serve.
             </div>
           ) : (
-            <Indicators trade={trade} entry={entry} exit={exit} digits={digits} />
+            <IndicatorTable
+              snapshot={exit}
+              entry={entry}
+              side={trade.side}
+              htfTrend={trade.exit_htf_trend}
+              entryHtfTrend={trade.entry_htf_trend}
+              timeframe={trade.timeframe}
+              htf={timeframe === 'H1' ? 'D1' : 'H1'}
+              digits={digits}
+            />
           )}
         </AdminCard>
       </div>
@@ -193,92 +186,6 @@ export default async function BotTradePage({ params }: PageProps) {
         </Link>.
       </p>
     </>
-  );
-}
-
-/* ── indicator table ─────────────────────────────────────────────────── */
-
-function Indicators({ trade, entry, exit, digits }: {
-  trade: BotTrade;
-  entry: BotSnapshot | null;
-  exit: BotSnapshot | null;
-  digits: number;
-}) {
-  const px = (v: number | null | undefined) =>
-    v == null || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(digits);
-  const maState = (s: BotSnapshot | null) => {
-    if (!s || s.ema50 == null || s.ema200 == null) return '—';
-    return s.ema50 > s.ema200 ? '50 > 200' : '50 < 200';
-  };
-  const di = (s: BotSnapshot | null) => {
-    if (!s || s.adx == null) return '—';
-    return `${num(s.adx, 0)} (+${num(s.plus_di, 0)} / −${num(s.minus_di, 0)})`;
-  };
-
-  const rows: { label: string; entry: string; exit: string; read: string }[] = [
-    {
-      label: `Trend (${trade.timeframe ?? 'M15'})`,
-      entry: trade.entry_trend == null ? '—' : TREND_NAME[trade.entry_trend] ?? '—',
-      exit: trade.exit_trend == null ? '—' : TREND_NAME[trade.exit_trend] ?? '—',
-      read: agreement(trade.side, trade.entry_trend),
-    },
-    {
-      label: 'Higher timeframe',
-      entry: trade.entry_htf_trend == null ? '—' : TREND_NAME[trade.entry_htf_trend] ?? '—',
-      exit: trade.exit_htf_trend == null ? '—' : TREND_NAME[trade.exit_htf_trend] ?? '—',
-      read: agreement(trade.side, trade.entry_htf_trend),
-    },
-    { label: 'EMA 50 / 200', entry: maState(entry), exit: maState(exit), read: '' },
-    {
-      label: 'RSI 14', entry: num(entry?.rsi, 1), exit: num(exit?.rsi, 1),
-      read: exit?.rsi == null ? ''
-        : exit.rsi >= 70 ? 'overbought' : exit.rsi <= 30 ? 'oversold' : 'neutral',
-    },
-    {
-      label: 'MACD histogram', entry: num(entry?.macd_hist, 5), exit: num(exit?.macd_hist, 5),
-      read: entry?.macd_hist == null || exit?.macd_hist == null ? ''
-        : Math.abs(exit.macd_hist) < Math.abs(entry.macd_hist) ? 'momentum faded' : 'momentum building',
-    },
-    {
-      label: 'ADX (+DI / −DI)', entry: di(entry), exit: di(exit),
-      read: entry?.adx == null || exit?.adx == null ? ''
-        : exit.adx < 20 ? 'ranging' : exit.adx > entry.adx ? 'trend strengthened' : 'trend weakened',
-    },
-    {
-      label: 'ATR 14', entry: px(entry?.atr), exit: px(exit?.atr),
-      read: entry?.atr && exit?.atr
-        ? `volatility ${(((exit.atr - entry.atr) / Math.abs(entry.atr)) * 100).toFixed(0)}%` : '',
-    },
-    {
-      label: 'Bollinger z', entry: num(entry?.bb_z, 2), exit: num(exit?.bb_z, 2),
-      read: exit?.bb_z == null ? ''
-        : Math.abs(exit.bb_z) >= 2 ? 'stretched' : Math.abs(exit.bb_z) >= 1 ? 'extended' : 'mid-band',
-    },
-  ];
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-sm">
-        <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
-          <tr>
-            <th className="px-3 py-3 pl-4 text-left font-bold">Indicator</th>
-            <th className="px-3 py-3 text-right font-bold">At entry</th>
-            <th className="px-3 py-3 text-right font-bold">At exit</th>
-            <th className="px-3 py-3 pr-4 text-left font-bold">Read</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.map((r) => (
-            <tr key={r.label} className="hover:bg-surface-hover/30">
-              <td className="px-3 py-3 pl-4 text-fg">{r.label}</td>
-              <td className="px-3 py-3 text-right tabular text-fg-muted">{r.entry}</td>
-              <td className="px-3 py-3 text-right tabular text-fg">{r.exit}</td>
-              <td className={`px-3 py-3 pr-4 ${agreementTone(r.read)}`}>{r.read}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

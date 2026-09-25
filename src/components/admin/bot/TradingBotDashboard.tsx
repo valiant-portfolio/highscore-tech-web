@@ -17,6 +17,7 @@ import { MarketEnableToggle } from './MarketEnableToggle';
 import { FlattenAllButton } from './FlattenAllButton';
 import { TradingSwitchButton } from './TradingSwitchButton';
 import { TradeAnalysis } from './TradeAnalysis';
+import { IndicatorTable } from './IndicatorTable';
 import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
@@ -640,6 +641,26 @@ function PendingOrders({
                     <Mini label="Target" value={px(m.tp)} />
                   </dl>
                 </div>
+                {/* Step 3 of the routine: having marked the chart yourself,
+                    read what the bot sees. A two-word trend label is not a
+                    reading — ADX at 16 is. */}
+                {m.snapshot ? (
+                  <div className="border-t border-border">
+                    <IndicatorTable
+                      snapshot={m.snapshot}
+                      side={m.latest_signal}
+                      htfTrend={m.htf_trend}
+                      timeframe={m.timeframe}
+                      htf={m.htf}
+                    />
+                  </div>
+                ) : (
+                  <p className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
+                    Indicator readings appear once db/migrations/012 is applied and
+                    the bot has published a cycle.
+                  </p>
+                )}
+
                 {/* The form is outside the click target above — typing a note
                     should not also swap the chart out from under you. */}
                 <div onClick={(e) => e.stopPropagation()}>
