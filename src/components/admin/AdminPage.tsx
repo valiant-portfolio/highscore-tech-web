@@ -23,10 +23,21 @@ export function PageHead({ title, description, actions, back }: PageHeadProps) {
         <h1 className="font-display text-2xl md:text-4xl font-extrabold tracking-[-0.025em] text-fg leading-tight">
           {title}
         </h1>
+        {/* A <p> only when the description really is text. `description` is a
+            ReactNode, and the loading skeletons pass a <div> — which inside a
+            <p> is invalid HTML the browser silently reparents, so the server
+            markup and the client tree stop matching and React throws a
+            hydration error. Same typography either way. */}
         {description && (
-          <p className="mt-2 text-sm md:text-base text-fg-muted leading-relaxed max-w-2xl">
-            {description}
-          </p>
+          typeof description === 'string' || typeof description === 'number' ? (
+            <p className="mt-2 text-sm md:text-base text-fg-muted leading-relaxed max-w-2xl">
+              {description}
+            </p>
+          ) : (
+            <div className="mt-2 text-sm md:text-base text-fg-muted leading-relaxed max-w-2xl">
+              {description}
+            </div>
+          )
         )}
       </div>
       {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
