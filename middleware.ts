@@ -15,6 +15,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAdminHost = host.startsWith('admin.');
+  // bot.highzcore.tech is the trading-bot dashboard on its own subdomain — the
+  // money screen, not a tab inside the admin panel. It behaves exactly like
+  // admin. does, landing on a different page: no second auth path, no separate
+  // permission model. `requireSection('trading-bot')` still decides who gets in.
+  //
+  // Matching on the prefix rather than the full host means bot.localhost:3000
+  // works with no setup — browsers resolve anything under .localhost — so the
+  // login bounce and the permission refusal can both be proved before the
+  // domain is pointed anywhere.
+  const isBotHost = host.startsWith('bot.');
   // Only reroute on the real domain. On localhost there is no admin.* to send
   // anyone to, so /login has to keep working for local development.
   const isLiveHost = host === ROOT_DOMAIN || host.endsWith(`.${ROOT_DOMAIN}`);
@@ -23,12 +33,17 @@ export async function middleware(request: NextRequest) {
   // you are signed in; when you are not, /admin's own guard bounces you to
   // /login on this same host. Rewrite rather than redirect so the subdomain
   // stays in the address bar.
-  if (isAdminHost) {
+  if (isAdminHost || isBotHost) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
-      url.pathname = '/admin';
+      url.pathname = isBotHost ? '/admin/trading-bot' : '/admin';
       return NextResponse.rewrite(url);
     }
+    // Everything else passes through untouched — including /login, which MUST
+    // stay on this host. The branch below sends /login on the public site to
+    // the admin subdomain; letting it catch bot. as well would bounce you off
+    // the dashboard's own domain to sign in, which is the one thing the brief
+    // says not to do.
   } else if (isLiveHost && AUTH_PATHS.some((p) => startsWithPath(pathname, p))) {
     // Someone found /login on the public site — send them to the portal,
     // keeping any ?next= so they still land where they were headed.
