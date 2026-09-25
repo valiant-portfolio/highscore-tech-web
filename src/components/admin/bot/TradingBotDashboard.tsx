@@ -18,6 +18,7 @@ import { FlattenAllButton } from './FlattenAllButton';
 import { TradingSwitchButton } from './TradingSwitchButton';
 import { TradeAnalysis } from './TradeAnalysis';
 import { IndicatorTable } from './IndicatorTable';
+import { CutoverBar } from './CutoverBar';
 import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
@@ -177,6 +178,28 @@ export function TradingBotDashboard({
     selectTab('chart');
   };
 
+  // Trades before the cutover belong to a previous strategy. They are kept —
+  // that record is the evidence of what did not work — but measuring the
+  // current strategy against them would describe neither.
+  const [showAll, setShowAll] = useState(false);
+  const cutoverMs = settings?.cutover_at ? new Date(settings.cutover_at).getTime() : null;
+  const sinceCutover = useMemo(
+    () => (cutoverMs == null
+      ? closedTrades
+      : closedTrades.filter((t) => new Date(t.close_ts ?? t.open_ts).getTime() >= cutoverMs)),
+    [closedTrades, cutoverMs],
+  );
+  const historyTrades = showAll ? closedTrades : sinceCutover;
+  // The equity curve is account-level, so it gets the same treatment: a curve
+  // that starts before the strategy did makes the new one look like a dip in
+  // the old one.
+  const historyEquity = useMemo(
+    () => (showAll || cutoverMs == null
+      ? equityCurve
+      : equityCurve.filter((e) => new Date(e.ts).getTime() >= cutoverMs)),
+    [equityCurve, showAll, cutoverMs],
+  );
+
   const cfgBySymbol = useMemo(() => new Map(configs.map((c) => [c.symbol, c])), [configs]);
   const specByName = useMemo(() => new Map(specs.map((s) => [s.name, s])), [specs]);
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
@@ -299,11 +322,22 @@ export function TradingBotDashboard({
         <PendingOrders markets={markets} analyses={analyses} onOpenChart={openChartFor} />
       )}
       {/* History: what has already been decided — the trades, then what they
-          add up to. */}
+          add up to. Filtered to the current strategy by default; the previous
+          record is kept, not deleted, and is one click away. */}
       {tab === 'history' && (
         <div className="space-y-6">
-          <Transactions closedTrades={closedTrades} markets={markets} total={closedCount} />
-          <Performance closedTrades={closedTrades} equityCurve={equityCurve} />
+          <CutoverBar
+            cutoverAt={settings?.cutover_at ?? null}
+            showingAll={showAll}
+            onToggle={setShowAll}
+            sinceCount={sinceCutover.length}
+            totalCount={closedTrades.length}
+          />
+          <Transactions
+            closedTrades={historyTrades} markets={markets}
+            total={showAll ? closedCount : sinceCutover.length}
+          />
+          <Performance closedTrades={historyTrades} equityCurve={historyEquity} />
         </div>
       )}
     </div>

@@ -224,6 +224,11 @@ export interface BotSettings {
   trading_enabled: boolean;
   updated_at: string;
   updated_by: string | null;
+  /** Trades before this date are the OLD strategy's record. Kept, not
+   *  deleted — it is the evidence of what did not work — but filtered out of
+   *  the dashboard by default so the new strategy is measured on its own.
+   *  Null = no cutover set, show everything (migration 014). */
+  cutover_at: string | null;
   /** When the bot last READ this flag (migration 013). Null means it never
    *  has — on older code, not running, or unable to reach Supabase. A switch
    *  that cannot be verified is worse than none, because you stop watching. */
@@ -308,7 +313,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
     admin.from('bot_equity_snapshots').select('*').order('ts', { ascending: false }).limit(1),
     admin.from('bot_equity_snapshots').select('ts, equity, balance, open_positions, is_dry_run').order('ts', { ascending: false }).limit(500),
-    admin.from('bot_settings').select('trading_enabled, updated_at, updated_by, seen_by_bot_at').eq('id', 1).maybeSingle(),
+    admin.from('bot_settings').select('trading_enabled, updated_at, updated_by, seen_by_bot_at, cutover_at').eq('id', 1).maybeSingle(),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];

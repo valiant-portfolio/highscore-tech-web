@@ -313,3 +313,35 @@ export async function saveTradeAnalysisAction(
   revalidatePath('/admin/trading-bot');
   return { ok: true };
 }
+
+/**
+ * Set the cutover date — the line before which trades belong to a previous
+ * strategy.
+ *
+ * Nothing is deleted. The history before this date is the record of what did
+ * not work, which is most of what this project has produced; the dashboard
+ * simply measures the current strategy on its own by default.
+ *
+ * Null clears it and shows everything again.
+ */
+export async function setCutoverAction(iso: string | null): Promise<Result<string | null>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  let value: string | null = null;
+  if (iso) {
+    const when = new Date(iso);
+    if (Number.isNaN(when.getTime())) return { ok: false, error: 'That is not a date.' };
+    if (when.getTime() > Date.now()) return { ok: false, error: 'The cutover cannot be in the future.' };
+    value = when.toISOString();
+  }
+
+  const { error } = await admin
+    .from('bot_settings')
+    .update({ cutover_at: value, updated_at: new Date().toISOString(), updated_by: await issuer() })
+    .eq('id', 1);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/trading-bot');
+  return { ok: true, value };
+}
