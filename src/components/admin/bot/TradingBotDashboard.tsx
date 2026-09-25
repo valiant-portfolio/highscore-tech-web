@@ -19,6 +19,7 @@ import { TradingSwitchButton } from './TradingSwitchButton';
 import { TradeAnalysis } from './TradeAnalysis';
 import { IndicatorTable } from './IndicatorTable';
 import { CutoverBar } from './CutoverBar';
+import { CancelOrderButton } from './CancelOrderButton';
 import { useLiveMarkets } from './useLiveMarkets';
 import { MarketChart } from './MarketChart';
 import type { BotMarket, BotTrade, BotConfig, BotSymbolSpec, BotEquity, BotSettings, BotTradeAnalysisView } from '@/lib/admin/trading-bot-queries';
@@ -749,13 +750,24 @@ function TradeCards({
                 <Mini label="Stop" value={px(m.sl)} />
                 <Mini label="Target" value={px(m.tp)} />
               </dl>
-              <button
-                type="button"
-                onClick={() => onOpenChart(m.symbol)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover"
-              >
-                <CandlestickChart className="h-4 w-4" /> Open chart
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenChart(m.symbol)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted hover:bg-surface-hover"
+                >
+                  <CandlestickChart className="h-4 w-4" /> Open chart
+                </button>
+                {/* The veto, beside the reading that prompts it. Only for an
+                    order that actually rests at the broker — there is nothing
+                    to cancel on a level the bot has not placed on. */}
+                {!live && m.pending_ticket && (
+                  <CancelOrderButton
+                    symbol={m.symbol} alias={m.alias}
+                    ticket={m.pending_ticket} level={m.level}
+                  />
+                )}
+              </div>
             </div>
 
             {m.snapshot ? (

@@ -345,3 +345,30 @@ export async function setCutoverAction(iso: string | null): Promise<Result<strin
   revalidatePath('/bot');
   return { ok: true, value };
 }
+
+/**
+ * Cancel a resting order before it fills — the analyst's veto.
+ *
+ * The routine is to read an order while it is still pending; this is what she
+ * can do about a bad one. Nothing has been risked yet, so cancelling costs
+ * nothing, which is exactly why it should be one click away from the reading
+ * that prompted it.
+ *
+ * The bot refuses this for a ticket that has already filled and says so —
+ * a filled order is a position, and closing one is a different decision.
+ */
+export async function cancelPendingAction(symbol: string, ticket: number | null): Promise<Result<undefined>> {
+  await requireSection('trading-bot');
+  const admin = botServiceClient();
+
+  const { error } = await admin.from('bot_commands').insert({
+    command: 'cancel_pending',
+    symbol,
+    ticket,
+    created_by: await issuer(),
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/bot');
+  return { ok: true };
+}
