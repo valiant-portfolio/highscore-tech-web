@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, Layers, Receipt, CandlestickChart, GraduationCap, TrendingUp, TrendingDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid, Layers, Receipt, CandlestickChart, GraduationCap, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminCard, Kpi } from '@/components/admin/AdminPage';
 import { BotStatus, TrendChip, StateBadge, TimeAgo, Duration, AsOfTag, Sparkline, STALE_MS, useStale, useNow } from './BotBits';
 import { LotSizeCell } from './LotSizeCell';
@@ -267,10 +267,10 @@ export function TradingBotDashboard({
 
   return (
     <div>
-      {/* Compact top: online dot + a horizontally-scrollable tab strip + kill
-          switch. No page title/description — the tab content owns the space, and
-          the strip swipes left/right on small screens instead of wrapping. */}
-      <div className="mb-5 flex items-center gap-2 border-b border-border">
+      {/* Two rows, each with one job. The tabs get the full width instead of
+          being squeezed by a three-deep stack of controls in the corner, and
+          the controls get a line where the state they change is written out. */}
+      <div className="mb-4 flex items-center gap-2 border-b border-border">
         <BotStatus lastUpdate={lastEvent ?? lastUpdate} compact />
         {/* A dashboard that has quietly stopped listening looks exactly like a
             quiet market, so say which it is. */}
@@ -296,46 +296,39 @@ export function TradingBotDashboard({
             </button>
           ))}
         </div>
-        {/* The switch sits beside the kill switch: one stands the desk down,
-            the other gets you out. Hidden when migration 006 has not been
-            applied — a button the bot cannot read is worse than none. */}
-        {/* Caption above, controls beneath: what the switch currently says,
-            then the pair that changes it — stop adding risk, and get out of
-            the risk already carried. The caption spans both so neither button
-            is pushed out of line by it. */}
-        <div className="flex shrink-0 flex-col items-end gap-1 pb-1.5 pl-2">
-          {settings && <SwitchCaption settings={settings} />}
-          {settings && <ApprovalModeToggle required={settings.require_approval} />}
-          <div className="flex items-center gap-2">
-            {settings && (
-              <TradingSwitchButton
-                enabled={settings.trading_enabled}
-                updatedAt={settings.updated_at}
-                updatedBy={settings.updated_by}
-                seenByBotAt={settings.seen_by_bot_at}
-              />
-            )}
-            <FlattenAllButton openCount={liveCount} />
-          </div>
-        </div>
       </div>
 
-      {/* Trading being off explains an otherwise inexplicable screen: setups
-          appearing, nothing being taken. It is the first thing to check when a
-          day looks thin, so it says so on every tab rather than hiding behind
-          the button that set it. */}
-      {settings && !settings.trading_enabled && (
-        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface-hover/40 px-4 py-3">
-          <span className="text-sm font-bold text-fg">Trading is off</span>
-          <span className="text-sm text-fg-muted">
-            No new trades are being opened. Open positions and resting orders are still managed.
+      {/* The control bar: what the desk is currently allowed to do, and the
+          buttons that change it, on one line. Trading being off explains an
+          otherwise inexplicable screen — setups appearing, nothing taken — so
+          the bar states it rather than leaving it to the button that set it,
+          and it says so on every tab. */}
+      {settings && (
+        <div
+          className={`mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-4 py-2.5 ${
+            settings.trading_enabled ? 'border-border bg-bg-elevated' : 'border-warning/40 bg-warning/5'
+          }`}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-fg">
+            <span className={`h-2 w-2 rounded-full ${settings.trading_enabled ? 'bg-success' : 'bg-warning'}`} />
+            {settings.trading_enabled ? 'Trading is on' : 'Trading is off'}
           </span>
-          {settings.updated_at && (
-            <span className="ml-auto text-[11px] text-fg-subtle">
-              since {new Date(settings.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              {settings.updated_by ? ` · ${settings.updated_by}` : ''}
+          <SwitchCaption settings={settings} />
+          {!settings.trading_enabled && (
+            <span className="text-sm text-fg-muted">
+              No new trades are being opened. Open positions and resting orders are still managed.
             </span>
           )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <ApprovalModeToggle required={settings.require_approval} />
+            <TradingSwitchButton
+              enabled={settings.trading_enabled}
+              updatedAt={settings.updated_at}
+              updatedBy={settings.updated_by}
+              seenByBotAt={settings.seen_by_bot_at}
+            />
+            <FlattenAllButton openCount={liveCount} />
+          </div>
         </div>
       )}
 
@@ -344,7 +337,7 @@ export function TradingBotDashboard({
       {tab === 'desk' && (
         <div className="space-y-6">
           <Overview
-            markets={markets} equity={equity} equityCurve={equityCurve}
+            equity={equity} equityCurve={equityCurve}
             floating={floating} todayRealized={todayRealized}
           />
           <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />
@@ -433,88 +426,96 @@ export function TradingBotDashboard({
 
 /* ── Overview ─────────────────────────────────────────────────────────── */
 
-const PIPELINE: { state: string; label: string; tone: string }[] = [
-  { state: 'monitoring', label: 'Monitoring', tone: 'text-fg-muted' },
-  { state: 'ready', label: 'Ready', tone: 'text-brand' },
-  { state: 'active', label: 'Active', tone: 'text-success' },
-];
-
+/**
+ * The money, in one band across the top.
+ *
+ * It used to be four tiles, then a pipeline card, then an equity card — three
+ * full-width sections before the first market, with equity printed twice and a
+ * balance printed three times. The desk is for reading at a glance, so the
+ * figures are one row and the state counts moved onto the table they describe.
+ */
 function Overview({
-  markets, equity, equityCurve, floating, todayRealized,
+  equity, equityCurve, floating, todayRealized,
 }: {
-  markets: BotMarket[]; equity: BotEquity | null; equityCurve: BotEquity[]; floating: number; todayRealized: number;
+  equity: BotEquity | null; equityCurve: BotEquity[]; floating: number; todayRealized: number;
 }) {
-  const byState = (s: string) => markets.filter((m) => (m.state ?? 'monitoring') === s);
+  const curve = equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite);
+  const lo = curve.length ? Math.min(...curve) : null;
+  const hi = curve.length ? Math.max(...curve) : null;
+
   return (
-    <div className="space-y-6">
-      {/* Open P&L gets the whole first column: it is the one number that moves
-          while you are looking at it, and the only one arriving live. The rest
-          are context and can share the row. */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <LivePnl value={floating} />
-        <div className="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-3">
-          <Kpi label="P&L today" value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>} hint="realized, closed trades" tone={todayRealized >= 0 ? 'success' : 'danger'} />
-          <Kpi label="Balance" value={equity ? money(equity.balance) : '—'} hint={equity?.is_dry_run ? 'demo account' : 'live account'} />
-          <Kpi label="Equity" value={equity ? money(equity.equity) : '—'} hint={equity ? <TimeAgo iso={equity.ts} /> : 'no snapshot'} tone="brand" />
+    <div className="grid gap-4 lg:grid-cols-3">
+      {/* Open P&L keeps its own card and the largest type: it is the only
+          number that moves while you are looking at it. */}
+      <LivePnl value={floating} />
+
+      <AdminCard className="lg:col-span-2 flex flex-col">
+        <div className="grid grid-cols-3 divide-x divide-border">
+          <Figure
+            label="P&L today"
+            value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>}
+            hint="realized · closed trades"
+          />
+          <Figure
+            label="Balance"
+            value={equity ? money(equity.balance) : '—'}
+            hint={equity?.is_dry_run ? 'demo account' : 'live account'}
+          />
+          <Figure
+            label="Equity"
+            value={equity ? money(equity.equity) : '—'}
+            hint={equity ? <>balance ± open · <TimeAgo iso={equity.ts} /></> : 'no snapshot yet'}
+            tone="text-brand"
+          />
         </div>
-      </div>
 
-      {/* Flow chart — how markets move through the bot's decision pipeline. */}
-      <div>
-        <h3 className="mb-3 font-semibold text-fg">Decision flow</h3>
-        <AdminCard>
-          <div className="p-5 flex flex-col lg:flex-row lg:items-stretch gap-3">
-            {PIPELINE.map((stage, i) => {
-              const list = byState(stage.state);
-              return (
-                <div key={stage.state} className="flex-1 flex items-stretch gap-3">
-                  <div className="flex-1 rounded-lg border border-border bg-surface/40 p-4">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-fg-subtle">{stage.label}</span>
-                      <span className={`font-mono tabular text-2xl font-extrabold ${stage.tone}`}>{list.length}</span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {list.length === 0
-                        ? <span className="text-xs text-fg-subtle">—</span>
-                        : list.slice(0, 8).map((m) => (
-                            <span key={m.symbol} className="rounded bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold text-fg-muted">{m.alias}</span>
-                          ))}
-                      {list.length > 8 && <span className="text-[11px] text-fg-subtle">+{list.length - 8}</span>}
-                    </div>
-                  </div>
-                  {i < PIPELINE.length - 1 && (
-                    <div className="hidden lg:flex items-center text-fg-subtle"><ArrowRight className="h-5 w-5" /></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="border-t border-border px-5 py-3 text-xs text-fg-subtle">
-            Entry timeframe M15, bias timeframe H1. A market moves left → right: monitoring while it waits for a trend, ready once an entry level is set or an order rests, active once a trade is open.
-          </div>
-        </AdminCard>
-      </div>
+        {/* The curve belongs under the number it plots, not in a section of
+            its own repeating it. One series, so the heading names it and no
+            legend is needed. */}
+        <div className="mt-auto border-t border-border pt-3">
+          {curve.length > 1 ? (
+            <>
+              <Sparkline values={curve} width={600} height={64} responsive fill />
+              <div className="flex items-baseline justify-between px-4 pb-3 pt-1 text-[11px] text-fg-subtle">
+                <span>equity · last {curve.length} snapshots</span>
+                <span className="tabular">
+                  low {money(lo)} · high {money(hi)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="px-4 pb-4 text-xs text-fg-subtle">No equity history yet.</p>
+          )}
+        </div>
+      </AdminCard>
+    </div>
+  );
+}
 
-      {/* Equity curve */}
-      <div>
-        <h3 className="mb-3 font-semibold text-fg">Equity</h3>
-        <AdminCard>
-          <div className="p-5">
-            {equity ? (
-              <>
-                <p className="font-mono tabular text-3xl font-extrabold text-fg">{money(equity.equity)}</p>
-                <p className="text-xs text-fg-muted">equity now · balance {money(equity.balance)} · {equity.open_positions} open</p>
-                <div className="mt-4"><Sparkline values={equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite)} width={520} height={72} /></div>
-              </>
-            ) : <p className="text-sm text-fg-muted">No equity snapshot yet.</p>}
-          </div>
-        </AdminCard>
-      </div>
+/** One figure in the money band. */
+function Figure({
+  label, value, hint, tone = 'text-fg',
+}: {
+  label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: string;
+}) {
+  return (
+    <div className="px-4 py-4 md:px-5">
+      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">{label}</p>
+      <p className={`mt-1.5 min-w-0 break-words font-mono tabular text-xl md:text-2xl font-extrabold leading-tight ${tone}`}>
+        {value}
+      </p>
+      {hint && <p className="mt-1 text-[11px] text-fg-subtle">{hint}</p>}
     </div>
   );
 }
 
 /* ── Markets ──────────────────────────────────────────────────────────── */
+
+const PIPELINE: { state: string; label: string; tone: string }[] = [
+  { state: 'monitoring', label: 'Monitoring', tone: 'text-fg-subtle' },
+  { state: 'ready', label: 'Ready', tone: 'text-brand' },
+  { state: 'active', label: 'Active', tone: 'text-success' },
+];
 
 function Markets({
   markets, cfgBySymbol, specByName,
@@ -524,14 +525,40 @@ function Markets({
   // One clock for the whole table — a hook per row is not possible, and each
   // row is asking the same question anyway.
   const now = useNow();
+  // The pipeline counts used to be a card of their own above this table,
+  // restating what the State column already said. Here they filter it, which
+  // is what anyone reading them wanted to do next anyway.
+  const [only, setOnly] = useState<string | null>(null);
+  const count = (st: string) => markets.filter((m) => (m.state ?? 'monitoring') === st).length;
+  const shown = only ? markets.filter((m) => (m.state ?? 'monitoring') === only) : markets;
+
   if (markets.length === 0) return <AdminCard><Empty>No market data yet.</Empty></AdminCard>;
   return (
     <AdminCard>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-3">
+        <h3 className="font-semibold text-fg">Markets</h3>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip label="All" n={markets.length} active={only === null} onClick={() => setOnly(null)} />
+          {PIPELINE.map((st) => (
+            <FilterChip
+              key={st.state}
+              label={st.label}
+              n={count(st.state)}
+              tone={st.tone}
+              active={only === st.state}
+              onClick={() => setOnly(only === st.state ? null : st.state)}
+            />
+          ))}
+        </div>
+        <p className="ml-auto hidden text-[11px] text-fg-subtle xl:block">
+          Entry M15 · bias H1 — monitoring → ready once a level is set → active once a trade is open
+        </p>
+      </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1120px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
             <tr>
-              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend (H1)</Th><Th className="text-left">M15</Th>
+              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th>
               <Th className="text-left">State</Th><Th className="text-left">Reason</Th><Th className="text-left">Latest signal</Th>
               <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
               <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th><Th className="text-left">Close at $</Th>
@@ -539,15 +566,29 @@ function Markets({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {markets.map((m) => {
+            {shown.map((m) => {
               const cfg = cfgBySymbol.get(m.symbol);
               const spec = specByName.get(m.symbol);
               const stale = m.updated_at ? now - new Date(m.updated_at).getTime() > STALE_MS : true;
               return (
                 <tr key={m.symbol} className="hover:bg-surface-hover/40">
-                  <Td className="pl-4"><span className="font-semibold text-fg">{m.alias}</span><p className="text-[11px] text-fg-subtle">{m.symbol}{m.is_dry_run && <DryTag />}</p></Td>
-                  <Td><TrendChip trend={m.htf_trend} /></Td>
-                  <Td><TrendChip trend={m.entry_trend} /></Td>
+                  {/* The broker symbol is only worth a second line when it
+                      differs from the name we use for it. Printing AUDUSD
+                      under AUDUSD is a row of noise nine times over. */}
+                  <Td className="pl-4">
+                    <span className="font-semibold text-fg">{m.alias}</span>
+                    {m.is_dry_run && <DryTag />}
+                    {m.symbol !== m.alias && <p className="text-[11px] text-fg-subtle">{m.symbol}</p>}
+                  </Td>
+                  {/* Both timeframes in one cell: they are read together — the
+                      bot only acts when they agree — and two columns of the
+                      same word was the widest thing on the table. */}
+                  <Td>
+                    <div className="flex items-center gap-1">
+                      <TrendChip trend={m.htf_trend} label="H1" />
+                      <TrendChip trend={m.entry_trend} label="M15" />
+                    </div>
+                  </Td>
                   <Td><StateBadge state={m.state} /></Td>
                   <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
                   <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
@@ -589,7 +630,31 @@ function Markets({
           </tbody>
         </table>
       </div>
+      {shown.length === 0 && (
+        <Empty>No market is {only} right now.</Empty>
+      )}
     </AdminCard>
+  );
+}
+
+/** A pipeline count that filters the table it sits above. */
+function FilterChip({
+  label, n, active, tone = 'text-fg-muted', onClick,
+}: {
+  label: string; n: number; active: boolean; tone?: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        'inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-bold transition-colors '
+        + (active ? 'border-brand bg-brand/10 text-brand' : 'border-border text-fg-muted hover:bg-surface-hover')
+      }
+    >
+      {label}
+      <span className={`font-mono tabular ${active ? '' : tone}`}>{n}</span>
+    </button>
   );
 }
 
@@ -1246,8 +1311,10 @@ function LivePnl({ value }: { value: number }) {
 
   const up = value >= 0;
   return (
-    <AdminCard>
-      <div className="p-5">
+    <AdminCard className="h-full">
+      {/* Centred, because it shares a row with a taller card and a number
+          pinned to the top of a half-empty box looks like a mistake. */}
+      <div className="flex h-full flex-col justify-center p-5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Open P&amp;L</span>
           <span className={`h-1.5 w-1.5 rounded-full ${flash ? (up ? 'bg-success' : 'bg-danger') : 'bg-fg-subtle/40'} transition-colors`} />

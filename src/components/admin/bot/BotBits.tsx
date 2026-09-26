@@ -232,18 +232,54 @@ export function BotStatus({ lastUpdate, intervalMs = 30_000, compact = false }: 
 }
 
 /** Small inline sparkline for the equity curve (no chart lib needed). */
-export function Sparkline({ values, width = 260, height = 56 }: { values: number[]; width?: number; height?: number }) {
+export function Sparkline({
+  values, width = 260, height = 56, fill = false, responsive = false,
+}: {
+  values: number[]; width?: number; height?: number; fill?: boolean; responsive?: boolean;
+}) {
   if (values.length < 2) return <div className="text-xs text-fg-subtle">Not enough data yet.</div>;
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = max - min || 1;
+
+  // The domain is padded, and the padding has a FLOOR proportional to the
+  // value itself. Without it the series is always stretched to fill the box,
+  // so a $3 drift on a $10,000 account draws the same cliff as a blown
+  // account. A quiet day should look quiet.
+  const pad = Math.max((max - min) * 0.15, Math.abs(max) * 0.004);
+  const lo = min - pad;
+  const span = (max + pad) - lo || 1;
+
   const step = width / (values.length - 1);
-  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / span) * height).toFixed(1)}`);
+  const y = (v: number) => (height - ((v - lo) / span) * height).toFixed(1);
+  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${y(v)}`);
   const up = values[values.length - 1] >= values[0];
   const stroke = up ? 'var(--color-success, #4ADE80)' : 'var(--color-danger, #F87171)';
+
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="max-w-full">
-      <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      // Responsive mode stretches horizontally to whatever space it is given;
+      // vectorEffect keeps the stroke 2px so the line does not smear with it.
+      {...(responsive
+        ? { className: 'w-full', preserveAspectRatio: 'none', style: { height } }
+        : { width, height, className: 'max-w-full' })}
+    >
+      {fill && (
+        <polygon
+          points={`0,${height} ${pts.join(' ')} ${width},${height}`}
+          fill={stroke}
+          opacity={0.1}
+        />
+      )}
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
