@@ -338,7 +338,7 @@ export function TradingBotDashboard({
         <div className="space-y-6">
           <Overview
             equity={equity} equityCurve={equityCurve}
-            floating={floating} todayRealized={todayRealized}
+            floating={floating} todayRealized={todayRealized} openCount={liveCount}
           />
           <Markets markets={markets} cfgBySymbol={cfgBySymbol} specByName={specByName} />
         </div>
@@ -427,84 +427,87 @@ export function TradingBotDashboard({
 /* ── Overview ─────────────────────────────────────────────────────────── */
 
 /**
- * The money, in one band across the top.
+ * The money, as one instrument panel.
  *
- * It used to be four tiles, then a pipeline card, then an equity card — three
- * full-width sections before the first market, with equity printed twice and a
- * balance printed three times. The desk is for reading at a glance, so the
- * figures are one row and the state counts moved onto the table they describe.
+ * Four figures on a single hairline-divided row, and the equity curve running
+ * edge to edge underneath them — not in a card of its own restating the same
+ * number. A trading screen should read like an instrument, so the numbers are
+ * monospaced, oversized and tight, the labels are small and quiet, and colour
+ * appears only where it means something: green and red on money, brand on the
+ * live tick.
  */
 function Overview({
-  equity, equityCurve, floating, todayRealized,
+  equity, equityCurve, floating, todayRealized, openCount,
 }: {
-  equity: BotEquity | null; equityCurve: BotEquity[]; floating: number; todayRealized: number;
+  equity: BotEquity | null; equityCurve: BotEquity[];
+  floating: number; todayRealized: number; openCount: number;
 }) {
   const curve = equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite);
   const lo = curve.length ? Math.min(...curve) : null;
   const hi = curve.length ? Math.max(...curve) : null;
+  const drift = curve.length > 1 ? curve[curve.length - 1] - curve[0] : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {/* Open P&L keeps its own card and the largest type: it is the only
-          number that moves while you are looking at it. */}
-      <LivePnl value={floating} />
+    <AdminCard className="relative overflow-hidden">
+      {/* A single soft wash from the brand corner. Enough to lift the panel
+          off the page; not enough to tint a number. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand/[0.07] via-transparent to-transparent" />
 
-      <AdminCard className="lg:col-span-2 flex flex-col">
-        <div className="grid grid-cols-3 divide-x divide-border">
-          <Figure
-            label="P&L today"
-            value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>}
-            hint="realized · closed trades"
-          />
-          <Figure
-            label="Balance"
-            value={equity ? money(equity.balance) : '—'}
-            hint={equity?.is_dry_run ? 'demo account' : 'live account'}
-          />
-          <Figure
-            label="Equity"
-            value={equity ? money(equity.equity) : '—'}
-            hint={equity ? <>balance ± open · <TimeAgo iso={equity.ts} /></> : 'no snapshot yet'}
-            tone="text-brand"
-          />
-        </div>
+      <div className="relative grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+        <PnlCell value={floating} openCount={openCount} />
+        <Figure
+          label="Today"
+          value={<span className={pnlTone(todayRealized)}>{signed(todayRealized)}</span>}
+          hint="realized · closed trades"
+        />
+        <Figure
+          label="Balance"
+          value={equity ? money(equity.balance) : '—'}
+          hint={equity?.is_dry_run ? 'demo account' : 'live account'}
+        />
+        <Figure
+          label="Equity"
+          value={equity ? money(equity.equity) : '—'}
+          hint={equity ? <TimeAgo iso={equity.ts} /> : 'no snapshot yet'}
+        />
+      </div>
 
-        {/* The curve belongs under the number it plots, not in a section of
-            its own repeating it. One series, so the heading names it and no
-            legend is needed. */}
-        <div className="mt-auto border-t border-border pt-3">
-          {curve.length > 1 ? (
-            <>
-              <Sparkline values={curve} width={600} height={64} responsive fill />
-              <div className="flex items-baseline justify-between px-4 pb-3 pt-1 text-[11px] text-fg-subtle">
-                <span>equity · last {curve.length} snapshots</span>
-                <span className="tabular">
-                  low {money(lo)} · high {money(hi)}
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="px-4 pb-4 text-xs text-fg-subtle">No equity history yet.</p>
-          )}
+      {/* Full-bleed: the curve is the floor of the panel, not a picture inside
+          a box inside the panel. One series, so the caption names it and no
+          legend is needed. */}
+      {curve.length > 1 ? (
+        <div className="relative border-t border-border">
+          <Sparkline values={curve} width={900} height={88} responsive fill />
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 pb-3 pt-1 text-[11px] text-fg-subtle">
+            <span>
+              equity · last {curve.length} snapshots
+              {drift != null && (
+                <span className={`ml-2 font-mono tabular font-bold ${pnlTone(drift)}`}>{signed(drift)}</span>
+              )}
+            </span>
+            <span className="font-mono tabular">low {money(lo)} · high {money(hi)}</span>
+          </div>
         </div>
-      </AdminCard>
-    </div>
+      ) : (
+        <p className="relative border-t border-border px-5 py-4 text-xs text-fg-subtle">No equity history yet.</p>
+      )}
+    </AdminCard>
   );
 }
 
-/** One figure in the money band. */
+/** One figure on the instrument panel. */
 function Figure({
-  label, value, hint, tone = 'text-fg',
+  label, value, hint,
 }: {
-  label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: string;
+  label: string; value: React.ReactNode; hint?: React.ReactNode;
 }) {
   return (
-    <div className="px-4 py-4 md:px-5">
-      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">{label}</p>
-      <p className={`mt-1.5 min-w-0 break-words font-mono tabular text-xl md:text-2xl font-extrabold leading-tight ${tone}`}>
+    <div className="px-5 py-5">
+      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-fg-subtle">{label}</p>
+      <p className="mt-2 min-w-0 break-words font-mono tabular text-2xl xl:text-[28px] font-extrabold leading-none tracking-tight text-fg">
         {value}
       </p>
-      {hint && <p className="mt-1 text-[11px] text-fg-subtle">{hint}</p>}
+      {hint && <p className="mt-2 text-[11px] text-fg-subtle">{hint}</p>}
     </div>
   );
 }
@@ -555,14 +558,14 @@ function Markets({
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead className="bg-surface-hover/40 text-[11px] uppercase tracking-wider text-fg-subtle">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="border-b border-border text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
             <tr>
-              <Th className="text-left pl-4">Market</Th><Th className="text-left">Trend</Th>
-              <Th className="text-left">State</Th><Th className="text-left">Reason</Th><Th className="text-left">Latest signal</Th>
-              <Th className="text-right">Price</Th><Th className="text-right">Level</Th>
-              <Th className="text-right">P&L</Th><Th className="text-left">Lot size</Th><Th className="text-left">Close at $</Th>
-              <Th className="text-center">On</Th><Th className="text-right pr-4">Updated</Th>
+              <Th className="text-left pl-5">Market</Th><Th className="text-left">Trend</Th>
+              <Th className="text-left">Status</Th><Th className="text-left">Signal</Th>
+              <Th className="text-right">Price</Th>
+              <Th className="text-right">P&L</Th><Th className="text-left">Size / target</Th>
+              <Th className="text-center">On</Th><Th className="text-right pr-5">Updated</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -570,48 +573,71 @@ function Markets({
               const cfg = cfgBySymbol.get(m.symbol);
               const spec = specByName.get(m.symbol);
               const stale = m.updated_at ? now - new Date(m.updated_at).getTime() > STALE_MS : true;
+              const st = (m.state ?? 'monitoring').toLowerCase();
               return (
-                <tr key={m.symbol} className="hover:bg-surface-hover/40">
-                  {/* The broker symbol is only worth a second line when it
-                      differs from the name we use for it. Printing AUDUSD
-                      under AUDUSD is a row of noise nine times over. */}
-                  <Td className="pl-4">
+                <tr key={m.symbol} className="group hover:bg-surface-hover/40">
+                  {/* A hairline down the left edge, coloured by state. Nine
+                      identical rows need somewhere for the eye to land, and
+                      the one carrying money should be findable without
+                      reading a word. */}
+                  <Td className="relative pl-5">
+                    <span
+                      aria-hidden
+                      className={`absolute left-0 top-0 h-full w-[3px] ${
+                        st === 'active' ? 'bg-success' : st === 'ready' ? 'bg-brand' : 'bg-transparent'
+                      }`}
+                    />
                     <span className="font-semibold text-fg">{m.alias}</span>
                     {m.is_dry_run && <DryTag />}
+                    {/* The broker symbol earns a second line only when it is
+                        not simply the name again. */}
                     {m.symbol !== m.alias && <p className="text-[11px] text-fg-subtle">{m.symbol}</p>}
                   </Td>
                   {/* Both timeframes in one cell: they are read together — the
-                      bot only acts when they agree — and two columns of the
-                      same word was the widest thing on the table. */}
+                      bot only acts when they agree. */}
                   <Td>
                     <div className="flex items-center gap-1">
                       <TrendChip trend={m.htf_trend} label="H1" />
                       <TrendChip trend={m.entry_trend} label="M15" />
                     </div>
                   </Td>
-                  <Td><StateBadge state={m.state} /></Td>
-                  <Td className="text-fg-muted whitespace-nowrap">{m.reason ?? '—'}</Td>
-                  <Td className="tabular text-fg-muted whitespace-nowrap">{m.latest_signal ?? '—'}</Td>
-                  <Td className="text-right tabular">{px(m.price)}</Td>
-                  <Td className="text-right tabular text-fg-muted">{m.level == null ? '—' : px(m.level)}</Td>
-                  <Td className={`text-right tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
-                  <Td>
-                    <LotSizeCell
-                      symbol={m.symbol}
-                      lot={cfg?.lot_size ?? null}
-                      min={spec ? Number(spec.volume_min) : null}
-                      max={spec ? Number(spec.volume_max) : null}
-                      step={spec ? Number(spec.volume_step) : null}
-                    />
+                  {/* Monitoring is the resting state of eight rows out of
+                      nine; a coloured pill on every one of them spends
+                      attention on nothing happening. It gets plain text, and
+                      the pill is kept for the two states that matter. */}
+                  <Td className="whitespace-nowrap">
+                    {st === 'monitoring'
+                      ? <span className="text-fg-muted">Monitoring</span>
+                      : <StateBadge state={m.state} />}
+                    {m.reason && <p className="text-[11px] text-fg-subtle">{m.reason}</p>}
                   </Td>
+                  <Td className="tabular whitespace-nowrap text-fg-muted">{m.latest_signal ?? '—'}</Td>
+                  <Td className="text-right whitespace-nowrap">
+                    <span className="font-mono tabular text-fg">{px(m.price)}</span>
+                    {m.level != null && (
+                      <p className="font-mono tabular text-[11px] text-fg-subtle">level {px(m.level)}</p>
+                    )}
+                  </Td>
+                  <Td className={`text-right font-mono tabular font-bold ${pnlTone(m.pnl)}`}>{m.pnl == null ? '—' : signed(m.pnl)}</Td>
+                  {/* Two settings, one column: both answer "how much", and
+                      they were the widest pair on the table. */}
                   <Td>
-                    <CloseAtProfitCell symbol={m.symbol} target={cfg?.close_at_profit ?? null} />
+                    <div className="flex flex-col items-start gap-1">
+                      <LotSizeCell
+                        symbol={m.symbol}
+                        lot={cfg?.lot_size ?? null}
+                        min={spec ? Number(spec.volume_min) : null}
+                        max={spec ? Number(spec.volume_max) : null}
+                        step={spec ? Number(spec.volume_step) : null}
+                      />
+                      <CloseAtProfitCell symbol={m.symbol} target={cfg?.close_at_profit ?? null} />
+                    </div>
                   </Td>
                   <Td className="text-center"><MarketEnableToggle symbol={m.symbol} enabled={cfg?.enabled ?? true} /></Td>
                   {/* Staleness is flagged here rather than by dimming the row: the
                       numbers stay fully legible, but an hour-old price never reads
                       as live. A market goes stale when the bot stops writing. */}
-                  <Td className="text-right pr-4 whitespace-nowrap">
+                  <Td className="text-right pr-5 whitespace-nowrap">
                     {stale ? (
                       <span
                         className="inline-flex items-center gap-1.5 font-semibold text-warning"
@@ -1296,7 +1322,7 @@ function Mini({ label, value }: { label: string; value: React.ReactNode }) {
  * short enough not to strobe on a busy market. Nothing flashes on first paint:
  * arriving at a red number and having it flash tells you nothing.
  */
-function LivePnl({ value }: { value: number }) {
+function PnlCell({ value, openCount }: { value: number; openCount: number }) {
   const [flash, setFlash] = useState(false);
   const prev = useRef<number | null>(null);
 
@@ -1311,20 +1337,20 @@ function LivePnl({ value }: { value: number }) {
 
   const up = value >= 0;
   return (
-    <AdminCard className="h-full">
-      {/* Centred, because it shares a row with a taller card and a number
-          pinned to the top of a half-empty box looks like a mistake. */}
-      <div className="flex h-full flex-col justify-center p-5">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">Open P&amp;L</span>
-          <span className={`h-1.5 w-1.5 rounded-full ${flash ? (up ? 'bg-success' : 'bg-danger') : 'bg-fg-subtle/40'} transition-colors`} />
-        </div>
-        <p className={`mt-2 font-mono tabular text-4xl font-extrabold transition-opacity ${up ? 'text-success' : 'text-danger'} ${flash ? 'opacity-100' : 'opacity-95'}`}>
-          {signed(value)}
-        </p>
-        <p className="mt-1 text-xs text-fg-subtle">floating on open positions · live</p>
+    <div className="px-5 py-5">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-fg-subtle">Open P&amp;L</span>
+        <span className={`h-1.5 w-1.5 rounded-full transition-colors ${flash ? (up ? 'bg-success' : 'bg-danger') : 'bg-fg-subtle/40'}`} />
       </div>
-    </AdminCard>
+      {/* The largest type on the screen, because it is the only figure that
+          moves while you are looking at it. */}
+      <p className={`mt-2 font-mono tabular text-4xl xl:text-5xl font-extrabold leading-none tracking-tight transition-opacity ${up ? 'text-success' : 'text-danger'} ${flash ? 'opacity-100' : 'opacity-95'}`}>
+        {signed(value)}
+      </p>
+      <p className="mt-2 text-[11px] text-fg-subtle">
+        floating on {openCount} open position{openCount === 1 ? '' : 's'} · live
+      </p>
+    </div>
   );
 }
 
