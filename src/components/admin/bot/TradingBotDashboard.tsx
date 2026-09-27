@@ -442,7 +442,14 @@ function Overview({
   equity: BotEquity | null; equityCurve: BotEquity[];
   floating: number; todayRealized: number; openCount: number;
 }) {
-  const curve = equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite);
+  // A deposit is not performance. Plotting raw equity across one draws a step
+  // that owns the whole chart: the real trading sits flat along the bottom,
+  // and the drift reads +$5,090 when nobody made a penny. So the series starts
+  // at the last funding event, and the caption says that is what it did.
+  const all = equityCurve.map((e) => Number(e.equity)).filter(Number.isFinite);
+  const from = fundedFrom(all);
+  const curve = all.length - from >= 2 ? all.slice(from) : all;
+  const trimmed = curve.length < all.length;
   const lo = curve.length ? Math.min(...curve) : null;
   const hi = curve.length ? Math.max(...curve) : null;
   const drift = curve.length > 1 ? curve[curve.length - 1] - curve[0] : null;
@@ -477,22 +484,42 @@ function Overview({
           legend is needed. */}
       {curve.length > 1 ? (
         <div className="relative border-t border-border">
-          <Sparkline values={curve} width={900} height={88} responsive fill />
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 pb-3 pt-1 text-[11px] text-fg-subtle">
+          {/* The caption sits ABOVE the plot on solid ground. Underneath it
+              landed on the filled area, which is where text goes to be hard
+              to read. */}
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 py-2 text-[11px] text-fg-subtle">
             <span>
-              equity · last {curve.length} snapshots
+              equity · {curve.length} snapshot{curve.length === 1 ? '' : 's'}
+              {trimmed ? ' since the account was last funded' : ''}
               {drift != null && (
                 <span className={`ml-2 font-mono tabular font-bold ${pnlTone(drift)}`}>{signed(drift)}</span>
               )}
             </span>
             <span className="font-mono tabular">low {money(lo)} · high {money(hi)}</span>
           </div>
+          {/* Flush to the bottom edge of the panel — shorter, because a
+              quiet series does not need eighty pixels to say it was quiet. */}
+          <Sparkline values={curve} width={900} height={52} responsive fill />
         </div>
       ) : (
         <p className="relative border-t border-border px-5 py-4 text-xs text-fg-subtle">No equity history yet.</p>
       )}
     </AdminCard>
   );
+}
+
+/**
+ * Where the plottable run starts: the index after the last jump too large to
+ * be a trade. A 15% move in one snapshot on an account that trades in tens of
+ * dollars is a deposit or a withdrawal, not a day's work.
+ */
+function fundedFrom(values: number[]): number {
+  let start = 0;
+  for (let i = 1; i < values.length; i++) {
+    const prev = values[i - 1];
+    if (prev > 0 && Math.abs(values[i] - prev) / prev > 0.15) start = i;
+  }
+  return start;
 }
 
 /** One figure on the instrument panel. */
