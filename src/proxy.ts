@@ -4,6 +4,16 @@
 // marketing site instead, with no warning in the build or the dev log.
 //
 // Renamed per the codemod (npx @next/codemod middleware-to-proxy).
+//
+// AND IT LIVES IN src/. The docs are explicit: "Create a proxy.ts file in the
+// project root, OR INSIDE src IF APPLICABLE, so that it is located at the same
+// level as pages or app." This app's app/ is src/app/, so a root-level
+// proxy.ts is not loaded — and nothing says so. The build simply omits the
+// "ƒ Proxy (Middleware)" line, and every subdomain serves the marketing site.
+// That is how admin., studio. and bot. were all broken in production at once.
+//
+// If the subdomains ever stop routing again, check the build output for that
+// line before looking anywhere else.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
