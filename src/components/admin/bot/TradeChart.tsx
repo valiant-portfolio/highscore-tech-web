@@ -33,8 +33,10 @@ export interface TradeChartBar {
 interface Props {
   bars: TradeChartBar[];
   side: 'buy' | 'sell' | string;
-  openTs: string;
-  openPrice: number;
+  /** Null for an order that has not filled: there is no entry yet, only a
+   *  level it is waiting at. */
+  openTs: string | null;
+  openPrice: number | null;
   closeTs: string | null;
   closePrice: number | null;
   sl: number | null;
@@ -90,13 +92,15 @@ export default function TradeChart({
 
     // Entry and exit, on the bars they happened on.
     const isLong = side === 'buy';
-    const markers: SeriesMarker<Time>[] = [{
+    // An unfilled order has no entry bar to mark — only the level it rests at,
+    // drawn as a price line below.
+    const markers: SeriesMarker<Time>[] = openTs && openPrice != null ? [{
       time: utcTz(openTs),
       position: isLong ? 'belowBar' : 'aboveBar',
       color: '#3b82f6',
       shape: isLong ? 'arrowUp' : 'arrowDown',
       text: `${isLong ? 'BUY' : 'SELL'} ${openPrice.toFixed(digits)}`,
-    }];
+    }] : [];
     if (closeTs && closePrice != null) {
       markers.push({
         time: utcTz(closeTs),
@@ -110,10 +114,15 @@ export default function TradeChart({
 
     // Entry, stop and target as price lines. The stop is the one that matters:
     // how close the wicks came to it is the whole story of a lucky winner.
-    candles.createPriceLine({
-      price: openPrice, color: '#3b82f6', lineWidth: 1,
-      lineStyle: LineStyle.Solid, axisLabelVisible: true, title: 'ENTRY',
-    });
+    if (openPrice != null) {
+      candles.createPriceLine({
+        price: openPrice, color: '#3b82f6', lineWidth: 1,
+        lineStyle: LineStyle.Solid, axisLabelVisible: true,
+        // Before the fill it is not an entry, it is a level nothing has
+        // touched yet. Saying ENTRY would claim something that has not happened.
+        title: openTs ? 'ENTRY' : 'LEVEL',
+      });
+    }
     if (sl) {
       candles.createPriceLine({
         price: sl, color: '#dc2626', lineWidth: 1,
@@ -130,12 +139,12 @@ export default function TradeChart({
     // The holding period, drawn as a flat line along the entry price between
     // entry and exit. Lightweight Charts has no span/box primitive; a bounded
     // line is the cheapest honest way to show "this is the part we were in".
-    const held = bars.filter((b) => {
+    const held = openTs ? bars.filter((b) => {
       const t = new Date(b.ts).getTime();
       return t >= new Date(openTs).getTime()
         && t <= new Date(closeTs ?? Date.now()).getTime();
-    });
-    if (held.length > 1) {
+    }) : [];
+    if (held.length > 1 && openPrice != null) {
       const span: ISeriesApi<'Line'> = chart.addSeries(LineSeries, {
         color: 'rgba(59,130,246,0.45)', lineWidth: 4,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,

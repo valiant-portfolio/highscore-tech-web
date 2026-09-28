@@ -16,7 +16,8 @@ import { PageHead, AdminCard } from '@/components/admin/AdminPage';
 import TradeChart from '@/components/admin/bot/TradeChart';
 import { TradeAnalysis } from '@/components/admin/bot/TradeAnalysis';
 import { IndicatorTable, agreement, agreementTone } from '@/components/admin/bot/IndicatorTable';
-import { getBotTrade } from '@/lib/admin/trading-bot-queries';
+import { CancelOrderButton } from '@/components/admin/bot/CancelOrderButton';
+import { getBotTrade, getPendingOrder } from '@/lib/admin/trading-bot-queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,11 @@ export default async function BotTradePage({ params }: PageProps) {
   if (!Number.isFinite(n)) notFound();
 
   const { trade, analysis, bars, timeframe, digits } = await getBotTrade(n);
-  if (!trade) notFound();
+  // No trade row does not mean no such ticket. The bot writes a trade only on
+  // the FILL, so an order still resting has its ticket on bot_market_state and
+  // nowhere else — and that is exactly the alert that links here: "not yet
+  // filled, this is the one to analyse". It used to 404.
+  if (!trade) return <PendingOrderPage ticket={n} />;
 
   const px = (v: number | null | undefined) =>
     v == null || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(digits);
@@ -185,6 +190,134 @@ export default async function BotTradePage({ params }: PageProps) {
           See every trade on {trade.symbol}
         </Link>.
       </p>
+    </>
+  );
+}
+
+
+/**
+ * The same page, for an order that has not filled.
+ *
+ * Deliberately not the post-mortem: there is no entry, no exit, no P&L and no
+ * result to explain. There is a level, a reason, what every indicator reads
+ * right now — and the two things that can still be done about it: write what
+ * you see, or cancel it. "Issues are found during the pending order; when it
+ * becomes a position we only monitor it."
+ */
+async function PendingOrderPage({ ticket }: { ticket: number }) {
+  const { market, analysis, bars, timeframe, digits } = await getPendingOrder(ticket);
+  if (!market) notFound();
+
+  const px = (v: number | null | undefined) =>
+    v == null || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(digits);
+  const side = (market.latest_signal ?? '').toUpperCase().startsWith('SELL')
+    || (market.latest_signal ?? '').toUpperCase().startsWith('SHORT') ? 'sell' : 'buy';
+
+  return (
+    <>
+      <PageHead
+        title={`${market.alias} · order resting`}
+        description={`Ticket ${ticket} · ${market.latest_signal ?? 'pending'} · not filled yet`}
+        back={{ href: `/${encodeURIComponent(market.symbol)}`, label: 'Back to market' }}
+        actions={<CancelOrderButton symbol={market.symbol} alias={market.alias} ticket={ticket} level={market.level} />}
+      />
+
+      <AdminCard>
+        <div className="p-5 md:p-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`font-bold ${side === 'buy' ? 'text-success' : 'text-danger'}`}>
+              {side === 'buy' ? 'BUY LIMIT' : 'SELL LIMIT'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+              waiting to fill
+            </span>
+            {market.is_dry_run && (
+              <span className="rounded bg-surface-hover px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">Paper</span>
+            )}
+            <span className="text-sm text-fg-muted">{market.reason ?? '—'}</span>
+          </div>
+
+          <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+            <Fact label="Level" value={<span className="tabular">{px(market.level)}</span>} />
+            <Fact label="Price now" value={<span className="tabular">{px(market.price)}</span>} />
+            <Fact label="Stop" value={<span className="tabular">{px(market.sl)}</span>} />
+            <Fact label="Target" value={<span className="tabular">{px(market.tp)}</span>} />
+            <Fact label="Trend (H1)" value={<span className="text-sm">{market.htf_trend ?? '—'}</span>} />
+            <Fact label={`Trend (${market.timeframe ?? 'M15'})`} value={<span className="text-sm">{market.entry_trend ?? '—'}</span>} />
+          </dl>
+
+          <p className="mt-5 text-xs text-fg-subtle">
+            Nothing has been risked yet — the order has not filled. Cancelling
+            costs the setup and nothing else.
+          </p>
+        </div>
+      </AdminCard>
+
+      <div className="mt-6">
+        <h3 className="mb-3 font-semibold text-fg">
+          How the market got here
+          <span className="text-xs font-normal text-fg-subtle"> · {timeframe} · the run-up to the level</span>
+        </h3>
+        <AdminCard>
+          <div className="p-3">
+            <TradeChart
+              bars={bars}
+              side={side}
+              openTs={null}
+              openPrice={market.level}
+              closeTs={null}
+              closePrice={null}
+              sl={market.sl}
+              tp={market.tp}
+              digits={digits}
+              timeframe={timeframe}
+            />
+          </div>
+        </AdminCard>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-3 font-semibold text-fg">
+          What the indicators say
+          <span className="text-xs font-normal text-fg-subtle"> · right now, on the market this order rests in</span>
+        </h3>
+        <AdminCard>
+          {market.snapshot ? (
+            <IndicatorTable
+              snapshot={market.snapshot}
+              side={side}
+              htfTrend={market.htf_trend}
+              timeframe={market.timeframe}
+              htf={market.htf}
+              digits={digits}
+            />
+          ) : (
+            <div className="p-8 text-center text-sm text-fg-muted">
+              No indicator reading yet. It arrives with the bot's next write.
+            </div>
+          )}
+        </AdminCard>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-3 font-semibold text-fg">
+          What we see
+          <span className="text-xs font-normal text-fg-subtle"> · written now, while it can still be acted on</span>
+        </h3>
+        <AdminCard>
+          <TradeAnalysis
+            ticket={ticket}
+            symbol={market.symbol}
+            note={analysis?.note ?? null}
+            imageUrl={analysis?.imageUrl ?? null}
+            at={analysis?.updated_at ?? null}
+            by={analysis?.created_by ?? null}
+            verdict={analysis?.verdict ?? null}
+            issue={analysis?.issue ?? null}
+            context={{ side: market.latest_signal, level: market.level, sl: market.sl, tp: market.tp }}
+          />
+        </AdminCard>
+      </div>
     </>
   );
 }

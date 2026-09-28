@@ -493,6 +493,55 @@ export async function getBotTrade(ticket: number): Promise<BotTradeDetail> {
   };
 }
 
+/**
+ * A resting order, by ticket.
+ *
+ * A pending order has NO bot_trades row — the bot writes one when it fills —
+ * so /trade/<ticket> could only 404 for an order that had not filled yet.
+ * Which is precisely the alert that carries the link: "not yet filled, this is
+ * the one to analyse". The order's ticket lives on bot_market_state until the
+ * fill, and on fill MT5 hands the position that same ticket, so the URL keeps
+ * working and simply starts showing the trade instead.
+ */
+export interface BotPendingDetail {
+  market: BotMarket | null;
+  analysis: BotTradeAnalysisView | null;
+  bars: BotBar[];
+  timeframe: string;
+  digits: number;
+}
+
+export async function getPendingOrder(ticket: number): Promise<BotPendingDetail> {
+  const admin = botServiceClient();
+
+  const { data } = await admin
+    .from('bot_market_state').select('*')
+    .eq('pending_ticket', ticket).maybeSingle();
+  const market = (data as BotMarket | null) ?? null;
+  if (!market) return { market: null, analysis: null, bars: [], timeframe: 'M15', digits: 5 };
+
+  const timeframe = market.timeframe === 'H1' ? 'H1' : 'M15';
+  const tfSeconds = timeframe === 'H1' ? 3600 : 900;
+  // Only the run-up: there is no exit to bracket, and the question being asked
+  // is whether the level the order rests at makes sense.
+  const from = new Date(Date.now() - 120 * tfSeconds * 1000).toISOString();
+
+  const [bars, quote] = await Promise.all([
+    admin.from('bot_bars').select('ts,open,high,low,close')
+      .eq('symbol', market.symbol).eq('timeframe', timeframe)
+      .gte('ts', from).order('ts', { ascending: true }).limit(1000),
+    admin.from('bot_quotes').select('digits').eq('symbol', market.symbol).maybeSingle(),
+  ]);
+
+  return {
+    market,
+    analysis: (await analysesFor(admin, [ticket]))[ticket] ?? null,
+    bars: (bars.data ?? []) as BotBar[],
+    timeframe,
+    digits: (quote.data?.digits as number | undefined) ?? 5,
+  };
+}
+
 /** All symbols the bot tracks — for detail links. */
 export async function listBotSymbols(): Promise<string[]> {
   const admin = botServiceClient();

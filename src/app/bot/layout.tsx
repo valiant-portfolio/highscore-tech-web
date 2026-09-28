@@ -25,8 +25,14 @@ export default async function BotLayout({ children }: { children: React.ReactNod
   if (!user) {
     // Sign in on the host you arrived at, and come back HERE — not to the
     // admin panel, which is the whole point of the move.
-    const host = (await headers()).get('host')?.split(':')[0].toLowerCase() ?? '';
-    const next = host.startsWith('bot.') ? '/' : '/bot';
+    // …and come back to the PAGE you asked for. The proxy passes the
+    // pre-rewrite path on x-bot-path, because by the time this runs the URL
+    // says /bot/trade/123 whichever host it came from. Without it, a Telegram
+    // link to one trade dropped you on the desk to go and find it.
+    const h = await headers();
+    const host = h.get('host')?.split(':')[0].toLowerCase() ?? '';
+    const asked = h.get('x-bot-path');
+    const next = host.startsWith('bot.') ? (asked || '/') : '/bot';
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
