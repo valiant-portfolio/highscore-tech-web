@@ -121,6 +121,51 @@
   color-scheme: light;
 }
 
+/* ─── Highscore AI — ai.highzcore.tech ────────────────────────────────────────
+   Its own product, its own colour, the same system.
+
+   The marketing site's brand is cyan; this one is emerald #12B981, and it is
+   dark-only — there is no light variant to design, because a chart screen that
+   someone stares at for six hours is not a brochure.
+
+   Only the values move. Every semantic name (--bg, --fg-muted, --border…) and
+   therefore every Tailwind class built on them is unchanged, so a component
+   written for the admin panel drops into this app and simply wears emerald.
+   Seven screens stay consistent without any of them re-deriving spacing, type
+   or radius from a screenshot.
+
+   Scoped by attribute rather than a class so it cannot collide with the
+   .dark toggle the rest of the site uses. */
+[data-app="ai"] {
+  color-scheme: dark;
+
+  --bg:                 #08090B;
+  --bg-elevated:        #0E1013;
+  --surface:            #0E1013;
+  --surface-hover:      #14171B;
+  --surface-active:     #1A1E23;
+  --surface-raised:     #14171B;
+
+  --fg:                 #F2F4F5;
+  --fg-muted:           #9AA0A6;
+  --fg-subtle:          #6B7178;
+  --fg-on-brand:        #04170F;
+  --fg-inverse:         #08090B;
+
+  --border:             #1E2227;
+  --border-strong:      #2A2F36;
+
+  --brand:              #12B981;
+  --brand-hover:        #2ACF97;
+  --brand-active:       #0E9A6B;
+  --brand-fg:           #04170F;
+  --brand-tint:         rgba(18, 185, 129, 0.12);
+
+  /* Down moves. Named here so an inline SVG stroke can reach it — a chart
+     mark cannot wear a Tailwind class. */
+  --danger:             #E5484D;
+}
+
 /* ─── Semantic mappings — dark (default for marketing) ────────────────────── */
 :root,
 :root.dark {

@@ -42,6 +42,10 @@ export async function proxy(request: NextRequest) {
   // login bounce and the permission refusal can both be proved before the
   // domain is pointed anywhere.
   const isBotHost = host.startsWith('bot.');
+  // ai.highzcore.tech is Highscore AI — the whole subdomain served from /ai,
+  // same pattern as studio. and bot. Prefix matching means ai.localhost:3000
+  // works with no hosts-file setup: browsers resolve anything under .localhost.
+  const isAiHost = host.startsWith('ai.');
   // Only reroute on the real domain. On localhost there is no admin.* to send
   // anyone to, so /login has to keep working for local development.
   const isLiveHost = host === ROOT_DOMAIN || host.endsWith(`.${ROOT_DOMAIN}`);
@@ -65,7 +69,14 @@ export async function proxy(request: NextRequest) {
     if (!shared) {
       const url = request.nextUrl.clone();
       url.pathname = `/bot${pathname === '/' ? '' : pathname}`;
-      return NextResponse.rewrite(url);
+      // Carry the path the visitor actually asked for. After the rewrite the
+      // app only sees /bot/trade/123, and the sign-in bounce has no way to
+      // know whether to send them back to /trade/123 or /bot/trade/123 — so
+      // it used to give up and send everyone to the desk. A Telegram "Open
+      // chart" link for one ticket landed on the list of all of them.
+      const headers = new Headers(request.headers);
+      headers.set('x-bot-path', pathname);
+      return NextResponse.rewrite(url, { request: { headers } });
     }
   }
 
@@ -91,13 +102,31 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/admin';
       return NextResponse.rewrite(url);
     }
-  } else if (isLiveHost && AUTH_PATHS.some((p) => startsWithPath(pathname, p))) {
+  } else if (isLiveHost && !isBotHost && !isAiHost && AUTH_PATHS.some((p) => startsWithPath(pathname, p))) {
     // Someone found /login on the public site — send them to the portal,
     // keeping any ?next= so they still land where they were headed.
+    //
+    // NOT from bot. — the dashboard signs you in on its own host. Bouncing to
+    // admin. to log in and then honouring ?next=/ lands you on the admin
+    // panel, which is the one place the trading bot is not supposed to be.
     const url = new URL(request.url);
     url.hostname = `admin.${ROOT_DOMAIN}`;
     url.port = '';
     return NextResponse.redirect(url);
+  }
+
+  // ai.highzcore.tech serves Highscore AI, which lives at /ai in this app.
+  // Rewrite (not redirect) so the subdomain stays in the address bar, and the
+  // landing page reads ai.highzcore.tech/ rather than a path that says it is a
+  // corner of something else.
+  if (isAiHost) {
+    const shared = pathname.startsWith('/api') || pathname.startsWith('/_next')
+      || pathname.startsWith('/ai') || pathname.startsWith('/login');
+    if (!shared) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/ai${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(url);
+    }
   }
 
   // studio.highzcore.tech serves the Studio section, which lives at /studio in

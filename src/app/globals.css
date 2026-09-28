@@ -245,3 +245,25 @@ select option[value=''] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Highscore AI ────────────────────────────────────────────────────────
+   The price strip. Two identical tracks translate by exactly half the pair's
+   width, so the second lands where the first began and the loop has no seam.
+   Stopped for anyone who has asked for less motion — a strip that slides
+   forever is exactly what that setting is for. */
+@keyframes ai-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.ai-marquee {
+  animation: ai-marquee 42s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-marquee { animation: none; }
+}
+
+/* In-page nav jumps glide rather than teleport, so it is obvious the page
+   moved rather than changed. Honoured only when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has([data-app="ai"]) { scroll-behavior: smooth; }
+}
