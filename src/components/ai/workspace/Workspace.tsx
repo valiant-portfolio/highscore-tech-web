@@ -21,7 +21,7 @@ import {
   SlidersHorizontal, Minus, Loader2, BarChart3, TrendingUp, Receipt, Settings2,
 } from 'lucide-react';
 import { MarketChart } from '@/components/admin/bot/MarketChart';
-import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline } from '@/components/admin/bot/BotBits';
+import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline, useNow } from '@/components/admin/bot/BotBits';
 import { MarketEnableToggle } from '@/components/admin/bot/MarketEnableToggle';
 import { TradingSwitchButton } from '@/components/admin/bot/TradingSwitchButton';
 import { ApprovalModeToggle } from '@/components/admin/bot/ApprovalModeToggle';
@@ -63,8 +63,10 @@ const px = (n: number | null | undefined) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : String(n);
 
 export function Workspace({
-  markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, user,
+  markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user,
 }: {
+  /** Newest bot_market_state write — the bot's pulse, not the equity snapshot. */
+  lastUpdate: string | null;
   markets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
@@ -381,8 +383,16 @@ export function Workspace({
           <Figure label="Equity" value={money(equity?.equity)} />
           <Figure label="Open P&L" value={signed(floating)} valueClass={tone(floating)} />
           <Figure label="Today" value={signed(today)} valueClass={tone(today)} />
-          <span className="ml-auto shrink-0 text-[11px] text-fg-subtle">
-            {equity ? <>updated <TimeAgo iso={equity.ts} /></> : 'no snapshot'}
+          {/* The bot's pulse, NOT the equity snapshot's age.
+              bot_equity_snapshots is written only when a position closes
+              (trader.py, _reconcile_closed), so on a quiet day it reads hours
+              old while the bot is running perfectly — which is exactly how it
+              misled us. lastUpdate is the newest bot_market_state write, and
+              that happens every cycle. */}
+          <span className="ml-auto shrink-0 text-[11px]">
+            {lastUpdate
+              ? <BotPulse iso={lastUpdate} />
+              : <span className="text-fg-subtle">bot has never written</span>}
           </span>
         </header>
 
@@ -1375,12 +1385,42 @@ function closedAtLabel(iso: string | null): string {
 
 type HistoryFilter = 'all' | 'wins' | 'losses';
 
+/** Days back from midnight, or null for everything the query returned. */
+const RANGES: { key: string; label: string; days: number | null }[] = [
+  { key: 'today', label: 'Today', days: 1 },
+  { key: '2d', label: '2 days', days: 2 },
+  { key: '3d', label: '3 days', days: 3 },
+  { key: 'week', label: 'Week', days: 7 },
+  { key: 'month', label: 'Month', days: 30 },
+  { key: 'all', label: 'All', days: null },
+];
+
+const PAGE = 25;
+
 function HistoryList({ trades }: { trades: BotTrade[] }) {
   const [filter, setFilter] = useState<HistoryFilter>('all');
+  const [range, setRange] = useState('week');
+  const [limit, setLimit] = useState(PAGE);
 
-  const shown = trades
+  const days = RANGES.find((r) => r.key === range)?.days ?? null;
+  // Counted from midnight, not from "now minus 24h" — "Today" means today's
+  // trades, not the last day's.
+  const cutoff = (() => {
+    if (days == null) return null;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (days - 1));
+    return d.getTime();
+  })();
+
+  const matched = trades
     .filter((t) => (filter === 'all' ? true : filter === 'wins' ? Number(t.pnl) > 0 : Number(t.pnl) < 0))
-    .slice(0, 60);
+    .filter((t) => cutoff == null || (t.close_ts ? new Date(t.close_ts).getTime() >= cutoff : false));
+  const shown = matched.slice(0, limit);
+
+  const net = matched.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+
+  const pick = <T,>(set: (v: T) => void, v: T) => () => { set(v); setLimit(PAGE); };
 
   const TABS: { key: HistoryFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -1390,26 +1430,54 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
 
   return (
     <>
-      <div className="flex items-center gap-1 border-b border-border px-4 py-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setFilter(t.key)}
-            className={`rounded-sm px-3 py-1.5 text-sm transition-colors ${
-              filter === t.key
-                ? 'bg-surface-hover font-semibold text-fg'
-                : 'text-fg-muted hover:bg-brand/10 hover:text-brand'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="border-b border-border px-4 py-2">
+        <div className="flex items-center gap-1.5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={pick(setFilter, t.key)}
+              className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+                filter === t.key
+                  ? 'border border-brand font-semibold text-brand'
+                  : 'border border-transparent text-fg-muted hover:bg-brand/10 hover:text-brand'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="scrollbar-none mt-2 flex items-center gap-1 overflow-x-auto">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={pick(setRange, r.key)}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
+                range === r.key
+                  ? 'bg-brand/15 font-semibold text-brand'
+                  : 'text-fg-subtle hover:bg-brand/10 hover:text-brand'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {matched.length > 0 && (
+          <p className="mt-2 flex items-center gap-2 text-[11px] text-fg-subtle">
+            <span>{matched.length} trade{matched.length === 1 ? '' : 's'}</span>
+            <span className={`ml-auto font-mono font-bold ${tone(net)}`}>{signed(net)}</span>
+          </p>
+        )}
       </div>
 
       {shown.length === 0 ? (
         <Empty>
-          {filter === 'all' ? 'No closed trades yet.' : `No ${filter} in the last ${trades.length} trades.`}
+          {trades.length === 0
+            ? 'No closed trades yet.'
+            : `No ${filter === 'all' ? 'trades' : filter} in this period.`}
         </Empty>
       ) : (
         <ul className="space-y-2 px-4 pb-6 pt-3">
@@ -1440,6 +1508,22 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
               </a>
             </li>
           ))}
+
+          {/* Paged in the browser over what the query already returned. The
+              count is the honest one — matched, not just rendered — so the
+              list never quietly implies this is all there was. */}
+          {shown.length < matched.length && (
+            <li className="pt-1">
+              <button
+                type="button"
+                onClick={() => setLimit((n) => n + PAGE)}
+                className="w-full rounded-sm border border-border py-2.5 text-sm text-fg-muted transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand"
+              >
+                Show {Math.min(PAGE, matched.length - shown.length)} more
+                <span className="text-fg-subtle"> · {shown.length} of {matched.length}</span>
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </>
@@ -1447,6 +1531,29 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
 }
 
 /* ── Bits ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Is the bot running?
+ *
+ * Green while bot_market_state is being written; amber past five minutes, red
+ * past twenty. A cycle takes seconds, so five minutes of silence already means
+ * something is wrong — and silence is the one failure a trading screen must
+ * never render as calm.
+ */
+function BotPulse({ iso }: { iso: string }) {
+  const age = useNow(15_000) - new Date(iso).getTime();
+  const tone = age > 20 * 60_000
+    ? { dot: 'bg-danger', text: 'text-danger', label: 'bot silent' }
+    : age > 5 * 60_000
+      ? { dot: 'bg-warning', text: 'text-warning', label: 'bot quiet' }
+      : { dot: 'bg-brand', text: 'text-fg-subtle', label: 'bot live' };
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${tone.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+      {tone.label} · <TimeAgo iso={iso} />
+    </span>
+  );
+}
 
 function Figure({ label, value, valueClass = 'text-fg' }: { label: string; value: React.ReactNode; valueClass?: string }) {
   return (

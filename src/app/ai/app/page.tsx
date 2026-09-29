@@ -38,7 +38,7 @@ export default async function AiWorkspacePage() {
   if (!access?.isAdmin && !access?.sections.includes('trading-bot')) redirect('/profile');
 
   const {
-    markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals,
+    markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate,
   } = await getBotOverview();
 
   return (
@@ -51,6 +51,7 @@ export default async function AiWorkspacePage() {
       equityCurve={equityCurve}
       settings={settings}
       proposals={proposals}
+      lastUpdate={lastUpdate}
       user={{ name: user.email ?? 'Signed in', initials: initialsOf(user) }}
     />
   );
