@@ -15,6 +15,7 @@
 // Alerts) say so plainly rather than showing an empty panel that looks broken.
 
 import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles, CandlestickChart, ListFilter, Clock, Activity, History as HistoryIcon,
   FlaskConical, Bell, X, ChevronLeft, ChevronRight, Send, Plus, MoreHorizontal, ChevronDown,
@@ -114,6 +115,30 @@ export function Workspace({
       localStorage.setItem(DESK_KEY, JSON.stringify({ section, panelOpen, railOpen, panelSide }));
     } catch { /* ignore */ }
   }, [restored, section, panelOpen, railOpen, panelSide]);
+
+  /* Pull fresh data on a timer.
+   *
+   * This page is force-dynamic, which makes every LOAD fresh — and then it sat
+   * there. A proposal that arrived in Telegram did not appear here until
+   * someone pressed reload, which is most of the lag between the alert and the
+   * desk. The admin dashboard has done this since BotStatus; the desk never
+   * did.
+   *
+   * Also refreshed on returning to the tab: browsers throttle timers in a
+   * background tab, so coming back to a desk frozen ten minutes ago is worse
+   * than a slow one — it can show a closed trade as still open. */
+  const router = useRouter();
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 15_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') router.refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [router]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
 
