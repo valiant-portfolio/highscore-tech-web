@@ -1273,7 +1273,12 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
       barTime: p.bar_time as string | null,
       note: <>asked <TimeAgo iso={p.created_at} /></>,
     })),
-    ...markets.map((m) => ({
+    // A market with a proposal is ALREADY in this list, as the question. The
+    // bot writes both rows for one setup — bot_proposals for the decision and
+    // bot_market_state for the level it is watching — so listing both showed
+    // GBPJPY twice at the same price, one asking for approval and one saying
+    // "watching", which reads as two setups on the same market.
+    ...markets.filter((m) => !proposals.some((p) => p.symbol === m.symbol)).map((m) => ({
       key: `m:${m.symbol}`,
       symbol: m.symbol,
       label: m.alias,
