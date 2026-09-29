@@ -25,6 +25,8 @@ import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline } from '@/component
 import { MarketEnableToggle } from '@/components/admin/bot/MarketEnableToggle';
 import { TradingSwitchButton } from '@/components/admin/bot/TradingSwitchButton';
 import { ApprovalModeToggle } from '@/components/admin/bot/ApprovalModeToggle';
+import { FlattenAllButton } from '@/components/admin/bot/FlattenAllButton';
+import { CancelOrderButton } from '@/components/admin/bot/CancelOrderButton';
 import { setLotSizeAction, setCloseAtProfitAction } from '@/lib/admin/trading-bot-actions';
 import type {
   BotMarket, BotTrade, BotEquity, BotSettings, BotProposal, BotConfig, BotSymbolSpec,
@@ -115,6 +117,7 @@ export function Workspace({
 
   const active = markets.filter((m) => m.state === 'active');
   const ready = markets.filter((m) => m.state === 'ready');
+  const resting = ready.filter((m) => m.pending_ticket != null);
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
   const todayKey = new Date().toISOString().slice(0, 10);
   const today = closedTrades
@@ -141,7 +144,11 @@ export function Workspace({
       group: 'Trading',
       items: [
         { key: 'markets', label: 'Markets', icon: <ListFilter className="h-4 w-4" />, count: markets.length },
-        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: ready.length + proposals.length },
+        // Counts what can actually FILL: a resting order, or a setup waiting
+        // on an answer. A watched level has nothing at the broker, and
+        // counting it here read as "an order is live" while the desk was
+        // stood down — which is exactly the question it prompted.
+        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: resting.length + proposals.length },
         { key: 'active', label: 'Active', icon: <Activity className="h-4 w-4" />, count: active.length },
         { key: 'history', label: 'History', icon: <HistoryIcon className="h-4 w-4" /> },
       ],
@@ -353,7 +360,7 @@ export function Workspace({
               <PerformancePanel equity={equity} curve={equityCurve} trades={closedTrades} />
             )}
             {section === 'transactions' && <TransactionsPanel trades={closedTrades} />}
-            {section === 'settings' && <SettingsPanel settings={settings} equity={equity} />}
+            {section === 'settings' && <SettingsPanel settings={settings} equity={equity} openCount={active.length} />}
           </div>
         </section>
       )}
@@ -1033,7 +1040,9 @@ function TransactionsPanel({ trades }: { trades: BotTrade[] }) {
  * Markets. Both switches here are the admin dashboard's own components, so
  * there is exactly one implementation of "turn the bot off" in the codebase.
  */
-function SettingsPanel({ settings, equity }: { settings: BotSettings | null; equity: BotEquity | null }) {
+function SettingsPanel({ settings, equity, openCount }: {
+  settings: BotSettings | null; equity: BotEquity | null; openCount: number;
+}) {
   if (!settings) return <Empty>No settings row yet.</Empty>;
 
   return (
@@ -1048,13 +1057,16 @@ function SettingsPanel({ settings, equity }: { settings: BotSettings | null; equ
           <h4 className="text-sm font-bold text-fg">
             {settings.trading_enabled ? 'Trading is on' : 'Trading is off'}
           </h4>
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-2">
             <TradingSwitchButton
               enabled={settings.trading_enabled}
               updatedAt={settings.updated_at}
               updatedBy={settings.updated_by}
               seenByBotAt={settings.seen_by_bot_at}
             />
+            {/* Beside it deliberately: one stops NEW risk, the other gets out
+                of the risk already carried. They are asked for together. */}
+            <FlattenAllButton openCount={openCount} />
           </span>
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
@@ -1162,6 +1174,8 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
       side: sideOf(p.side),
       level: p.level,
       needsApproval: true,
+      ticket: null as number | null,
+      alias: p.alias ?? p.symbol,
       note: <>asked <TimeAgo iso={p.created_at} /></>,
     })),
     ...markets.map((m) => ({
@@ -1172,7 +1186,10 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
       level: m.level,
       needsApproval: false,
       // A resting ORDER and a watched level look identical until you say which
-      // is which. Only the first can fill.
+      // is which. Only the first can fill — and only the first can be
+      // cancelled, which is why the ticket is carried through.
+      ticket: m.pending_ticket ?? null,
+      alias: m.alias,
       note: m.pending_ticket ? <span className="font-mono">#{m.pending_ticket}</span> : <>watching</>,
     })),
   ];
@@ -1216,6 +1233,17 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
               <span className="ml-auto whitespace-nowrap font-mono">{pips ?? r.note}</span>
             </div>
             </button>
+
+            {/* Outside the card, because a button inside a button is invalid
+                HTML and because cancelling is not "open this market". */}
+            {r.ticket != null && (
+              <div className="mt-1.5 px-1">
+                <CancelOrderButton
+                  symbol={r.symbol} alias={r.alias}
+                  ticket={r.ticket} level={r.level}
+                />
+              </div>
+            )}
           </li>
         );
       })}

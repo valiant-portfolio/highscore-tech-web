@@ -121,7 +121,20 @@ export async function proxy(request: NextRequest) {
   // corner of something else.
   if (isAiHost) {
     const shared = pathname.startsWith('/api') || pathname.startsWith('/_next')
-      || pathname.startsWith('/ai') || pathname.startsWith('/login');
+      || pathname.startsWith('/ai') || pathname.startsWith('/login')
+      || pathname.startsWith('/profile');
+
+    // ai.highzcore.tech replaces bot.highzcore.tech, so the trade pages answer
+    // here now. /trade/<ticket> is what every Telegram alert links to, and it
+    // has to keep resolving once the old subdomain is gone.
+    if (pathname.startsWith('/trade')) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/bot${pathname}`;
+      const headers = new Headers(request.headers);
+      headers.set('x-bot-path', pathname);
+      return NextResponse.rewrite(url, { request: { headers } });
+    }
+
     if (!shared) {
       const url = request.nextUrl.clone();
       url.pathname = `/ai${pathname === '/' ? '' : pathname}`;

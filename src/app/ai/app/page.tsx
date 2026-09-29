@@ -1,20 +1,21 @@
-// The workspace — where "Open App" lands.
+// The workspace — the trading desk.
 //
-// On ai.highzcore.tech the proxy serves this at /app, so the nav button goes
-// somewhere real.
+// ai.highzcore.tech replaces bot.highzcore.tech, so this screen carries the
+// controls the old desk had: the trading switch, close-all, approval mode, and
+// cancel on a resting order.
 //
-// The data is the existing bot's, unchanged — getBotOverview() is the same
-// call /bot makes. One source, two skins.
+// WHICH IS WHY THE SIGN-IN IS BACK. It came off while this was read-only. It
+// cannot stay off now: a kill switch for a live account on a URL anyone can
+// open is a different kind of risk from a screen that only shows numbers. Same
+// permission as the old desk, requireSection('trading-bot') — no second way in.
 //
-// NO SIGN-IN, ON INSTRUCTION, FOR NOW. Read that plainly: this page shows a
-// real account's balance, equity, open positions and trade history to anyone
-// who has the URL, on a public subdomain. It is not linked from anywhere a
-// crawler follows, which is not the same as private. Put the guard back — the
-// four lines below the import block — before this is shown to anyone outside
-// the team.
+// The data is the existing bot's, unchanged: getBotOverview() is the same call
+// the old dashboard made. One source, one desk, new room.
 
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { getBotOverview } from '@/lib/admin/trading-bot-queries';
+import { getAdminAccess } from '@/lib/admin/access';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
 import { Workspace } from '@/components/ai/workspace/Workspace';
 
@@ -28,9 +29,13 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AiWorkspacePage() {
-  // Read the session if there is one — it names the desk in the rail — but do
-  // not require it.
-  const user = await getCurrentUser().catch(() => null);
+  const user = await getCurrentUser();
+  // Sign in on THIS host and come back here — the desk does not hand anyone to
+  // the admin panel.
+  if (!user) redirect('/login?next=%2Fapp');
+
+  const access = await getAdminAccess();
+  if (!access?.isAdmin && !access?.sections.includes('trading-bot')) redirect('/profile');
 
   const {
     markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals,
@@ -46,9 +51,7 @@ export default async function AiWorkspacePage() {
       equityCurve={equityCurve}
       settings={settings}
       proposals={proposals}
-      user={user
-        ? { name: user.email ?? 'Signed in', initials: initialsOf(user) }
-        : { name: 'Highscore desk', initials: 'HS' }}
+      user={{ name: user.email ?? 'Signed in', initials: initialsOf(user) }}
     />
   );
 }

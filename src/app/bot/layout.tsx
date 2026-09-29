@@ -32,7 +32,9 @@ export default async function BotLayout({ children }: { children: React.ReactNod
     const h = await headers();
     const host = h.get('host')?.split(':')[0].toLowerCase() ?? '';
     const asked = h.get('x-bot-path');
-    const next = host.startsWith('bot.') ? (asked || '/') : '/bot';
+    const next = host.startsWith('bot.') || host.startsWith('ai.')
+      ? (asked || '/')
+      : '/bot';
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
