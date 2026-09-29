@@ -12,6 +12,7 @@ import { StaffMessageForm } from '@/components/admin/StaffMessageForm';
 import { AdminReportForm } from '@/components/admin/AdminReportForm';
 import { StaffPerfCard } from '@/components/admin/StaffPerfCard';
 import { StaffAccessCard } from '@/components/admin/StaffAccessCard';
+import { StaffPasswordReset } from '@/components/admin/StaffPasswordReset';
 import { getStaffAdminFull, listReportsForStaff, getUserAccess } from '@/lib/admin/staff-queries';
 import { getStaffPerformanceById } from '@/lib/admin/performance';
 import { getCurrentUser } from '@/lib/auth/queries';
@@ -304,6 +305,30 @@ export default async function AdminStaffDetailPage({ params }: PageProps) {
               </div>
             </div>
           </AdminCard>
+
+          {/* Sign-in access — full admins only. A password reset hands you the
+              ability to sign in AS this person, so it is not shown to someone
+              who merely holds the 'staff' section. */}
+          {viewerIsAdmin && (
+            <AdminCard>
+              <div className="p-5">
+                <h3 className="font-semibold text-fg text-sm flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-brand" /> Sign-in access
+                </h3>
+                <p className="mt-1 text-xs text-fg-subtle">
+                  Set a new password for {staff.full_name.split(' ')[0]}.
+                </p>
+                <div className="mt-4">
+                  <StaffPasswordReset
+                    staffId={staff.id}
+                    fullName={staff.full_name}
+                    workEmail={staff.work_email ?? null}
+                    hasAccount={!!staff.user_id}
+                  />
+                </div>
+              </div>
+            </AdminCard>
+          )}
 
           {/* Other shortcuts */}
           <AdminCard>

@@ -707,3 +707,55 @@ export async function setStaffSectionsAction(
   revalidatePath('/admin/staff');
   return { ok: true };
 }
+
+// ── Reset a staff member's password ──────────────────────────────────────
+// STRICT ADMIN ONLY, deliberately. Everything else in this file is gated on
+// requireSection('staff'), but a password reset is different in kind: it does
+// not change a record about a person, it hands you the ability to sign in AS
+// them. A colleague holding the 'staff' section could otherwise reset an
+// admin's password and inherit the whole back office. That is the same reason
+// setStaffSectionsAction is strict, and the reasoning applies here with more
+// force.
+//
+// The new password is returned to the caller ONCE so the admin can relay it,
+// and is never written to the audit log, never emailed, and never stored
+// anywhere. Supabase keeps only its hash.
+export async function resetStaffPasswordAction(
+  staffId: string,
+  newPassword: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireStrictAdmin();
+
+  if (!staffId) return { ok: false, message: 'Missing staff id.' };
+  if (!newPassword || newPassword.length < 8) {
+    return { ok: false, message: 'Password must be at least 8 characters.' };
+  }
+
+  const admin = serviceClient();
+  const { data: staff } = await admin
+    .from('staff')
+    .select('user_id, full_name, slug, work_email, status')
+    .eq('id', staffId)
+    .maybeSingle();
+
+  if (!staff)          return { ok: false, message: 'Staff member not found.' };
+  if (!staff.user_id)  return { ok: false, message: 'This staff member has no sign-in account.' };
+
+  const { error } = await admin.auth.admin.updateUserById(staff.user_id, {
+    password: newPassword,
+  });
+  if (error) return { ok: false, message: `Could not reset password: ${error.message}` };
+
+  // What changed is recorded; what it changed to is not. An audit trail that
+  // stores the password it was set to is a list of live credentials.
+  await logAudit({
+    action: 'staff.password_reset',
+    targetType: 'staff',
+    targetId: staffId,
+    targetLabel: `${staff.full_name} (${staff.slug})`,
+    diff: { password: { before: '********', after: '******** (reset by admin)' } },
+  });
+
+  revalidatePath(`/admin/staff/${staffId}`);
+  return { ok: true };
+}
