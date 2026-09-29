@@ -32,13 +32,18 @@ export default async function AiWorkspacePage() {
   // not require it.
   const user = await getCurrentUser().catch(() => null);
 
-  const { markets, closedTrades, equity, settings, proposals } = await getBotOverview();
+  const {
+    markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals,
+  } = await getBotOverview();
 
   return (
     <Workspace
       markets={markets}
+      configs={configs}
+      specs={specs}
       closedTrades={closedTrades}
       equity={equity}
+      equityCurve={equityCurve}
       settings={settings}
       proposals={proposals}
       user={user

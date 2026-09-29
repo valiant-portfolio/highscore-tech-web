@@ -17,7 +17,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createBotClient } from '@/lib/supabase/bot-client';
-import { CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2,
+  Crosshair, Search, Trash2, X, ChevronDown, LineChart, Grid3x3, BarChart3,
+  Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
+  Bookmark, FileText, Layers, Code2, Check, Star,
+} from 'lucide-react';
+import { TimeAgo } from './BotBits';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
@@ -25,7 +31,7 @@ import {
   type MouseEventParams,
 } from 'lightweight-charts';
 
-type Tool = 'cursor' | 'hline' | 'trend';
+type Tool = 'cursor' | 'hline' | 'trend' | 'text';
 
 // One browser Supabase client for the module, pointed at the BOT project — the
 // bot_* tables no longer live in the main app's database. There is no shared
@@ -44,6 +50,21 @@ const TIMEFRAMES: { label: string; value: string }[] = [
   { label: 'H1', value: 'H1' },
 ];
 const TF_VALUES = TIMEFRAMES.map((t) => t.value);
+
+// The design's full timeframe menu. Only the two above have candles — bar_sync
+// stores M15 and H1 (backend v7) — so the rest are listed and disabled rather
+// than offered and then answered with an empty chart.
+const ALL_TIMEFRAMES: { label: string; value: string }[] = [
+  { label: '1m', value: 'M1' }, { label: '5m', value: 'M5' }, { label: '15m', value: 'M15' },
+  { label: '30m', value: 'M30' }, { label: '1h', value: 'H1' }, { label: '4h', value: 'H4' },
+  { label: '1D', value: 'D1' }, { label: '1W', value: 'W1' }, { label: '1M', value: 'MN1' },
+];
+
+// Likewise: the series is a candlestick series and the trade markers and SL/TP
+// price lines hang off it, so the other six are shown and disabled.
+const CHART_TYPES = [
+  'Candles', 'Hollow Candles', 'Bars', 'Line', 'Area', 'Baseline', 'Heikin Ashi',
+] as const;
 const TF_SECONDS: Record<string, number> = {
   M15: 900, H1: 3600,
 };
@@ -70,10 +91,14 @@ interface Trade {
 // dragged. Keyed per symbol+timeframe — a level drawn on VOL25 M15 is meaningless
 // on EURUSD.
 type Drawing =
-  | { id: string; kind: 'hline'; price: number }
+  // `label` (optional) is what the text tool writes: a level that says WHY it
+  // is there — "Asia high" — instead of a bare line you have to remember.
+  | { id: string; kind: 'hline'; price: number; label?: string }
   | { id: string; kind: 'trend'; t1: number; v1: number; t2: number; v2: number };
 const DRAW_KEY = (sym: string, tf: string) => `bot-chart-draw:${sym}::${tf}`;
 const INDS_KEY = 'bot-chart-inds'; // active indicators persist globally (a user pref)
+const FAV_KEY = 'bot-chart-favs';  // starred markets, floated to the top of the search
+const IND_FAV_KEY = 'bot-chart-ind-favs'; // starred indicators, for the library's Favorites
 const newDrawId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 // Pixel distance from point (px,py) to segment (ax,ay)-(bx,by) — for grabbing a trend line.
 function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
@@ -86,6 +111,59 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
 
 const fmt = (n: number | null | undefined, digits: number) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits);
+
+/* ── Symbol search ────────────────────────────────────────────────────────
+ * Grouping and long names are derived from the symbol itself. Nothing in the
+ * database describes an instrument, and a hand-kept table would rot the day the
+ * broker adds a market — so an unrecognised symbol keeps its alias and lands in
+ * "Other" rather than being labelled with a guess.
+ */
+type AssetClass = 'fx' | 'metal' | 'index' | 'commodity' | 'other';
+
+const CLASS_TABS: { key: AssetClass | 'all'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'fx', label: 'Forex' },
+  { key: 'metal', label: 'Metals' },
+  { key: 'index', label: 'Indices' },
+  { key: 'commodity', label: 'Commodities' },
+];
+
+const CLASS_TAG: Record<AssetClass, string> = {
+  fx: 'FX', metal: 'METAL', index: 'INDEX', commodity: 'COMM', other: '',
+};
+
+const CURRENCY: Record<string, string> = {
+  EUR: 'Euro', USD: 'U.S. Dollar', GBP: 'British Pound', JPY: 'Japanese Yen',
+  AUD: 'Australian Dollar', NZD: 'New Zealand Dollar', CAD: 'Canadian Dollar',
+  CHF: 'Swiss Franc', XAU: 'Gold', XAG: 'Silver', XPT: 'Platinum',
+  XTI: 'WTI Crude', XBR: 'Brent Crude',
+};
+
+function classify(symbol: string): AssetClass {
+  const s = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const base = s.slice(0, 3);
+  const quote = s.slice(3, 6);
+  if (base === 'XAU' || base === 'XAG' || base === 'XPT') return 'metal';
+  if (base === 'XTI' || base === 'XBR' || s.startsWith('OIL')) return 'commodity';
+  if (s.length === 6 && CURRENCY[base] && CURRENCY[quote]) return 'fx';
+  if (/^(VOL|US30|US50|NAS|SPX|GER|UK1|JP2|BOOM|CRASH|STEP)/.test(s)) return 'index';
+  return 'other';
+}
+
+/**
+ * "EURUSD" → "Euro / U.S. Dollar".
+ *
+ * For anything that is not a recognised pair, the broker's own full name is the
+ * subtitle — "VOL25" sits above "Volatility 25 Index" — and a symbol with
+ * neither gets no subtitle at all, rather than an invented one.
+ */
+function describe(symbol: string, alias: string): string {
+  const s = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const base = CURRENCY[s.slice(0, 3)];
+  const quote = CURRENCY[s.slice(3, 6)];
+  if (s.length === 6 && base && quote) return `${base} / ${quote}`;
+  return symbol !== alias ? symbol : '';
+}
 
 interface Quote { bid: number | null; ask: number | null; spread: number | null; updated_at: string | null; pnl: number | null; state: string | null }
 
@@ -145,7 +223,8 @@ export interface ChartPalette { up: string; down: string; text: string }
 const DESK_PALETTE: ChartPalette = { up: '#22c55e', down: '#ef4444', text: '#98A2B3' };
 
 export function MarketChart({
-  markets, openTrades = [], showGrid = true, palette = DESK_PALETTE,
+  markets, openTrades = [], showGrid = true, palette = DESK_PALETTE, focusSymbol = null,
+  chrome = 'desk',
 }: {
   markets: { symbol: string; alias: string }[];
   openTrades?: { symbol: string; side: string }[];
@@ -153,6 +232,14 @@ export function MarketChart({
    *  unchanged; the AI workspace drives it from its Chart panel. */
   showGrid?: boolean;
   palette?: ChartPalette;
+  /** Market the surrounding page has selected — the chart follows it. Optional:
+   *  left null, the picker below the chart stays the only thing that moves it,
+   *  which is how the bot dashboard uses this. */
+  focusSymbol?: string | null;
+  /** 'desk' — the dashboard's controls above a fixed-height card, unchanged.
+   *  'workspace' — fills its container with the trading-desk chrome: top bar,
+   *  vertical tool rail, status strip, and the symbol search. */
+  chrome?: 'desk' | 'workspace';
 }) {
   // A market's label reads "Alias — SYMBOL", but when the alias IS the symbol
   // (e.g. NZDUSD) that renders as "NZDUSD — NZDUSD". Show it once in that case.
@@ -165,25 +252,68 @@ export function MarketChart({
   const openBySymbol = new Map<string, string>();
   for (const t of openTrades) if (!openBySymbol.has(t.symbol)) openBySymbol.set(t.symbol, t.side);
 
+  // The first market on BOTH the server and the first client render. The saved
+  // market is restored in an effect below, after hydration — reading
+  // localStorage in the initialiser made the server render "AUDUSD" and the
+  // browser render whatever you last looked at, which is a hydration mismatch
+  // and exactly the "1 Issue" the dev overlay kept reporting.
+  const [symbol, setSymbol] = useState(() => markets[0]?.symbol ?? '');
+  const [tf, setTf] = useState<string>('M15');
+
   // Restore the last-viewed market + timeframe so a refresh keeps your place.
-  const [symbol, setSymbol] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-        if (s.symbol && markets.some((m) => m.symbol === s.symbol)) return s.symbol as string;
-      } catch { /* ignore */ }
-    }
-    return markets[0]?.symbol ?? '';
-  });
-  const [tf, setTf] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-        if (s.tf && TF_VALUES.includes(s.tf)) return s.tf as string;
-      } catch { /* ignore */ }
-    }
-    return 'M15';
-  });
+  // setState in an effect is the point here: this reads an external store
+  // (localStorage) that does not exist during SSR.
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (s.symbol && markets.some((m) => m.symbol === s.symbol)) setSymbol(s.symbol as string);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (s.tf && TF_VALUES.includes(s.tf)) setTf(s.tf as string);
+    } catch { /* ignore */ }
+    // Once, on mount. Re-running on `markets` would undo a later pick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tapping a market anywhere in the workspace brings the chart with it —
+  // otherwise you read one market's reasons beside another market's candles.
+  //
+  // Adjusted during render, not in an effect (the documented pattern for
+  // "state that follows a prop"): applied once per CHANGE of focus, so the
+  // parent rebuilding its markets array on every render cannot snap the chart
+  // back and undo a pick made here. Guarded on membership so a stale symbol
+  // cannot blank the chart.
+  const [appliedFocus, setAppliedFocus] = useState<string | null>(null);
+  if (focusSymbol && focusSymbol !== appliedFocus) {
+    setAppliedFocus(focusSymbol);
+    if (markets.some((m) => m.symbol === focusSymbol)) setSymbol(focusSymbol);
+  }
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  // The Chart panel's switch and the rail's button are two switches on one
+  // light: null means "nobody has touched the rail, follow the prop", and
+  // whichever was used last wins. Derived, so there is no prop→state effect.
+  const [gridOverride, setGridOverride] = useState<boolean | null>(null);
+  const gridOn = gridOverride ?? showGrid;
+  const setGridOn = (next: boolean | ((v: boolean) => boolean)) =>
+    setGridOverride((prev) => (typeof next === 'function' ? next(prev ?? showGrid) : next));
+  const [drawingsHidden, setDrawingsHidden] = useState(false);
+  const [drawingsLocked, setDrawingsLocked] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [indFavs, setIndFavs] = useState<string[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setIndFavs(JSON.parse(localStorage.getItem(IND_FAV_KEY) || '[]') as string[]); } catch { /* ignore */ }
+  }, []);
+  const toggleIndFav = (id: string) => {
+    setIndFavs((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try { localStorage.setItem(IND_FAV_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const lockedRef = useRef(false);
+  useEffect(() => { lockedRef.current = drawingsLocked; }, [drawingsLocked]);
   const [digits, setDigits] = useState(5);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
@@ -239,7 +369,7 @@ export function MarketChart({
     const series = seriesRef.current, chart = chartRef.current;
     if (!series || !chart) return;
     if (d.kind === 'hline') {
-      hlineObjs.current.set(d.id, series.createPriceLine({ price: d.price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '' }));
+      hlineObjs.current.set(d.id, series.createPriceLine({ price: d.price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: d.label ?? '' }));
     } else {
       const line = chart.addSeries(LineSeries, { color: '#eab308', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
       line.setData([{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }].sort((a, b) => (a.time as number) - (b.time as number)));
@@ -262,6 +392,138 @@ export function MarketChart({
     drawings.current = [];
     trendStart.current = null;
     persistDrawings();
+  };
+
+  // Undo / redo, over the drawings only — the chart's pan and zoom are not
+  // edits and nobody expects ⟲ to scroll them back. Redo is dropped the moment
+  // a new line is drawn, which is what every editor does.
+  const redoStack = useRef<Drawing[]>([]);
+  const repaint = () => { if (!drawingsHidden) renderDrawings(); persistDrawings(); };
+  const undoDrawing = () => {
+    const d = drawings.current.pop();
+    if (!d) return;
+    redoStack.current.push(d);
+    repaint();
+  };
+  const redoDrawing = () => {
+    const d = redoStack.current.pop();
+    if (!d) return;
+    drawings.current.push(d);
+    repaint();
+  };
+
+  // A picture of the chart as it stands, drawings and all. takeScreenshot()
+  // returns the composited canvas, so what saves is what you are looking at.
+  // ── The rest of the top bar ───────────────────────────────────────────
+  // Trade overlays (entry / SL / TP price lines and the fill marker) are a
+  // layer over the candles, so the layers icon is what hides them. They are
+  // rebuilt by the loader, so hiding just strips them until the next load —
+  // hence the ref the loader also reads.
+  const [overlaysOn, setOverlaysOn] = useState(true);
+  const [reloadTick, setReloadTick] = useState(0);
+  const toggleOverlays = () => {
+    const next = !overlaysOn;
+    setOverlaysOn(next);
+    const series = seriesRef.current;
+    if (!next && series) {
+      overlayLines.current.forEach((l) => series.removePriceLine(l));
+      overlayLines.current = [];
+      markersApi.current?.setMarkers([]);
+    } else if (next) {
+      setReloadTick((t) => t + 1);
+    }
+  };
+
+  // Favourites: the markets you actually watch, floated to the top of the
+  // search. Per browser, like the drawings — nothing here is account state.
+  const [favs, setFavs] = useState<string[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setFavs(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]); } catch { /* ignore */ }
+  }, []);
+  const toggleFav = () => {
+    setFavs((prev) => {
+      const next = prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol];
+      try { localStorage.setItem(FAV_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  /** The candles on screen, as CSV on the clipboard — the chart's data, out. */
+  const copyCandles = async () => {
+    const bars = barsRef.current;
+    if (!bars.length) return;
+    const rows = ['time,open,high,low,close']
+      .concat(bars.map((b) => [
+        new Date(((b.time as number) - new Date().getTimezoneOffset() * 60) * 1000).toISOString(),
+        b.open, b.high, b.low, b.close,
+      ].join(',')));
+    try {
+      await navigator.clipboard.writeText(rows.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked — nothing to recover */ }
+  };
+  const [copied, setCopied] = useState(false);
+
+  /**
+   * A picture of the whole panel, not just the candles.
+   *
+   * takeScreenshot() returns the chart's own canvas only — the top bar, rail
+   * and status strip are DOM and never appear in it, so a raw save comes out a
+   * nameless chart. Painting the same header and footer onto the exported
+   * canvas gives an image that says what it is: which market, which timeframe,
+   * the P&L, and when it was taken.
+   */
+  const saveScreenshot = () => {
+    const shot = chartRef.current?.takeScreenshot();
+    if (!shot) return;
+
+    const HEAD = 44, FOOT = 28, PAD = 14;
+    const out = document.createElement('canvas');
+    out.width = shot.width;
+    out.height = shot.height + HEAD + FOOT;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#0b0f0d';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(shot, 0, HEAD);
+    ctx.textBaseline = 'middle';
+
+    ctx.font = 'bold 16px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(alias, PAD, HEAD / 2);
+    const w = ctx.measureText(alias).width;
+    ctx.font = '13px ui-monospace, monospace';
+    ctx.fillStyle = '#9AA0A6';
+    ctx.fillText(tf, PAD + w + 12, HEAD / 2);
+
+    if (quote?.pnl != null) {
+      ctx.font = 'bold 14px ui-monospace, monospace';
+      ctx.fillStyle = Number(quote.pnl) >= 0 ? palette.up : palette.down;
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        `${Number(quote.pnl) >= 0 ? '+' : ''}${Number(quote.pnl).toFixed(2)}`,
+        out.width - PAD, HEAD / 2,
+      );
+      ctx.textAlign = 'left';
+    }
+
+    ctx.font = '11px ui-monospace, monospace';
+    ctx.fillStyle = '#6b7280';
+    const footY = HEAD + shot.height + FOOT / 2;
+    ctx.fillText(
+      `${stale ? 'feed stale' : 'market open'} · ${new Date().toISOString().slice(0, 19).replace('T', ' ')} UTC`,
+      PAD, footY,
+    );
+    ctx.textAlign = 'right';
+    ctx.fillText('highscore.ai', out.width - PAD, footY);
+
+    const a = document.createElement('a');
+    a.href = out.toDataURL('image/png');
+    a.download = `${alias}-${tf}-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
   };
 
   // Draw the active indicators from the currently-loaded candles. Clear-then-draw
@@ -332,18 +594,36 @@ export function MarketChart({
   useEffect(() => {
     chartRef.current?.applyOptions({
       grid: {
-        vertLines: { color: 'rgba(255,255,255,0.05)', visible: showGrid },
-        horzLines: { color: 'rgba(255,255,255,0.05)', visible: showGrid },
+        vertLines: { color: 'rgba(255,255,255,0.05)', visible: gridOn },
+        horzLines: { color: 'rgba(255,255,255,0.05)', visible: gridOn },
       },
     });
-  }, [showGrid]);
+  }, [gridOn]);
+
+  // The eye hides the drawings without deleting them: the objects come off the
+  // chart, the list in `drawings` (and localStorage) is untouched, so showing
+  // them again brings back exactly what was there. Deleting is the trash.
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+    if (drawingsHidden) removeDrawingObjects();
+    else renderDrawings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawingsHidden]);
 
   // ── Create the chart once ─────────────────────────────────────────────
   useEffect(() => {
     if (!wrapRef.current) return;
     const chart = createChart(wrapRef.current, {
       autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: palette.text, fontFamily: 'inherit' },
+      // attributionLogo: lightweight-charts v5 paints a TradingView mark into
+      // the bottom-left of the canvas by default. It sits on the candles and
+      // reads as this desk being a TradingView screen, which it is not.
+      layout: {
+        background: { color: 'transparent' },
+        textColor: palette.text,
+        fontFamily: 'inherit',
+        attributionLogo: false,
+      },
       // Created visible; the effect above applies the current setting on
       // mount. Reading the prop here would make the chart depend on it and
       // rebuild — dropping every drawing — each time the grid is toggled.
@@ -373,6 +653,13 @@ export function MarketChart({
       if (price == null) return;
       if (t === 'hline') {
         const d: Drawing = { id: newDrawId(), kind: 'hline', price };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings();
+      } else if (t === 'text') {
+        // A labelled level. Cancelling the prompt places nothing — an empty
+        // label would just be a plain line the text tool pretended to name.
+        const label = window.prompt('Label for this level');
+        if (label == null || !label.trim()) return;
+        const d: Drawing = { id: newDrawId(), kind: 'hline', price, label: label.trim() };
         drawings.current.push(d); addDrawingObject(d); persistDrawings();
       } else if (t === 'trend') {
         if (!trendStart.current) { trendStart.current = { time: param.time as Time, value: price }; return; }
@@ -416,6 +703,9 @@ export function MarketChart({
     };
     const onDown = (e: PointerEvent) => {
       if (toolRef.current !== 'cursor') return;
+      // Locked: the lines stay where they are. Without this, a pan that starts
+      // near a level silently drags the level instead of the chart.
+      if (lockedRef.current) return;
       const { x, y } = localXY(e);
       const hit = hitTest(x, y);
       if (!hit) return;                       // nothing grabbed → let the chart pan
@@ -610,7 +900,10 @@ export function MarketChart({
     })();
 
     return () => { alive = false; };
-  }, [symbol, tf]);
+    // reloadTick: turning the trade overlays back on rebuilds them from the
+    // same query that drew them in the first place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, tf, reloadTick]);
 
   // ── Poll the live quote; move the forming candle + price line ─────────
   useEffect(() => {
@@ -664,6 +957,298 @@ export function MarketChart({
   const stale = quote?.updated_at ? Date.now() - new Date(quote.updated_at).getTime() > 300_000 : true;
   // Nothing to draw: no candle history AND no live feed to build one from.
   const showEmpty = hasHistory === false && stale && !loading;
+
+  /* ── Workspace chrome ───────────────────────────────────────────────────
+   * The trading-desk layout: a top bar, a vertical tool rail, and a status
+   * strip. Opt-in, so the admin dashboard keeps the controls it has.
+   */
+  if (chrome === 'workspace') {
+    const canvas = (
+      <div className="relative min-w-0 flex-1">
+        <div
+          ref={wrapRef}
+          className={`h-full w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`}
+          style={tool !== 'cursor' ? { cursor: 'crosshair' } : undefined}
+        />
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">
+            Loading {alias}…
+          </div>
+        )}
+        {showEmpty && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover">
+              <CandlestickChart className="h-6 w-6 text-fg-subtle" />
+            </div>
+            <p className="text-sm font-semibold text-fg">No candles for {alias}</p>
+            <p className="max-w-md text-xs leading-relaxed text-fg-muted">
+              No history in <code className="font-mono text-fg-subtle">bot_bars</code> for this
+              market/timeframe. Candles are synced by{' '}
+              <code className="font-mono text-fg-subtle">scripts.bar_sync</code> on the VM — if it
+              isn’t running, history stops refreshing.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+
+    return (
+      <div
+        ref={cardRef}
+        className={`relative flex h-full min-h-0 flex-col overflow-hidden bg-bg ${fs ? 'h-screen' : ''}`}
+      >
+        {/* Top bar */}
+        <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-2">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            title="Change market"
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 transition-colors hover:bg-brand/10"
+          >
+            {/* The ticker, not the broker's full name: MT5 calls this market
+                "Volatility 25 Index", which shoves the rest of the bar off the
+                edge. The long name lives in the search list. */}
+            <SymbolAvatar symbol={alias} />
+            <span className="max-w-[10rem] truncate text-sm font-bold text-fg" title={symbol}>
+              {alias}
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+          </button>
+
+          {/* Timeframe. bot_bars syncs M15 and H1 only (backend v7), so the
+              menu lists two — a wider one would be a menu of dead entries. */}
+          <TopMenu label={tf}>
+            {(close) => ALL_TIMEFRAMES.map((f) => {
+              const synced = TF_VALUES.includes(f.value);
+              return (
+                <MenuItem
+                  key={f.value}
+                  active={tf === f.value}
+                  disabled={!synced}
+                  title={synced ? undefined : 'bar_sync stores M15 and H1 only — no candles exist for this'}
+                  onClick={synced ? () => { setTf(f.value); close(); } : undefined}
+                >
+                  {f.label}
+                </MenuItem>
+              );
+            })}
+          </TopMenu>
+
+          {/* Chart type. The series is a candlestick series and its markers and
+              price lines hang off it, so Line and Area are listed as the design
+              lists them, and disabled because picking one would change nothing. */}
+          <TopMenu label="Candles">
+            {() => CHART_TYPES.map((t) => (
+              <MenuItem
+                key={t}
+                active={t === 'Candles'}
+                disabled={t !== 'Candles'}
+                title={t === 'Candles' ? undefined : 'not drawn yet — the series is a candlestick series'}
+              >
+                <CandlestickChart className="mr-2 inline-block h-3.5 w-3.5 align-middle text-brand" />
+                {t}
+              </MenuItem>
+            ))}
+          </TopMenu>
+
+          {/* Layout: what the chart shows, as opposed to what it plots. */}
+          <TopMenu label="Layout">
+            {(close) => (
+              <>
+                <MenuItem onClick={() => { chartRef.current?.timeScale().fitContent(); close(); }}>
+                  Fit to data
+                </MenuItem>
+                <MenuItem onClick={() => { chartRef.current?.timeScale().scrollToRealTime(); close(); }}>
+                  Jump to latest
+                </MenuItem>
+                {/* Not `active`: these are actions, and a green "Hide grid"
+                    reads as "the grid is hidden" — the opposite of the truth. */}
+                <MenuItem onClick={() => { setGridOn((v) => !v); close(); }}>
+                  {gridOn ? 'Hide grid' : 'Show grid'}
+                </MenuItem>
+                <MenuItem onClick={() => { toggleOverlays(); close(); }}>
+                  {overlaysOn ? 'Hide trade overlays' : 'Show trade overlays'}
+                </MenuItem>
+              </>
+            )}
+          </TopMenu>
+
+          <button
+            type="button"
+            onClick={() => setLibraryOpen(true)}
+            className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm text-fg transition-colors hover:bg-brand/10 hover:text-brand"
+          >
+            <LineChart className="h-3.5 w-3.5" />
+            Indicators
+          </button>
+
+          <RailBtn
+            active={favs.includes(symbol)}
+            onClick={toggleFav}
+            title={favs.includes(symbol) ? 'Remove from favourites' : 'Add to favourites'}
+          >
+            <Bookmark className={`h-4 w-4 ${favs.includes(symbol) ? 'fill-current' : ''}`} />
+          </RailBtn>
+
+          <RailBtn onClick={undoDrawing} title="Undo drawing">
+            <Undo2 className="h-4 w-4" />
+          </RailBtn>
+          <RailBtn onClick={redoDrawing} title="Redo drawing">
+            <Redo2 className="h-4 w-4" />
+          </RailBtn>
+
+          <div className="ml-auto flex items-center gap-1 pr-1">
+            {quote?.pnl != null && (
+              <span className="text-right leading-tight">
+                <span className="block text-[9px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+                  Open P&amp;L
+                </span>
+                <span
+                  className={`block font-mono tabular text-sm font-bold ${
+                    Number(quote.pnl) >= 0 ? 'text-brand' : 'text-danger'
+                  }`}
+                >
+                  {Number(quote.pnl) >= 0 ? '+' : ''}{Number(quote.pnl).toFixed(2)}
+                </span>
+              </span>
+            )}
+            <a
+              href={`/bot/${encodeURIComponent(symbol)}`}
+              title={`${alias} — the bot's full read on this market`}
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-brand/10 hover:text-brand"
+            >
+              <FileText className="h-4 w-4" />
+            </a>
+            <RailBtn
+              active={overlaysOn}
+              onClick={toggleOverlays}
+              title={overlaysOn ? 'Hide entry / SL / TP overlays' : 'Show entry / SL / TP overlays'}
+            >
+              <Layers className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn onClick={copyCandles} title={copied ? 'Copied' : 'Copy these candles as CSV'}>
+              {copied ? <Check className="h-4 w-4 text-brand" /> : <Code2 className="h-4 w-4" />}
+            </RailBtn>
+            <RailBtn onClick={saveScreenshot} title="Save a picture of this chart">
+              <Camera className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn onClick={toggleFullscreen} title={fs ? 'Exit full screen' : 'Full screen'}>
+              {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </RailBtn>
+          </div>
+        </div>
+
+        {/* Canvas, with the tool rail floating ON it rather than beside it —
+            the rail belongs to the chart, and a bordered column outside it
+            just eats width from the candles. */}
+        {/* pl-12 clears the rail: it is absolutely positioned, so without this
+            it would sit on top of the left-most candles and the price axis. */}
+        <div className="relative flex min-h-0 flex-1 pl-12">
+          {canvas}
+
+          {/* Flush to the chart's left edge and full height, as in the design.
+              Inset-and-floating left a band of dead canvas beside it. */}
+          <div className="absolute inset-y-0 left-0 z-20 flex w-12 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm scrollbar-none">
+            <RailBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Crosshair">
+              <Crosshair className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points">
+              <PenLine className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price">
+              <LineChart className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn active={gridOn} onClick={() => setGridOn((v) => !v)} title={gridOn ? 'Hide grid' : 'Show grid'}>
+              <Grid3x3 className="h-4 w-4" />
+            </RailBtn>
+            <RailBtn onClick={toggleFullscreen} title={fs ? 'Exit full screen' : 'Full screen'}>
+              <Maximize2 className="h-4 w-4" />
+            </RailBtn>
+
+            <RailBtn active={tool === 'text'} onClick={() => setTool('text')} title="Label a level — click a price, then name it">
+              <Type className="h-4 w-4" />
+            </RailBtn>
+            {/* Same destination as the top bar's Indicators — one library, two
+                ways in, rather than two different indicator UIs. */}
+            <RailBtn active={inds.size > 0} onClick={() => setLibraryOpen(true)} title="Indicators">
+              <BarChart3 className="h-4 w-4" />
+            </RailBtn>
+
+            <span className="my-1 h-px w-6 bg-border" />
+
+            {/* Snap back to the live edge after scrolling into history. */}
+            <RailBtn
+              onClick={() => chartRef.current?.timeScale().scrollToRealTime()}
+              title="Jump to the latest candle"
+            >
+              <Zap className="h-4 w-4" />
+            </RailBtn>
+
+            {/* These act on YOUR drawings: freeze them, hide them, delete them.
+                Hiding keeps the list; only the trash empties it. */}
+            <RailBtn
+              active={drawingsLocked}
+              onClick={() => setDrawingsLocked((v) => !v)}
+              title={drawingsLocked ? 'Unlock drawings' : 'Lock drawings in place'}
+            >
+              {drawingsLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </RailBtn>
+            <RailBtn
+              active={drawingsHidden}
+              onClick={() => setDrawingsHidden((v) => !v)}
+              title={drawingsHidden ? 'Show drawings' : 'Hide drawings'}
+            >
+              {drawingsHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </RailBtn>
+
+            <span className="my-1 h-px w-6 bg-border" />
+
+            <RailBtn onClick={clearDrawings} title="Delete all drawings">
+              <Trash2 className="h-4 w-4" />
+            </RailBtn>
+          </div>
+        </div>
+
+        {/* Status strip. "Market open" is the quote feed moving — the only
+            evidence this page actually has that the market is trading. */}
+        <div className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-3 text-[11px]">
+          <span className={`flex items-center gap-1.5 font-semibold ${stale ? 'text-danger' : 'text-brand'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-danger' : 'bg-brand'}`} />
+            {stale ? 'Feed stale' : 'Market open'}
+          </span>
+          <span className="font-mono text-fg-subtle">
+            {quote?.updated_at ? <>Last update <TimeAgo iso={quote.updated_at} /></> : 'No quote yet'}
+          </span>
+          <span className="ml-auto font-mono text-fg-subtle">
+            {quote?.updated_at ? `${new Date(quote.updated_at).toISOString().slice(11, 19)} UTC` : '—'}
+          </span>
+          <span className="rounded-sm bg-surface-hover px-1.5 py-0.5 font-mono font-bold text-fg-muted">
+            {tf}
+          </span>
+        </div>
+
+        {libraryOpen && (
+          <IndicatorLibrary
+            active={inds}
+            favs={indFavs}
+            onToggle={toggleInd}
+            onFav={toggleIndFav}
+            onClose={() => setLibraryOpen(false)}
+          />
+        )}
+
+        {searchOpen && (
+          <SymbolSearch
+            markets={markets}
+            current={symbol}
+            favs={favs}
+            onPick={(s) => { setSymbol(s); setSearchOpen(false); }}
+            onClose={() => setSearchOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -796,6 +1381,370 @@ export function MarketChart({
         )}
       </div>
     </div>
+  );
+}
+
+/** The two-letter square the mock puts before a symbol. */
+function SymbolAvatar({ symbol, size = 'sm' }: { symbol: string; size?: 'sm' | 'md' }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-sm bg-brand/15 font-bold text-brand ${
+        size === 'md' ? 'h-8 w-8 text-[11px]' : 'h-6 w-6 text-[10px]'
+      }`}
+    >
+      {symbol.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
+/** Full-panel symbol picker: type to filter, or narrow by asset class. */
+function SymbolSearch({ markets, current, favs, onPick, onClose }: {
+  markets: { symbol: string; alias: string }[];
+  current: string;
+  favs: string[];
+  onPick: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [cls, setCls] = useState<AssetClass | 'all'>('all');
+
+  const needle = q.trim().toLowerCase();
+  const rows = markets
+    .map((m) => ({ ...m, cls: classify(m.symbol), desc: describe(m.symbol, m.alias) }))
+    .filter((m) => (cls === 'all' ? true : m.cls === cls))
+    .filter((m) =>
+      !needle
+      || m.symbol.toLowerCase().includes(needle)
+      || m.alias.toLowerCase().includes(needle)
+      || m.desc.toLowerCase().includes(needle))
+    // Starred markets first — that is the whole point of starring one.
+    .sort((a, b) => Number(favs.includes(b.symbol)) - Number(favs.includes(a.symbol)));
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-start justify-center overflow-hidden p-4 sm:p-8">
+      {/* Backdrop: dismisses, and keeps the chart visible behind the card so
+          the picker reads as a layer over it rather than a new screen. */}
+      <button
+        type="button"
+        aria-label="Dismiss symbol search"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/60"
+      />
+      <div className="relative flex max-h-full w-full max-w-[460px] flex-col overflow-hidden rounded-sm border border-border bg-bg-elevated shadow-xl">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <h3 className="text-sm font-bold text-fg">Symbol Search</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close symbol search"
+          className="ml-auto rounded-sm p-1 text-fg-subtle transition-colors hover:bg-brand/10 hover:text-brand"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="px-4 pt-3">
+        {/* Neutral until it is focused — a permanent green outline reads as a
+            validation state on a field that has nothing to validate. */}
+        <div className="flex items-center gap-2 rounded-sm border border-border px-3 py-2 focus-within:border-brand">
+          <Search className="h-4 w-4 shrink-0 text-fg-subtle" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose();
+              if (e.key === 'Enter' && rows[0]) onPick(rows[0].symbol);
+            }}
+            placeholder="Search symbols"
+            // focus-visible:outline-none — the global focus ring would draw a
+            // second green outline inside the box that already shows focus.
+            // Inline, not a class: globals.css paints a 3px brand ring on every
+            // :focus-visible input, and the box around this one already shows
+            // focus — two green rings, one inside the other.
+            style={{ outline: 'none', boxShadow: 'none' }}
+            className="min-w-0 flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle"
+          />
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1">
+          {CLASS_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setCls(t.key)}
+              className={`rounded-sm px-2.5 py-1 text-[13px] transition-colors ${
+                cls === t.key
+                  ? 'bg-brand/15 font-semibold text-brand'
+                  : 'text-fg-muted hover:bg-brand/10 hover:text-brand'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        {rows.length === 0 ? (
+          <p className="py-10 text-center text-sm text-fg-subtle">
+            Nothing matches “{q}”. Only markets the bot follows are listed.
+          </p>
+        ) : (
+          <ul>
+            {rows.map((m) => (
+              <li key={m.symbol}>
+                <button
+                  type="button"
+                  onClick={() => onPick(m.symbol)}
+                  className={`flex w-full items-center gap-2.5 rounded-sm px-2 py-2 text-left transition-colors hover:bg-brand/10 ${
+                    m.symbol === current ? 'bg-brand/10' : ''
+                  }`}
+                >
+                  <SymbolAvatar symbol={m.alias} />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 truncate text-sm font-bold text-fg">
+                      {m.alias}
+                      {favs.includes(m.symbol) && <Bookmark className="h-3 w-3 shrink-0 fill-current text-brand" />}
+                    </span>
+                    {m.desc && <span className="block truncate text-[11px] text-fg-subtle">{m.desc}</span>}
+                  </span>
+                  {CLASS_TAG[m.cls] && (
+                    <span className="ml-auto shrink-0 rounded-sm bg-surface-hover px-1.5 py-0.5 text-[10px] font-bold text-fg-muted">
+                      {CLASS_TAG[m.cls]}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The indicator library.
+ *
+ * The design's shape — search, categories down the side, star-to-favourite —
+ * over what this chart can actually plot: four, computed in the browser from
+ * the loaded candles. A category with nothing in it says so rather than
+ * listing names that would draw nothing. Orderflow needs tick data the bot
+ * does not store; the Highscore library is where the bot's own features
+ * (ADX, RSI, EMA50/200 — it computes them, it just never saves them per bar)
+ * would land once they are persisted.
+ */
+const IND_CATEGORIES: { key: string; label: string; note?: string }[] = [
+  { key: 'favorites', label: 'Favorites' },
+  { key: 'basic', label: 'Basic' },
+  { key: 'orderflow', label: 'Orderflow', note: 'Needs tick-level data. bot_bars stores OHLC candles only.' },
+  { key: 'highscore', label: 'Highscore', note: 'The bot computes ADX, RSI and its EMAs to decide trades, but stores no per-bar history of them yet.' },
+];
+
+function IndicatorLibrary({ active, favs, onToggle, onFav, onClose }: {
+  active: Set<IndId>;
+  favs: string[];
+  onToggle: (id: IndId) => void;
+  onFav: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('basic');
+
+  const needle = q.trim().toLowerCase();
+  const rows = IND_META
+    .filter((m) => (cat === 'favorites' ? favs.includes(m.id) : cat === 'basic'))
+    .filter((m) => !needle || m.label.toLowerCase().includes(needle) || m.title.toLowerCase().includes(needle));
+  const note = IND_CATEGORIES.find((c) => c.key === cat)?.note;
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-start justify-center overflow-hidden p-4 sm:p-8">
+      <button
+        type="button"
+        aria-label="Dismiss indicators"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/60"
+      />
+      <div className="relative flex max-h-full w-full max-w-[620px] flex-col overflow-hidden rounded-sm border border-border bg-bg-elevated shadow-xl">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <h3 className="text-sm font-bold text-fg">Indicators</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close indicators"
+            className="ml-auto rounded-sm p-1 text-fg-subtle transition-colors hover:bg-brand/10 hover:text-brand"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-4 pt-3">
+          <div className="flex items-center gap-2 rounded-sm border border-border px-3 py-2 focus-within:border-brand">
+            <Search className="h-4 w-4 shrink-0 text-fg-subtle" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+              placeholder="Search indicators"
+              // Inline, not a class: globals.css paints a 3px brand ring on every
+            // :focus-visible input, and the box around this one already shows
+            // focus — two green rings, one inside the other.
+            style={{ outline: 'none', boxShadow: 'none' }}
+            className="min-w-0 flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle"
+            />
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 gap-3 px-4 py-3">
+          <nav className="w-36 shrink-0">
+            {IND_CATEGORIES.map((c, i) => (
+              <div key={c.key}>
+                {i === 1 && (
+                  <p className="px-2 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+                    Built-ins
+                  </p>
+                )}
+                {i === 3 && (
+                  <p className="px-2 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+                    Library
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCat(c.key)}
+                  className={`block w-full rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
+                    cat === c.key ? 'bg-brand/15 font-semibold text-brand' : 'text-fg-muted hover:bg-brand/10 hover:text-brand'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              </div>
+            ))}
+          </nav>
+
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto border-l border-border pl-3">
+            {rows.length === 0 ? (
+              <p className="px-2 py-8 text-center text-[13px] leading-relaxed text-fg-subtle">
+                {note ?? (cat === 'favorites' ? 'Star an indicator to keep it here.' : 'Nothing matches.')}
+              </p>
+            ) : (
+              <ul>
+                {rows.map((m) => (
+                  <li key={m.id} className="flex items-center gap-2 rounded-sm px-2 py-2 hover:bg-brand/10">
+                    <button type="button" onClick={() => onToggle(m.id)} className="min-w-0 flex-1 text-left">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: active.has(m.id) ? m.color : 'transparent', boxShadow: `inset 0 0 0 1px ${m.color}` }}
+                        />
+                        <span className={`truncate text-sm ${active.has(m.id) ? 'font-bold text-fg' : 'text-fg'}`}>
+                          {m.title}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block pl-4 text-[11px] text-fg-subtle">
+                        {active.has(m.id) ? 'On the chart' : 'Built-in'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onFav(m.id)}
+                      aria-label={favs.includes(m.id) ? 'Unstar' : 'Star'}
+                      className="shrink-0 rounded-sm p-1 text-fg-subtle transition-colors hover:text-brand"
+                    >
+                      <Star className={`h-4 w-4 ${favs.includes(m.id) ? 'fill-current text-brand' : ''}`} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A labelled dropdown in the chart's top bar. */
+function TopMenu({ label, icon, children }: {
+  label: string;
+  icon?: React.ReactNode;
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors ${
+          open ? 'bg-brand/10 text-brand' : 'text-fg hover:bg-brand/10 hover:text-brand'
+        }`}
+      >
+        {icon}
+        {label}
+        <ChevronDown className="h-3.5 w-3.5 text-fg-subtle" />
+      </button>
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Dismiss menu"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <div className="absolute left-0 top-[calc(100%+4px)] z-40 w-40 overflow-hidden rounded-sm border border-border bg-surface-raised py-1 shadow-xl">
+            {children(() => setOpen(false))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MenuItem({ active, disabled, title, onClick, children }: {
+  active?: boolean;
+  disabled?: boolean;
+  title?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+        active ? 'bg-brand/15 font-semibold text-brand' : 'text-fg'
+      } ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-brand/10 hover:text-brand'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Vertical tool rail. Every button here does something — the mock's extra
+ *  glyphs are left out rather than drawn dead. */
+function RailBtn({ active, onClick, title, children }: {
+  active?: boolean; onClick: () => void; title: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
+        active
+          ? 'bg-brand/15 text-brand ring-1 ring-brand/40'
+          : 'text-fg-muted hover:bg-brand/10 hover:text-brand'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

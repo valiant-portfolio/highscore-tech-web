@@ -133,14 +133,28 @@ export function Duration({ from, className = '' }: { from: string | null | undef
 // tiers were dropped. Keyed on the exact strings the bot writes to
 // bot_market_state.entry_trend / htf_trend.
 const TREND_STYLE: Record<string, { cls: string; dot: string }> = {
-  'uptrend':   { cls: 'bg-success/20 text-success',     dot: '🟢' },
-  'sideways':  { cls: 'bg-surface-hover text-fg-muted', dot: '⚪' },
-  'downtrend': { cls: 'bg-danger/20 text-danger',       dot: '🔴' },
+  'uptrend':          { cls: 'bg-success/20 text-success',     dot: '🟢' },
+  'sideways':         { cls: 'bg-surface-hover text-fg-muted', dot: '⚪' },
+  'downtrend':        { cls: 'bg-danger/20 text-danger',       dot: '🔴' },
+  // The bot writes five tiers, not three (live/trader.py). Before these
+  // existed, "Strong Downtrend" missed the map and rendered as the grey
+  // fallback — a market falling hard looked exactly like a quiet one. Strong
+  // gets the solid fill, weak the tint, so the colour carries the conviction.
+  'strong uptrend':   { cls: 'bg-success text-bg font-bold',   dot: '🟢' },
+  'weak uptrend':     { cls: 'bg-success/15 text-success',     dot: '🟢' },
+  'weak downtrend':   { cls: 'bg-danger/15 text-danger',       dot: '🔴' },
+  'strong downtrend': { cls: 'bg-danger text-white font-bold', dot: '🔴' },
 };
 
 /** Trend pill carrying the full tier name. */
 export function TrendChip({ trend, label }: { trend: string | null; label?: string }) {
-  const s = TREND_STYLE[(trend ?? '').toLowerCase()];
+  const key = (trend ?? '').trim().toLowerCase();
+  // Fall back on the tier word, so a sixth phrasing from the bot still lands on
+  // the right colour instead of going grey.
+  const s = TREND_STYLE[key]
+    ?? (key.includes('uptrend') ? TREND_STYLE['uptrend']
+      : key.includes('downtrend') ? TREND_STYLE['downtrend']
+      : undefined);
   if (!s) {
     return (
       <span className="inline-flex items-center rounded-md bg-surface-hover px-2 py-0.5 text-[11px] font-bold text-fg-subtle">
