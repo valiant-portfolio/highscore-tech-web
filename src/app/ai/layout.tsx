@@ -1,9 +1,9 @@
 // Highscore AI — ai.highzcore.tech
 //
-// Its own product, in the same codebase. The whole subdomain is served from
-// here (see src/proxy.ts), so this layout owns the shell every AI screen
-// wears: the chrome, the theme, and the disclaimer that has to be on the page
-// whatever else is.
+// This layout is the THEME only. The marketing chrome (nav, footer) lives in
+// the (site) group beside it, because the workspace is a full-height app
+// screen: it owns its own rail and must not be wrapped in a landing-page nav
+// or trailed by a footer.
 //
 // `data-app="ai"` is what switches the palette to emerald — see the scoped
 // block in src/styles/tokens.css. Nothing else changes: the semantic token
@@ -12,8 +12,6 @@
 
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { AiNav } from '@/components/ai/AiNav';
-import { AiFooter } from '@/components/ai/AiFooter';
 
 export const metadata: Metadata = {
   title: {
@@ -29,9 +27,7 @@ export default function AiLayout({ children }: { children: ReactNode }) {
     // Dark only. A chart screen someone stares at for six hours is not a
     // brochure, so there is no light variant to maintain.
     <div data-app="ai" className="min-h-dvh bg-bg text-fg antialiased">
-      <AiNav />
-      <main>{children}</main>
-      <AiFooter />
+      {children}
     </div>
   );
 }

@@ -137,11 +137,22 @@ function bollinger(bars: Candle[], period: number, mult: number): { upper: LineP
   return { upper, mid, lower };
 }
 
+/** Candle colours. Canvas cannot read CSS custom properties, so the palette
+ *  is passed in rather than inherited — the bot desk keeps its greens, the AI
+ *  workspace wears emerald. */
+export interface ChartPalette { up: string; down: string; text: string }
+
+const DESK_PALETTE: ChartPalette = { up: '#22c55e', down: '#ef4444', text: '#98A2B3' };
+
 export function MarketChart({
-  markets, openTrades = [],
+  markets, openTrades = [], showGrid = true, palette = DESK_PALETTE,
 }: {
   markets: { symbol: string; alias: string }[];
   openTrades?: { symbol: string; side: string }[];
+  /** Grid lines. Optional and on by default, so the bot dashboard is
+   *  unchanged; the AI workspace drives it from its Chart panel. */
+  showGrid?: boolean;
+  palette?: ChartPalette;
 }) {
   // A market's label reads "Alias — SYMBOL", but when the alias IS the symbol
   // (e.g. NZDUSD) that renders as "NZDUSD — NZDUSD". Show it once in that case.
@@ -316,19 +327,36 @@ export function MarketChart({
     try { localStorage.setItem(STORE_KEY, JSON.stringify({ symbol, tf })); } catch { /* ignore */ }
   }, [symbol, tf]);
 
+  // The grid toggles without rebuilding the chart — a rebuild would drop the
+  // drawings and reset the view, which is not what "hide the grid" means.
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      grid: {
+        vertLines: { color: 'rgba(255,255,255,0.05)', visible: showGrid },
+        horzLines: { color: 'rgba(255,255,255,0.05)', visible: showGrid },
+      },
+    });
+  }, [showGrid]);
+
   // ── Create the chart once ─────────────────────────────────────────────
   useEffect(() => {
     if (!wrapRef.current) return;
     const chart = createChart(wrapRef.current, {
       autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: '#98A2B3', fontFamily: 'inherit' },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+      layout: { background: { color: 'transparent' }, textColor: palette.text, fontFamily: 'inherit' },
+      // Created visible; the effect above applies the current setting on
+      // mount. Reading the prop here would make the chart depend on it and
+      // rebuild — dropping every drawing — each time the grid is toggled.
+      grid: {
+        vertLines: { color: 'rgba(255,255,255,0.05)', visible: true },
+        horzLines: { color: 'rgba(255,255,255,0.05)', visible: true },
+      },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true, secondsVisible: false },
       crosshair: { mode: 0 },
     });
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#22c55e', downColor: '#ef4444', wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+      upColor: palette.up, downColor: palette.down, wickUpColor: palette.up, wickDownColor: palette.down,
       borderVisible: false,
     });
     chartRef.current = chart;
@@ -534,7 +562,7 @@ export function MarketChart({
           return {
             time: snapToBar(t.open_ts),
             position: buy ? 'belowBar' : 'aboveBar',
-            color: buy ? '#22c55e' : '#ef4444',
+            color: buy ? palette.up : palette.down,
             shape: buy ? 'arrowUp' : 'arrowDown',
             text: buy ? 'BUY' : 'SELL',
           } as SeriesMarker<Time>;
@@ -573,8 +601,8 @@ export function MarketChart({
             axisLabelVisible: true, title: hasPending ? `${sideStr} · pending` : sideStr,
           }));
           // SL / TP are now drawn by default (pending and open alike) — no click needed.
-          if (tradeSL.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeSL.current, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
-          if (tradeTP.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeTP.current, color: '#22c55e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+          if (tradeSL.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeSL.current, color: palette.down, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
+          if (tradeTP.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeTP.current, color: palette.up, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
         }
       }
 
