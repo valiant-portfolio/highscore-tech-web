@@ -422,6 +422,10 @@ export async function decideProposalAction(
     return { ok: false, error: 'That setup is no longer waiting — it was already answered, or it expired.' };
   }
 
+  // BOTH desks. The decision is made on /app now, and revalidating only /bot
+  // meant the card you had just approved sat there still offering Approve and
+  // Reject — the write had landed, the screen had no idea.
+  revalidatePath('/app');
   revalidatePath('/bot');
   return { ok: true };
 }

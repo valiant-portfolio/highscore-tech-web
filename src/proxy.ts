@@ -170,8 +170,13 @@ export async function proxy(request: NextRequest) {
 }
 
 // Skip static assets and image-optimised paths.
+//
+// webmanifest was missing from this list, so /site.webmanifest on a subdomain
+// was rewritten to /ai/site.webmanifest and 404'd — the file is in public/ and
+// served fine on the apex. Any extensionless public file has the same problem;
+// these are the ones actually referenced.
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|site.webmanifest|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf|webmanifest)$).*)',
   ],
 };

@@ -21,7 +21,8 @@
 // distance is stated and the decision is left to the person making it.
 
 import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Check, X, Loader2, AlertTriangle } from 'lucide-react';
 import { useNow } from '@/components/admin/bot/BotBits';
 import { decideProposalAction } from '@/lib/admin/trading-bot-actions';
 
@@ -31,12 +32,14 @@ import { decideProposalAction } from '@/lib/admin/trading-bot-actions';
 const SHELF_LIFE_MS = 12 * 15 * 60_000;
 
 export function ProposalActions({
-  id, level, price, barTime,
+  id, level, price, barTime, side,
 }: {
   id: string;
   level: number | null;
   price: number | null;
   barTime: string | null;
+  /** Which way the limit rests — it decides which side of price is valid. */
+  side: 'buy' | 'sell';
 }) {
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,21 +57,60 @@ export function ProposalActions({
   // How far price is from the level, stated plainly. Which side of it price
   // sits on is information, not a verdict.
   const away = level != null && price != null ? Math.abs(price - level) : null;
-  const dead = expired;
+
+  /* PRICE HAS GONE THROUGH THE LEVEL.
+   *
+   * A limit has to rest on the correct side of the market — a buy below it, a
+   * sell above it. Once price crosses the level the broker refuses the order
+   * outright, so approving can only ever come back "TOO LATE". The bot applies
+   * this same rule (pending_price_is_valid); showing it here means you are not
+   * offered a decision that cannot be carried out.
+   *
+   * The comment above about not judging the level still holds for the case it
+   * was written about: price having traded there in the PAST is how the level
+   * was found. This is about where price is NOW. */
+  const passed = level != null && price != null
+    && (side === 'buy' ? price <= level : price >= level);
+
+  const dead = expired || passed;
+
+  const router = useRouter();
 
   const decide = (approved: boolean) => {
     setError(null);
     setBusy(approved ? 'approve' : 'reject');
     void decideProposalAction(id, approved, approved ? undefined : note.trim() || undefined)
-      .then((res) => { if (!res.ok) setError(res.error); else setRejecting(false); })
+      .then((res) => {
+        if (!res.ok) { setError(res.error); return; }
+        setRejecting(false);
+        // Pull the answer back immediately. Without this the card waits for
+        // the desk's next poll before it stops offering the decision you have
+        // just made, which reads as the button having done nothing.
+        router.refresh();
+      })
+      // A THROW, not an !ok — requireSection('trading-bot') throws rather than
+      // returning, so without this the promise rejected unhandled, the button
+      // went back to idle, and nothing on screen said why.
+      .catch((e: unknown) => setError(
+        e instanceof Error && e.message ? e.message : 'Could not record that. Try again.',
+      ))
       .finally(() => setBusy(null));
   };
 
   return (
-    <div className="mt-2 rounded-sm border border-border bg-bg px-3 py-2.5">
-      {dead ? (
+    // No border or background of its own: it lives inside the proposal's card
+    // now, and a second bordered box in there read as a separate control that
+    // happened to sit underneath the one it belongs to.
+    <div>
+      {expired ? (
         <p className="text-[11px] leading-relaxed text-warning">
           Past its shelf life — the bot will not place this now, even if approved.
+        </p>
+      ) : passed ? (
+        <p className="text-[11px] leading-relaxed text-warning">
+          Price has moved through this level, so the broker would refuse the order —
+          approving it could only come back “too late”. The bot removes it within a
+          cycle. Nothing is at risk.
         </p>
       ) : (
         <p className="text-[11px] text-fg-subtle">
@@ -87,7 +129,9 @@ export function ProposalActions({
             onClick={() => decide(true)}
             className="inline-flex h-8 items-center gap-1.5 rounded-sm bg-brand px-3 text-xs font-bold text-brand-fg hover:bg-brand-hover disabled:opacity-40"
           >
-            <Check className="h-3.5 w-3.5" />
+            {busy === 'approve'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Check className="h-3.5 w-3.5" />}
             {busy === 'approve' ? 'Approving…' : 'Approve'}
           </button>
           <button
@@ -96,7 +140,9 @@ export function ProposalActions({
             onClick={() => (rejecting ? decide(false) : setRejecting(true))}
             className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-danger/40 px-3 text-xs font-bold text-danger hover:bg-danger/10 disabled:opacity-40"
           >
-            <X className="h-3.5 w-3.5" />
+            {busy === 'reject'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <X className="h-3.5 w-3.5" />}
             {busy === 'reject' ? 'Rejecting…' : rejecting ? 'Confirm reject' : 'Reject'}
           </button>
         </div>
@@ -116,7 +162,46 @@ export function ProposalActions({
       <p className="mt-2 text-[10px] text-fg-subtle">
         Recorded against your account.
       </p>
-      {error && <p className="mt-1 text-[11px] text-danger">{error}</p>}
+
+      {/* A FAILED DECISION HAS TO INTERRUPT.
+          This was one line of small red text at the bottom of a card, in a
+          scrolling list, under a button that had already gone back to idle —
+          which is indistinguishable from nothing having happened. A decision
+          not to place a trade that silently did not register is the worst
+          failure this screen has, so it takes the middle of the screen and
+          waits to be dismissed. */}
+      {error && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-6"
+        >
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setError(null)}
+            className="absolute inset-0 cursor-default bg-black/60"
+          />
+          <div className="relative w-full max-w-[380px] rounded-sm border border-danger/40 bg-bg-elevated p-5 shadow-xl">
+            <p className="flex items-center gap-2 text-sm font-bold text-danger">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Not recorded
+            </p>
+            <p className="mt-2 text-[13px] leading-relaxed text-fg">{error}</p>
+            <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+              Nothing was sent to the broker. The setup is unchanged — try again,
+              or check whether someone else has already answered it.
+            </p>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="mt-4 w-full rounded-sm bg-surface-hover py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-brand/15 hover:text-brand"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

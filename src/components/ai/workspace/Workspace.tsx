@@ -19,7 +19,8 @@ import { useRouter } from 'next/navigation';
 import {
   Sparkles, CandlestickChart, ListFilter, Clock, Activity, History as HistoryIcon,
   FlaskConical, Bell, X, ChevronLeft, ChevronRight, Send, Plus, MoreHorizontal, ChevronDown,
-  SlidersHorizontal, Minus, Loader2, BarChart3, TrendingUp, Receipt, Settings2,
+  SlidersHorizontal, Minus, Loader2, BarChart3, TrendingUp, Receipt, Settings2, Menu,
+  AlertTriangle,
 } from 'lucide-react';
 import { MarketChart } from '@/components/admin/bot/MarketChart';
 import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline, useNow } from '@/components/admin/bot/BotBits';
@@ -102,14 +103,10 @@ export function Workspace({
       const s = JSON.parse(localStorage.getItem(DESK_KEY) || '{}') as Partial<DeskState>;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (s.section && s.section in TITLES) setSection(s.section);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (typeof s.panelOpen === 'boolean') setPanelOpen(s.panelOpen);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (typeof s.railOpen === 'boolean') setRailOpen(s.railOpen);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (s.panelSide === 'left' || s.panelSide === 'right') setPanelSide(s.panelSide);
     } catch { /* ignore */ }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRestored(true);
   }, []);
 
@@ -150,6 +147,39 @@ export function Workspace({
   const active = markets.filter((m) => m.state === 'active');
   const ready = markets.filter((m) => m.state === 'ready');
   const resting = ready.filter((m) => m.pending_ticket != null);
+  // Pending asks a question; Orders reports one already answered. An approved
+  // proposal is not at the broker until the trading loop's next pass, and
+  // without somewhere to show that gap, approving appeared to do nothing.
+  /* A limit has to rest on the correct side of the market — a buy below price,
+   * a sell above it. Once price crosses the level the broker refuses the order,
+   * so there is no decision left to make: approving could only come back "too
+   * late". The bot retires these within a cycle; until it does they belong with
+   * the other outcomes, not in the queue of things wanting an answer. */
+  const passedLevel = (p: BotProposal) => {
+    const price = markets.find((m) => m.symbol === p.symbol)?.price;
+    if (price == null || p.level == null) return false;
+    return String(p.side).startsWith('buy') ? price <= p.level : price >= p.level;
+  };
+
+  /* ONE AT A TIME PER MARKET. The bot trades one position per symbol, and a
+   * proposal stays answerable for three hours — long enough for a position to
+   * open on that market in the meantime. Approving then is refused by the bot,
+   * so offering it is offering a decision that cannot be carried out. */
+  const alreadyTrading = (p: BotProposal) => {
+    const m = markets.find((x) => x.symbol === p.symbol);
+    return m?.state === 'active' || m?.pending_ticket != null;
+  };
+
+  const awaiting = proposals.filter(
+    (p) => p.status === 'pending' && !passedLevel(p) && !alreadyTrading(p),
+  );
+  // Everything with an outcome, or past the point of having one: approved and
+  // waiting on the bot, placed at the broker, missed because price left the
+  // level, and the pending ones that can no longer be placed. A filter inside
+  // Pending — the same list, one stage later.
+  const orders = proposals.filter(
+    (p) => p.status !== 'pending' || passedLevel(p) || alreadyTrading(p),
+  );
   const floating = markets.reduce((s, m) => s + (Number(m.pnl) || 0), 0);
   const todayKey = new Date().toISOString().slice(0, 10);
   const today = closedTrades
@@ -161,8 +191,27 @@ export function Workspace({
   // same control as the one on a market card, and must land on the same screen.
   const [marketFocus, setMarketFocus] = useState<string | null>(openOn);
 
-  const open = (s: Section) => { setSection(s); setPanelOpen(true); if (s === 'markets') setMarketFocus(null); };
-  const openMarket = (symbol: string) => { setMarketFocus(symbol); setSection('markets'); setPanelOpen(true); };
+  /* On a phone the rail is a drawer, not a column: 232px of navigation beside
+   * a chart leaves room for neither. It slides over, and picking a section
+   * closes it — at this size the panel it opened IS the answer. */
+  const [navOpen, setNavOpen] = useState(false);
+  // The drawer is always full width when it slides over, so labels show there
+  // even when the desktop rail is collapsed to icons. navOpen is only ever
+  // true on mobile — the control that sets it is lg:hidden.
+  const railExpanded = railOpen || navOpen;
+
+  const open = (s: Section) => {
+    setSection(s);
+    setPanelOpen(true);
+    setNavOpen(false);
+    if (s === 'markets') setMarketFocus(null);
+  };
+  const openMarket = (symbol: string) => {
+    setMarketFocus(symbol);
+    setSection('markets');
+    setPanelOpen(true);
+    setNavOpen(false);
+  };
 
   const NAV: { group: string | null; items: { key: Section; label: string; icon: React.ReactNode; count?: number }[] }[] = [
     {
@@ -180,7 +229,11 @@ export function Workspace({
         // on an answer. A watched level has nothing at the broker, and
         // counting it here read as "an order is live" while the desk was
         // stood down — which is exactly the question it prompted.
-        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: resting.length + proposals.length },
+        // The badge counts only what is waiting on YOU. Orders lives inside
+        // this section as a filter, and an approved setup is waiting on the
+        // bot, not on a person — counting it here would make the number mean
+        // two different things at once.
+        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: resting.length + awaiting.length },
         { key: 'active', label: 'Active', icon: <Activity className="h-4 w-4" />, count: active.length },
         { key: 'history', label: 'History', icon: <HistoryIcon className="h-4 w-4" /> },
       ],
@@ -204,17 +257,32 @@ export function Workspace({
 
   return (
     <div className="flex h-dvh overflow-hidden">
+      {/* Rendered at the top level, not inside Pending: the outcome of a
+          decision has to reach you wherever you are on the desk. */}
+      <MissedNotice orders={orders} />
+
+      {/* Dismisses the drawer. Mobile only — on a desktop the rail is a column
+          and there is nothing to dismiss. */}
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-40 cursor-default bg-black/60 lg:hidden"
+        />
+      )}
+
       {/* ── Rail ─────────────────────────────────────────────────────── */}
       <aside
-        className={`relative flex shrink-0 flex-col border-r border-border transition-[width] duration-200 ${
-          railOpen ? 'w-[232px]' : 'w-[64px]'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-border bg-bg transition-transform duration-200 lg:relative lg:z-auto lg:translate-x-0 lg:bg-transparent lg:transition-[width] ${
+          navOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } ${railOpen ? 'w-[232px]' : 'w-[232px] lg:w-[64px]'}`}
       >
         <div className="flex h-16 items-center gap-2.5 px-4">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand">
             <Sparkles className="h-4 w-4" />
           </span>
-          {railOpen && (
+          {railExpanded && (
             <span className="truncate text-[15px] font-bold tracking-tight text-fg">
               highscore<span className="text-brand">.ai</span>
             </span>
@@ -227,18 +295,18 @@ export function Workspace({
         <nav className="scrollbar-none flex-1 overflow-y-auto px-3 pb-3">
           {NAV.map((block) => (
             <div key={block.group ?? 'top'}>
-              {block.group && railOpen && (
+              {block.group && railExpanded && (
                 <p className="px-3 pb-1.5 pt-5 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
                   {block.group}
                 </p>
               )}
-              {block.group && !railOpen && <div className="my-3 border-t border-border" />}
+              {block.group && !railExpanded && <div className="my-3 border-t border-border" />}
               {block.items.map((it) => (
                 <button
                   key={it.key}
                   type="button"
                   onClick={() => open(it.key)}
-                  title={railOpen ? undefined : it.label}
+                  title={railExpanded ? undefined : it.label}
                   className={`group relative mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     section === it.key && panelOpen
                       ? 'bg-brand/15 font-semibold text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand'
@@ -254,8 +322,8 @@ export function Workspace({
                   >
                     {it.icon}
                   </span>
-                  {railOpen && it.label}
-                  {railOpen && it.count != null && it.count > 0 && (
+                  {railExpanded && it.label}
+                  {railExpanded && it.count != null && it.count > 0 && (
                     <span className="ml-auto font-mono text-xs font-semibold text-brand">{it.count}</span>
                   )}
                 </button>
@@ -271,7 +339,7 @@ export function Workspace({
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover text-xs font-bold text-fg">
             {user.initials}
           </span>
-          {railOpen && (
+          {railExpanded && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-fg">{user.name}</p>
               <p className="text-[11px] text-fg-subtle">
@@ -286,7 +354,9 @@ export function Workspace({
           type="button"
           onClick={() => setRailOpen((v) => !v)}
           title={railOpen ? 'Collapse' : 'Expand'}
-          className="absolute -right-3 top-[68px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted hover:text-fg"
+          // lg only: a drawer is dismissed by tapping away from it, and
+          // collapsing one to icons is not a thing it can be.
+          className="absolute -right-3 top-[68px] z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted hover:text-fg lg:flex"
         >
           {railOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </button>
@@ -295,12 +365,25 @@ export function Workspace({
       {/* ── Middle panel ─────────────────────────────────────────────── */}
       {panelOpen && (
         <section
-          className={`hidden w-[420px] shrink-0 flex-col border-border lg:flex ${
-            panelSide === 'left' ? 'border-r' : 'order-last border-l'
+          // Full width on a phone and the chart steps aside; a fixed 420px
+          // column beside it left neither of them usable. It used to be
+          // `hidden lg:flex`, so a phone had no Markets, Pending or Active at
+          // all — the panel simply was not there.
+          className={`flex w-full min-w-0 shrink-0 flex-col border-border lg:w-[420px] ${
+            panelSide === 'left' ? 'lg:border-r' : 'lg:order-last lg:border-l'
           }`}
         >
-          <header className="relative flex h-16 items-center gap-2 px-5">
-            <Sparkles className="h-4 w-4 text-brand" />
+          <header className="relative flex h-16 items-center gap-2 px-4 lg:px-5">
+            {/* Reaches the rail, which is off-screen at this size. */}
+            <button
+              type="button"
+              onClick={() => setNavOpen(true)}
+              aria-label="Open navigation"
+              className="-ml-1 rounded p-1 text-fg-muted hover:text-brand lg:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Sparkles className="hidden h-4 w-4 text-brand lg:block" />
             <h2 className="text-[15px] font-semibold text-fg">{TITLES[section]}</h2>
             <button
               type="button"
@@ -363,11 +446,13 @@ export function Workspace({
             {section === 'pending' && (
               <PendingList
                 markets={ready}
-                proposals={proposals}
+                proposals={awaiting}
+                orders={orders}
                 allMarkets={markets}
                 configs={configs}
                 specs={specs}
                 onOpenMarket={openMarket}
+                onFocusChart={setMarketFocus}
               />
             )}
             {section === 'active' && (
@@ -398,8 +483,21 @@ export function Workspace({
       )}
 
       {/* ── Chart ────────────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-5 overflow-x-auto border-b border-border px-5">
+      {/* One at a time below lg. Two panes on a 390px screen is two unusable
+          panes, and the chart is the one that can wait — you close the panel
+          to see it, which is what the ✕ already did. */}
+      <div className={`min-w-0 flex-1 flex-col ${panelOpen ? 'hidden lg:flex' : 'flex'}`}>
+        <header className="flex h-16 shrink-0 items-center gap-5 overflow-x-auto border-b border-border px-4 lg:px-5">
+          {/* Only reachable here when the panel is closed, which is the only
+              time this header is on screen on a phone. */}
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation"
+            className="-ml-1 shrink-0 rounded p-1 text-fg-muted hover:text-brand lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           {!panelOpen && (
             <button
               type="button"
@@ -1243,15 +1341,69 @@ function pipsAway(price: number | null, level: number | null, digits: number | n
  * shape on screen, so the approval one carries a tag — nothing else tells you
  * that one of these is waiting on you.
  */
-function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMarket }: {
+function PendingList({ markets, proposals, orders, allMarkets, configs, specs, onOpenMarket, onFocusChart }: {
   markets: BotMarket[];
   proposals: BotProposal[];
+  /** Already decided: approved, placed, or missed. A filter here rather than
+   *  its own section — it is the same list one stage later. */
+  orders: BotProposal[];
   allMarkets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
+  /** Opens this market's own screen — the deliberate "Details" click. */
   onOpenMarket: (symbol: string) => void;
+  /** Points the chart at this market and stays put. */
+  onFocusChart: (symbol: string) => void;
 }) {
-  if (markets.length === 0 && proposals.length === 0) return <Empty>Nothing pending.</Empty>;
+  const [tab, setTab] = useState<'awaiting' | 'orders'>('awaiting');
+
+  // The count is DECISIONS YOU OWE — proposals, and nothing else. It read
+  // `proposals.length + markets.length`, so nine markets the bot was merely
+  // watching made "Awaiting you 8" while only one thing actually wanted an
+  // answer. A badge on a label that says "you" must count only what needs you.
+  const TABS: { key: 'awaiting' | 'orders'; label: string; count: number }[] = [
+    { key: 'awaiting', label: 'Awaiting you', count: proposals.length },
+    { key: 'orders', label: 'Orders', count: orders.length },
+  ];
+
+  const tabs = (
+    <div className="flex items-center gap-1.5 border-b border-border px-4 py-2">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => setTab(t.key)}
+          className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+            tab === t.key
+              ? 'border border-brand font-semibold text-brand'
+              : 'border border-transparent text-fg-muted hover:bg-brand/10 hover:text-brand'
+          }`}
+        >
+          {t.label}
+          {t.count > 0 && <span className="ml-1.5 font-mono text-xs">{t.count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (tab === 'orders') {
+    return (
+      <>
+        {tabs}
+        <OrdersList
+          proposals={orders}
+          allMarkets={allMarkets}
+          specs={specs}
+          onOpenMarket={onOpenMarket}
+          onFocusChart={onFocusChart}
+        />
+      </>
+    );
+  }
+
+  if (markets.length === 0 && proposals.length === 0) {
+    return <>{tabs}<Empty>Nothing waiting on you.</Empty></>;
+  }
 
   const specOf = (symbol: string) => specs.find((s) => s.name === symbol);
   const lotOf = (symbol: string) =>
@@ -1297,19 +1449,28 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
   ];
 
   return (
+    <>
+    {tabs}
     <ul className="space-y-2 px-4 pb-6 pt-4">
       {rows.map((r) => {
         const lot = lotOf(r.symbol);
         const pips = pipsAway(priceOf(r.symbol), r.level, specOf(r.symbol)?.digits ?? null, r.symbol);
         return (
-          <li key={r.key}>
-            {/* The whole card is the target — the ⚙ is the affordance, not the
-                only hit area, and a button inside a button is invalid HTML. */}
+          <li
+            key={r.key}
+            className="group rounded-sm border border-border bg-bg-elevated transition-colors hover:border-brand/40"
+          >
+            {/* TAPPING THE CARD MOVES THE CHART. It does not navigate: you are
+                deciding on this setup, and being thrown into Markets loses the
+                list you were working through. The chart is the evidence, so
+                the chart is what follows the tap.
+
+                Details are a separate, deliberate click — the ⚙ below. */}
             <button
               type="button"
-              onClick={() => onOpenMarket(r.symbol)}
-              title={`Open ${r.label}`}
-              className="group block w-full rounded-sm border border-border bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-brand/40 hover:bg-brand/5"
+              onClick={() => onFocusChart(r.symbol)}
+              title={`Show ${r.label} on the chart`}
+              className="block w-full px-4 py-3 text-left"
             >
             <div className="flex items-center gap-2">
               <SideBadge side={r.side} />
@@ -1334,12 +1495,6 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
               <span className="ml-auto font-mono tabular text-sm font-bold text-fg">
                 {lot == null ? '—' : lot.toFixed(2)}
               </span>
-              {/* Marks where the card leads: this symbol's settings, which is
-                  where that lot size comes from. */}
-              <SlidersHorizontal
-                aria-hidden
-                className="h-3.5 w-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100"
-              />
             </div>
 
             <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-subtle">
@@ -1348,26 +1503,306 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
             </div>
             </button>
 
-            {/* The answer, under the question. Outside the card because a
-                button inside a button is invalid HTML — and because approving
-                is not "open this market".
+            {/* The answer, INSIDE the same card as the question — it used to be
+                a second bordered box floating underneath, which read as an
+                unrelated control that happened to sit below.
 
-                It is ONLY here. The Telegram alert lost its approve button:
-                a tap in a chat is attributable to a chat account at best, and
+                It is only here. The Telegram alert lost its approve button: a
+                tap in a chat is attributable to a chat account at best, and
                 "who approved this trade" has to be answerable by name weeks
                 later. */}
             {r.proposalId && (
-              <ProposalActions
-                id={r.proposalId}
-                level={r.level}
-                price={priceOf(r.symbol)}
-                barTime={r.barTime}
-              />
+              <div className="border-t border-border px-4 pb-3 pt-2.5">
+                <ProposalActions
+                  id={r.proposalId}
+                  level={r.level}
+                  price={priceOf(r.symbol)}
+                  barTime={r.barTime}
+                  side={r.side}
+                />
+              </div>
             )}
+
+            {/* Details, on purpose rather than by accident. */}
+            <div className="flex justify-end border-t border-border px-2 py-1">
+              <button
+                type="button"
+                onClick={() => onOpenMarket(r.symbol)}
+                className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-fg-subtle transition-colors hover:bg-brand/10 hover:text-brand"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Details
+              </button>
+            </div>
           </li>
         );
       })}
     </ul>
+    </>
+  );
+}
+
+/**
+ * Orders — decided, and not yet history.
+ *
+ * The gap this fills: approving a setup writes `approved` to the row, and the
+ * order is placed by the trading loop on its next pass, which can be half a
+ * minute away. With nowhere to show that, the card simply vanished from
+ * Pending and nothing acknowledged the decision — approving looked like it had
+ * failed.
+ *
+ * A row leaves this list when the loop settles it: `placed` with a ticket (it
+ * appears in Pending as a resting order), or `missed` if price reached the
+ * level first. Both are outcomes worth waiting to see.
+ */
+function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }: {
+  proposals: BotProposal[];
+  allMarkets: BotMarket[];
+  specs: BotSymbolSpec[];
+  onOpenMarket: (symbol: string) => void;
+  onFocusChart: (symbol: string) => void;
+}) {
+  // Why a still-pending row is in here rather than awaiting an answer.
+  const blockedReason = (p: BotProposal) => {
+    const m = allMarkets.find((x) => x.symbol === p.symbol);
+    if (m?.state === 'active') return 'A position is already open on this market — the bot trades one at a time, so this cannot be placed.';
+    if (m?.pending_ticket != null) return 'An order is already resting on this market, so this cannot be placed.';
+    return 'Price has moved through this level, so the broker would refuse it. The bot removes it within a cycle — nothing is at risk.';
+  };
+  // Same ranges as History, for the same reason: "what did I decide today" is
+  // a different question from "what have I decided this month".
+  const [range, setRange] = useState('week');
+  const days = RANGES.find((r) => r.key === range)?.days ?? null;
+  const cutoff = (() => {
+    if (days == null) return null;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (days - 1));
+    return d.getTime();
+  })();
+
+  const shown = proposals.filter((p) => {
+    // Still live, in one direction or another: waiting on the bot, or waiting
+    // to be retired. Either belongs in every range, whatever its bar time.
+    if (p.status === 'approved' || p.status === 'pending') return true;
+    if (cutoff == null) return true;
+    const when = p.decided_at ?? p.created_at;
+    return !!when && new Date(when).getTime() >= cutoff;
+  });
+
+  const priceOf = (s: string) => allMarkets.find((m) => m.symbol === s)?.price ?? null;
+  const digitsOf = (s: string) => specs.find((x) => x.name === s)?.digits ?? null;
+
+  const ranges = (
+    <div className="scrollbar-none flex items-center gap-1 overflow-x-auto border-b border-border px-4 py-2">
+      {RANGES.map((r) => (
+        <button
+          key={r.key}
+          type="button"
+          onClick={() => setRange(r.key)}
+          className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
+            range === r.key
+              ? 'bg-brand/15 font-semibold text-brand'
+              : 'text-fg-subtle hover:bg-brand/10 hover:text-brand'
+          }`}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (shown.length === 0) {
+    return (
+      <>
+        {ranges}
+        <Empty>
+          {proposals.length === 0
+            ? 'Nothing decided yet. Approved setups appear here until the bot places them.'
+            : 'Nothing decided in this period.'}
+        </Empty>
+      </>
+    );
+  }
+
+  return (
+    <>
+    {ranges}
+    <ul className="space-y-2 px-4 pb-6 pt-4">
+      {shown.map((p) => {
+        const label = p.alias ?? p.symbol;
+        return (
+          <li
+            key={p.id}
+            className="rounded-sm border border-border bg-bg-elevated transition-colors hover:border-brand/40"
+          >
+            <button
+              type="button"
+              onClick={() => onFocusChart(p.symbol)}
+              title={`Show ${label} on the chart`}
+              className="block w-full px-4 py-3 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <SideBadge side={sideOf(p.side)} />
+                <span className="text-sm font-bold text-fg">{label}</span>
+                <OrderStatusBadge status={p.status} ticket={p.ticket ?? null} />
+                <span className="ml-auto font-mono tabular text-sm font-bold text-fg">
+                  {p.rr == null ? '—' : `${p.rr.toFixed(2)} R`}
+                </span>
+              </div>
+
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-subtle">
+                <span className="font-mono">Triggers at {px(p.level)}</span>
+                <span className="ml-auto whitespace-nowrap font-mono">
+                  {pipsAway(priceOf(p.symbol), p.level, digitsOf(p.symbol), p.symbol) ?? '—'}
+                </span>
+              </div>
+
+              <p className="mt-1.5 text-[11px] leading-relaxed text-fg-subtle">
+                {/* What happened to it, plainly. `missed` is the one that most
+                    needs saying: approved, and then nothing was placed. */}
+                {p.status === 'approved' && 'Waiting for the bot to place it'}
+                {p.status === 'placed' && 'Resting at the broker'}
+                {p.status === 'missed' && (
+                  <span className="text-warning">
+                    {p.note || 'Price had left the level — nothing was placed'}
+                  </span>
+                )}
+                {p.status === 'pending' && (
+                  <span className="text-warning">{blockedReason(p)}</span>
+                )}
+                {p.decided_by ? <> · by <span className="text-fg">{p.decided_by}</span></> : null}
+                {p.decided_at ? <> <TimeAgo iso={p.decided_at} /></> : null}
+              </p>
+            </button>
+
+            <div className="flex justify-end border-t border-border px-2 py-1">
+              <button
+                type="button"
+                onClick={() => onOpenMarket(p.symbol)}
+                className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-fg-subtle transition-colors hover:bg-brand/10 hover:text-brand"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Details
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+    </>
+  );
+}
+
+/**
+ * "You approved it, and it did not get placed."
+ *
+ * The outcome the desk had no way of telling you. Approving succeeds, the bot
+ * then tries to place and finds price has left the level, and the only mention
+ * of it was a Telegram message. On the screen the card simply vanished.
+ *
+ * Driven by the desk's own polling: a proposal that turns up `missed` within
+ * the last quarter hour, and has not already been acknowledged here. Dismissals
+ * are remembered per browser so the same failure does not reappear on every
+ * refresh for the rest of the day.
+ */
+const MISSED_SEEN_KEY = 'hs-missed-acked';
+const MISSED_WINDOW_MS = 15 * 60_000;
+
+function MissedNotice({ orders }: { orders: BotProposal[] }) {
+  // null = not read yet. Rendering nothing until it loads keeps the first
+  // paint identical on the server and the client.
+  const [acked, setAcked] = useState<string[] | null>(null);
+  // Above the early return, and a ticking value rather than Date.now() in
+  // render: reading the wall clock while rendering makes the output depend on
+  // when React happened to paint.
+  const now = useNow(30_000);
+  useEffect(() => {
+    let stored: string[] = [];
+    try { stored = JSON.parse(localStorage.getItem(MISSED_SEEN_KEY) || '[]') as string[]; }
+    catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAcked(stored);
+  }, []);
+
+  if (acked == null) return null;
+
+  const fresh = orders.filter((p) => {
+    if (p.status !== 'missed') return false;
+    if (acked.includes(p.id)) return false;
+    const when = p.decided_at ?? p.created_at;
+    return !!when && now - new Date(when).getTime() <= MISSED_WINDOW_MS;
+  });
+  if (fresh.length === 0) return null;
+
+  const dismiss = () => {
+    // Keep the list bounded — the last 50 acknowledgements is plenty to stop
+    // a repeat, and this lives in localStorage.
+    const next = [...acked, ...fresh.map((p) => p.id)].slice(-50);
+    setAcked(next);
+    try { localStorage.setItem(MISSED_SEEN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
+  return (
+    <div role="alertdialog" aria-modal="true" className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={dismiss}
+        className="absolute inset-0 cursor-default bg-black/60"
+      />
+      <div className="relative w-full max-w-[420px] rounded-sm border border-warning/40 bg-bg-elevated p-5 shadow-xl">
+        <p className="flex items-center gap-2 text-sm font-bold text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {fresh.length === 1 ? 'Approved, but not placed' : `${fresh.length} approvals were not placed`}
+        </p>
+
+        <ul className="mt-3 space-y-2">
+          {fresh.map((p) => (
+            <li key={p.id} className="rounded-sm border border-border bg-bg px-3 py-2">
+              <div className="flex items-center gap-2">
+                <SideBadge side={sideOf(p.side)} />
+                <span className="text-sm font-bold text-fg">{p.alias ?? p.symbol}</span>
+                <span className="ml-auto font-mono text-xs text-fg-muted">{px(p.level)}</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-fg-subtle">
+                {p.note || 'Price had left the level by the time the bot went to place it.'}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-3 text-[11px] leading-relaxed text-fg-subtle">
+          Nothing reached the broker and nothing is at risk. The bot will offer the
+          setup again if it comes back on the right side of the level.
+        </p>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="mt-4 w-full rounded-sm bg-surface-hover py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-brand/15 hover:text-brand"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Where a decided proposal got to. Green = at the broker, amber = it didn't. */
+function OrderStatusBadge({ status, ticket }: { status: string; ticket: number | null }) {
+  const s = status === 'placed'
+    ? { cls: 'bg-brand/15 text-brand', label: ticket ? `#${ticket}` : 'Placed' }
+    : status === 'missed'
+      ? { cls: 'bg-warning/15 text-warning', label: 'Not placed' }
+      // Still 'pending' in the table, but price has crossed the level, so it
+      // is unanswerable rather than unanswered.
+      : status === 'pending'
+        ? { cls: 'bg-warning/15 text-warning', label: 'Not placeable' }
+        : { cls: 'bg-brand/15 text-brand', label: 'Approved' };
+  return (
+    <span className={`rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${s.cls}`}>
+      {s.label}
+    </span>
   );
 }
 

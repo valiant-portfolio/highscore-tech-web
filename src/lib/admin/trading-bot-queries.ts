@@ -278,6 +278,14 @@ export interface BotProposal {
   trend_agreement: string | null;
   status: string;            // pending | approved | placed | rejected | expired | missed
   created_at: string;
+  /** Who answered it, and when. Null while it is still pending. */
+  decided_by?: string | null;
+  decided_at?: string | null;
+  /** Broker ticket, once the trading loop has placed an approved proposal. */
+  ticket?: number | null;
+  /** Why it ended where it did — the rejecter's reason, or the bot's
+   *  ("price had already reached the level when it was approved"). */
+  note?: string | null;
 }
 
 export interface BotOverview {
@@ -375,9 +383,22 @@ export async function getBotOverview(): Promise<BotOverview> {
     admin.from('bot_settings').select('trading_enabled, require_approval, updated_at, updated_by, seen_by_bot_at, cutover_at').eq('id', 1).maybeSingle(),
     // Only what is still a question. A settled proposal belongs to history,
     // and the desk wants the ones it has to answer.
+    /* Every status a DECISION can be sitting in, not just the unanswered ones.
+     *
+     * pending  — waiting on a person
+     * approved — said yes; the loop places it on its next pass
+     * placed   — at the broker, with a ticket
+     * missed   — approved, but price had left the level by then
+     *
+     * placed and missed are here because otherwise an approval disappears the
+     * moment the bot acts on it: "I just approved something and I cannot find
+     * it again". A decision has to have a visible outcome, and `missed` is the
+     * one that most needs saying — nothing was placed, and only Telegram ever
+     * mentioned it. */
     admin.from('bot_proposals')
-      .select('id, symbol, alias, side, level, sl, tp, rr, bar_time, snapshot, htf_trend, trend_agreement, status, created_at')
-      .eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
+      .select('id, symbol, alias, side, level, sl, tp, rr, bar_time, snapshot, htf_trend, trend_agreement, status, created_at, decided_by, decided_at, ticket, note')
+      .in('status', ['pending', 'approved', 'placed', 'missed'])
+      .order('created_at', { ascending: false }).limit(100),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];
@@ -442,7 +463,45 @@ export async function getBotOverview(): Promise<BotOverview> {
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
     settings: settingsRow ? { ...settingsRow, updated_by_name: updatedByName } : null,
-    proposals: (proposals.data ?? []) as BotProposal[],
+    /* ONE QUESTION PER MARKET.
+     *
+     * The bot re-evaluates every bar and writes a proposal per (symbol, bar) —
+     * correct for the record, unusable as a to-do list: nine markets produced
+     * twenty-one cards, the same symbol over and over at slightly different
+     * levels, each with its own Approve and Reject. Answering one left the
+     * rest sitting there, which is why approving looked like it had done
+     * nothing.
+     *
+     * Only the newest survives, because an older bar's level is a setup the
+     * market has already moved past. The rest stay in the table; they are
+     * simply not decisions anyone should be offered now.
+     *
+     * Sorted newest-first by the query, so the first of each symbol wins.
+     *
+     * The collapse applies ONLY to rows that are still live — pending and
+     * approved. A placed or missed row is a record of a decision, not a
+     * decision, and Orders lets you range over them: collapsing those would
+     * quietly drop the second trade on a market from the week's list.
+     *
+     * Settled rows are kept for 30 days, which is the widest range Orders
+     * offers. History and the ticket page remain the full record. */
+    proposals: (() => {
+      const rows = (proposals.data ?? []) as BotProposal[];
+      const MONTH = 30 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const live = new Set(['pending', 'approved']);
+      const seen = new Set<string>();
+      return rows.filter((p) => {
+        if (!live.has(p.status)) {
+          const when = p.decided_at ?? p.created_at;
+          return !!when && now - new Date(when).getTime() <= MONTH;
+        }
+        const key = `${p.symbol}::${p.status}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    })(),
     // Only what is live: a note matters while the order it describes is still
     // resting or running. Closed trades read theirs on their own page.
     analyses: await analysesFor(
