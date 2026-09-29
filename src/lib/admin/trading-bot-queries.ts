@@ -584,6 +584,27 @@ export async function getPendingOrder(ticket: number): Promise<BotPendingDetail>
   };
 }
 
+/**
+ * Which market a ticket belongs to.
+ *
+ * A Telegram alert knows a ticket; the desk is organised by market. Looks in
+ * both places a ticket can live — a resting order carries it on
+ * bot_market_state until the fill, and the trade row carries it afterwards —
+ * because the same number means both, one after the other.
+ */
+export async function symbolForTicket(ticket: number): Promise<string | null> {
+  const admin = botServiceClient();
+
+  const [resting, traded] = await Promise.all([
+    admin.from('bot_market_state').select('symbol').eq('pending_ticket', ticket).maybeSingle(),
+    admin.from('bot_trades').select('symbol').eq('ticket', ticket).maybeSingle(),
+  ]);
+
+  return (resting.data?.symbol as string | undefined)
+    ?? (traded.data?.symbol as string | undefined)
+    ?? null;
+}
+
 /** All symbols the bot tracks — for detail links. */
 export async function listBotSymbols(): Promise<string[]> {
   const admin = botServiceClient();

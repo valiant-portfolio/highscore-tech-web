@@ -66,7 +66,11 @@ const px = (n: number | null | undefined) =>
 
 export function Workspace({
   markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user,
+  openOn = null,
 }: {
+  /** Land on this market rather than the Scora welcome — how a Telegram
+   *  alert arrives: it knows one ticket, and this is where that opens. */
+  openOn?: string | null;
   /** Newest bot_market_state write — the bot's pulse, not the equity snapshot. */
   lastUpdate: string | null;
   markets: BotMarket[];
@@ -79,7 +83,7 @@ export function Workspace({
   proposals: BotProposal[];
   user: { name: string; initials: string };
 }) {
-  const [section, setSection] = useState<Section>('scora');
+  const [section, setSection] = useState<Section>(openOn ? 'markets' : 'scora');
   const [panelOpen, setPanelOpen] = useState(true);
   const [railOpen, setRailOpen] = useState(true);
   // The ... menu offers "Move to right", so the panel is a side, not a column.
@@ -155,7 +159,7 @@ export function Workspace({
   // Which market the Markets panel is drilled into. It lives up here, not in
   // the panel, because Pending opens it too: the ⚙ on a pending card is the
   // same control as the one on a market card, and must land on the same screen.
-  const [marketFocus, setMarketFocus] = useState<string | null>(null);
+  const [marketFocus, setMarketFocus] = useState<string | null>(openOn);
 
   const open = (s: Section) => { setSection(s); setPanelOpen(true); if (s === 'markets') setMarketFocus(null); };
   const openMarket = (symbol: string) => { setMarketFocus(symbol); setSection('markets'); setPanelOpen(true); };
