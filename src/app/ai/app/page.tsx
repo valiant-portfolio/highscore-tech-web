@@ -29,7 +29,10 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AiWorkspacePage({ searchParams }: {
-  searchParams: Promise<{ ticket?: string; symbol?: string }>;
+  searchParams: Promise<{
+    ticket?: string; symbol?: string; tab?: string; market?: string;
+    view?: string; range?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   // Sign in on THIS host and come back here — the desk does not hand anyone to
@@ -47,8 +50,14 @@ export default async function AiWorkspacePage({ searchParams }: {
   // Resolve it to a market so the desk opens on the thing being asked
   // about, rather than the welcome screen.
   const q = await searchParams;
-  const openOn = q.symbol
+  const openOn = q.market ?? q.symbol
     ?? (q.ticket && Number.isFinite(Number(q.ticket)) ? await symbolForTicket(Number(q.ticket)) : null);
+
+  // The desk keeps its place in the URL — ?tab, ?market, ?ticket — so a
+  // refresh lands where you were rather than back on the welcome screen, and
+  // a link to what you are looking at is just the address bar.
+  const openTab = q.tab ?? null;
+  const openTicket = q.ticket && Number.isFinite(Number(q.ticket)) ? Number(q.ticket) : null;
 
   return (
     <Workspace
@@ -62,6 +71,12 @@ export default async function AiWorkspacePage({ searchParams }: {
       proposals={proposals}
       lastUpdate={lastUpdate}
       openOn={openOn}
+      openTab={openTab}
+      openTicket={openTicket}
+      // Sub-state, so a refresh keeps the tab AND what you had filtered
+      // inside it: Orders' Awaiting/Decided, and History's range.
+      openView={q.view ?? null}
+      openRange={q.range ?? null}
       // The person at the desk, not the address they signed in with. The email
       // is the fallback, because a nameless account is still somebody.
       user={{ name: user.full_name?.trim() || user.email || 'Signed in', initials: initialsOf(user) }}

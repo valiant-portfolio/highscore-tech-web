@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // The workspace — the trading desk in the Highscore AI shell.
 //
@@ -20,7 +20,7 @@ import {
   Sparkles, CandlestickChart, ListFilter, Clock, Activity, History as HistoryIcon,
   FlaskConical, Bell, X, ChevronLeft, ChevronRight, Send, Plus, MoreHorizontal, ChevronDown,
   SlidersHorizontal, Minus, Loader2, BarChart3, TrendingUp, Receipt, Settings2, Menu,
-  AlertTriangle,
+  AlertTriangle, FileClock,
 } from 'lucide-react';
 import { MarketChart } from '@/components/admin/bot/MarketChart';
 import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline, useNow } from '@/components/admin/bot/BotBits';
@@ -36,7 +36,7 @@ import type {
 } from '@/lib/admin/trading-bot-queries';
 
 type Section =
-  | 'scora' | 'chart' | 'markets' | 'pending' | 'active' | 'history' | 'backtests' | 'alerts'
+  | 'scora' | 'chart' | 'markets' | 'pending' | 'orders' | 'active' | 'history' | 'backtests' | 'alerts'
   | 'performance' | 'transactions' | 'settings';
 
 /** How the desk was left: which section, and what was open. Per browser. */
@@ -49,7 +49,7 @@ type DeskState = {
 };
 
 const TITLES: Record<Section, string> = {
-  scora: 'Scora', chart: 'Chart', markets: 'Markets', pending: 'Pending',
+  scora: 'Scora', chart: 'Chart', markets: 'Markets', pending: 'Pending', orders: 'Orders',
   active: 'Active', history: 'History', backtests: 'Backtests', alerts: 'Alerts',
   performance: 'Performance', transactions: 'Transactions', settings: 'Settings',
 };
@@ -67,11 +67,19 @@ const px = (n: number | null | undefined) =>
 
 export function Workspace({
   markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user,
-  openOn = null,
+  openOn = null, openTab = null, openTicket = null, openView = null, openRange = null,
 }: {
   /** Land on this market rather than the Scora welcome — how a Telegram
    *  alert arrives: it knows one ticket, and this is where that opens. */
   openOn?: string | null;
+  /** ?tab= — the section to open on. */
+  openTab?: string | null;
+  /** ?ticket= — a closed trade to open straight into. */
+  openTicket?: number | null;
+  /** ?view= — the sub-tab within a section (Orders: awaiting | decided). */
+  openView?: string | null;
+  /** ?range= — the period a list is filtered to. */
+  openRange?: string | null;
   /** Newest bot_market_state write — the bot's pulse, not the equity snapshot. */
   lastUpdate: string | null;
   markets: BotMarket[];
@@ -84,7 +92,10 @@ export function Workspace({
   proposals: BotProposal[];
   user: { name: string; initials: string };
 }) {
-  const [section, setSection] = useState<Section>(openOn ? 'markets' : 'scora');
+  // ?tab wins, then a market/ticket link implies Markets, then the welcome.
+  const [section, setSection] = useState<Section>(
+    openTab && openTab in TITLES ? (openTab as Section) : openOn ? 'markets' : 'scora',
+  );
   const [panelOpen, setPanelOpen] = useState(true);
   const [railOpen, setRailOpen] = useState(true);
   // The ... menu offers "Move to right", so the panel is a side, not a column.
@@ -101,14 +112,23 @@ export function Workspace({
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(DESK_KEY) || '{}') as Partial<DeskState>;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (s.section && s.section in TITLES) setSection(s.section);
+      // The URL WINS. A link or a refresh is an explicit instruction about
+      // where to be; the saved section is only a default for arriving with
+      // nothing specified.
+      if (!openTab && !openOn && openTicket == null && s.section && s.section in TITLES) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSection(s.section);
+      }
       if (typeof s.panelOpen === 'boolean') setPanelOpen(s.panelOpen);
       if (typeof s.railOpen === 'boolean') setRailOpen(s.railOpen);
       if (s.panelSide === 'left' || s.panelSide === 'right') setPanelSide(s.panelSide);
     } catch { /* ignore */ }
     setRestored(true);
+    // Once, on mount. The URL props are read here only to decide whether the
+    // saved section may apply; re-running on them would fight the user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   useEffect(() => {
     // Don't write the defaults over the saved state before it is read back.
@@ -190,6 +210,51 @@ export function Workspace({
   // the panel, because Pending opens it too: the ⚙ on a pending card is the
   // same control as the one on a market card, and must land on the same screen.
   const [marketFocus, setMarketFocus] = useState<string | null>(openOn);
+  // A closed trade opened from History or Transactions. Held here so Back
+  // returns you to the list you came from, with its filters intact.
+  const [tradeFocus, setTradeFocus] = useState<BotTrade | null>(
+    openTicket == null ? null : closedTrades.find((t) => t.ticket === openTicket) ?? null,
+  );
+  const openTrade = (t: BotTrade) => {
+    setTradeFocus(t);
+    setMarketFocus(t.symbol);   // the chart follows, as it does everywhere else
+    setPanelOpen(true);
+  };
+
+  /* The state INSIDE a section — which sub-tab, which period — lives up here
+   * too, for one reason: it has to survive a refresh. Held in the list that
+   * owns it, it is gone the moment the page reloads, and "it stays where I
+   * left it" would only half work. */
+  const [view, setView] = useState(openView === 'decided' ? 'decided' : 'awaiting');
+  const [range, setRange] = useState(
+    openRange && RANGES.some((r) => r.key === openRange) ? openRange : 'week',
+  );
+
+  /* THE URL FOLLOWS THE DESK.
+   *
+   * All of this lived in component state, so /app was the only address there
+   * was: a refresh threw you back to the welcome screen, and there was no way
+   * to send anyone what you were looking at.
+   *
+   * history.replaceState, NOT router.replace: this only needs the address bar
+   * to agree with the screen, and router.replace re-runs the server component
+   * — a fresh round of queries for every market you click. Replace rather than
+   * push, so Back leaves the desk instead of walking you back through fifty
+   * markets you glanced at. */
+  useEffect(() => {
+    if (!restored) return;
+    const q = new URLSearchParams();
+    q.set('tab', section);
+    if (marketFocus) q.set('market', marketFocus);
+    if (tradeFocus?.ticket != null) q.set('ticket', String(tradeFocus.ticket));
+    // Only where they mean something, so the address stays readable.
+    if (section === 'orders') q.set('view', view);
+    if (section === 'orders' || section === 'history') q.set('range', range);
+    const next = `${window.location.pathname}?${q.toString()}`;
+    if (next !== window.location.pathname + window.location.search) {
+      window.history.replaceState(null, '', next);
+    }
+  }, [restored, section, marketFocus, tradeFocus, view, range]);
 
   /* On a phone the rail is a drawer, not a column: 232px of navigation beside
    * a chart leaves room for neither. It slides over, and picking a section
@@ -200,10 +265,15 @@ export function Workspace({
   // true on mobile — the control that sets it is lg:hidden.
   const railExpanded = railOpen || navOpen;
 
+  // setTradeFocus(null) on ANY navigation. An open trade outranks the section
+  // in the panel body, so without this, leaving History for Pending kept the
+  // trade on screen under Pending's title — the panel said one thing and
+  // showed another.
   const open = (s: Section) => {
     setSection(s);
     setPanelOpen(true);
     setNavOpen(false);
+    setTradeFocus(null);
     if (s === 'markets') setMarketFocus(null);
   };
   const openMarket = (symbol: string) => {
@@ -211,6 +281,7 @@ export function Workspace({
     setSection('markets');
     setPanelOpen(true);
     setNavOpen(false);
+    setTradeFocus(null);
   };
 
   const NAV: { group: string | null; items: { key: Section; label: string; icon: React.ReactNode; count?: number }[] }[] = [
@@ -229,11 +300,13 @@ export function Workspace({
         // on an answer. A watched level has nothing at the broker, and
         // counting it here read as "an order is live" while the desk was
         // stood down — which is exactly the question it prompted.
-        // The badge counts only what is waiting on YOU. Orders lives inside
-        // this section as a filter, and an approved setup is waiting on the
-        // bot, not on a person — counting it here would make the number mean
-        // two different things at once.
-        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: resting.length + awaiting.length },
+        // Pending is monitoring: what is resting at the broker. Watched levels
+        // are listed there too but not counted — nothing is at the broker for
+        // them, and counting them read as "N orders are live".
+        { key: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, count: resting.length },
+        // Orders holds the decisions. The badge counts the ones still wanting
+        // an answer from YOU; the settled ones are inside, not in the number.
+        { key: 'orders', label: 'Orders', icon: <FileClock className="h-4 w-4" />, count: awaiting.length },
         { key: 'active', label: 'Active', icon: <Activity className="h-4 w-4" />, count: active.length },
         { key: 'history', label: 'History', icon: <HistoryIcon className="h-4 w-4" /> },
       ],
@@ -384,7 +457,11 @@ export function Workspace({
               <Menu className="h-5 w-5" />
             </button>
             <Sparkles className="hidden h-4 w-4 text-brand lg:block" />
-            <h2 className="text-[15px] font-semibold text-fg">{TITLES[section]}</h2>
+            {/* The title names what is on screen. An open trade is not the
+                section it was opened from. */}
+            <h2 className="text-[15px] font-semibold text-fg">
+              {tradeFocus ? `${tradeFocus.symbol} trade` : TITLES[section]}
+            </h2>
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
@@ -432,9 +509,14 @@ export function Workspace({
           </header>
 
           <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
-            {section === 'scora' && <ScoraPanel name={user.name} />}
-            {section === 'chart' && <ChartPanel showGrid={showGrid} onGrid={setShowGrid} />}
-            {section === 'markets' && (
+            {/* A trade takes over the panel wherever you opened it from, and
+                Back puts the list you came from straight back. */}
+            {tradeFocus && (
+              <TradeDetail trade={tradeFocus} onBack={() => setTradeFocus(null)} />
+            )}
+            {!tradeFocus && section === 'scora' && <ScoraPanel name={user.name} />}
+            {!tradeFocus && section === 'chart' && <ChartPanel showGrid={showGrid} onGrid={setShowGrid} />}
+            {!tradeFocus && section === 'markets' && (
               <MarketList
                 markets={markets}
                 configs={configs}
@@ -443,11 +525,24 @@ export function Workspace({
                 onFocus={setMarketFocus}
               />
             )}
-            {section === 'pending' && (
+            {!tradeFocus && section === 'orders' && (
+              <OrdersList
+                awaiting={awaiting}
+                proposals={orders}
+                allMarkets={markets}
+                configs={configs}
+                specs={specs}
+                tab={view}
+                onTab={setView}
+                range={range}
+                onRange={setRange}
+                onOpenMarket={openMarket}
+                onFocusChart={setMarketFocus}
+              />
+            )}
+            {!tradeFocus && section === 'pending' && (
               <PendingList
                 markets={ready}
-                proposals={awaiting}
-                orders={orders}
                 allMarkets={markets}
                 configs={configs}
                 specs={specs}
@@ -455,29 +550,38 @@ export function Workspace({
                 onFocusChart={setMarketFocus}
               />
             )}
-            {section === 'active' && (
+            {!tradeFocus && section === 'active' && (
               <ActiveList markets={active} configs={configs} specs={specs} onOpenMarket={openMarket} />
             )}
-            {section === 'history' && <HistoryList trades={closedTrades} />}
-            {section === 'backtests' && (
+            {!tradeFocus && section === 'history' && (
+              <HistoryList
+                trades={closedTrades}
+                range={range}
+                onRange={setRange}
+                onOpenTrade={openTrade}
+              />
+            )}
+            {!tradeFocus && section === 'backtests' && (
               <Soon
                 title="Backtests"
                 body="Running an idea against the stored history is not built yet. The closed trades are the record we do have."
                 action={{ label: 'Open History', onClick: () => open('history') }}
               />
             )}
-            {section === 'alerts' && (
+            {!tradeFocus && section === 'alerts' && (
               <Soon
                 title="Alerts"
                 body="Alerts go to Telegram today. Nothing on this screen is fed by them yet — the bot keeps no record of what it sent."
                 action={{ label: 'Open Pending', onClick: () => open('pending') }}
               />
             )}
-            {section === 'performance' && (
+            {!tradeFocus && section === 'performance' && (
               <PerformancePanel equity={equity} curve={equityCurve} trades={closedTrades} />
             )}
-            {section === 'transactions' && <TransactionsPanel trades={closedTrades} />}
-            {section === 'settings' && <SettingsPanel settings={settings} equity={equity} openCount={active.length} />}
+            {!tradeFocus && section === 'transactions' && (
+              <TransactionsPanel trades={closedTrades} onOpenTrade={openTrade} />
+            )}
+            {!tradeFocus && section === 'settings' && <SettingsPanel settings={settings} equity={equity} openCount={active.length} />}
           </div>
         </section>
       )}
@@ -1164,7 +1268,10 @@ function Stat({ label, value, valueClass = 'text-fg' }: { label: string; value: 
  * the balance actually moved by. Those fees are invisible everywhere else on
  * this screen.
  */
-function TransactionsPanel({ trades }: { trades: BotTrade[] }) {
+function TransactionsPanel({ trades, onOpenTrade }: {
+  trades: BotTrade[];
+  onOpenTrade: (t: BotTrade) => void;
+}) {
   const shown = trades.filter((t) => t.pnl != null).slice(0, 60);
   if (shown.length === 0) return <Empty>No settled trades yet.</Empty>;
 
@@ -1183,9 +1290,10 @@ function TransactionsPanel({ trades }: { trades: BotTrade[] }) {
           const fee = Number(t.commission ?? 0) + Number(t.swap ?? 0);
           return (
             <li key={t.id}>
-              <a
-                href={t.ticket ? `/trade/${t.ticket}` : undefined}
-                className="block rounded-sm border border-border bg-bg-elevated px-4 py-3 transition-colors hover:border-brand/40"
+              <button
+                type="button"
+                onClick={() => onOpenTrade(t)}
+                className="block w-full rounded-sm border border-border bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-brand/40"
               >
                 <div className="flex items-center gap-2">
                   <SideBadge side={t.side === 'sell' ? 'sell' : 'buy'} />
@@ -1198,7 +1306,7 @@ function TransactionsPanel({ trades }: { trades: BotTrade[] }) {
                   <span>{t.volume} lots · fees {fee === 0 ? '—' : money(fee)}</span>
                   <span className="ml-auto whitespace-nowrap">{closedAtLabel(t.close_ts)}</span>
                 </div>
-              </a>
+              </button>
             </li>
           );
         })}
@@ -1341,12 +1449,17 @@ function pipsAway(price: number | null, level: number | null, digits: number | n
  * shape on screen, so the approval one carries a tag — nothing else tells you
  * that one of these is waiting on you.
  */
-function PendingList({ markets, proposals, orders, allMarkets, configs, specs, onOpenMarket, onFocusChart }: {
+/**
+ * Pending — MONITORING ONLY: orders resting at the broker, and levels the bot
+ * is watching. Nothing here needs anything from you.
+ *
+ * Decisions live in Orders. They used to share this list, and they look alike
+ * — same card, same symbol, same distance to the level — with only a small
+ * badge between "approve this or nothing happens" and "there is nothing to do".
+ * Splitting them means a glance at Pending is never mistaken for a to-do list.
+ */
+function PendingList({ markets, allMarkets, configs, specs, onOpenMarket, onFocusChart }: {
   markets: BotMarket[];
-  proposals: BotProposal[];
-  /** Already decided: approved, placed, or missed. A filter here rather than
-   *  its own section — it is the same list one stage later. */
-  orders: BotProposal[];
   allMarkets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
@@ -1355,54 +1468,8 @@ function PendingList({ markets, proposals, orders, allMarkets, configs, specs, o
   /** Points the chart at this market and stays put. */
   onFocusChart: (symbol: string) => void;
 }) {
-  const [tab, setTab] = useState<'awaiting' | 'orders'>('awaiting');
-
-  // The count is DECISIONS YOU OWE — proposals, and nothing else. It read
-  // `proposals.length + markets.length`, so nine markets the bot was merely
-  // watching made "Awaiting you 8" while only one thing actually wanted an
-  // answer. A badge on a label that says "you" must count only what needs you.
-  const TABS: { key: 'awaiting' | 'orders'; label: string; count: number }[] = [
-    { key: 'awaiting', label: 'Awaiting you', count: proposals.length },
-    { key: 'orders', label: 'Orders', count: orders.length },
-  ];
-
-  const tabs = (
-    <div className="flex items-center gap-1.5 border-b border-border px-4 py-2">
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => setTab(t.key)}
-          className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-            tab === t.key
-              ? 'border border-brand font-semibold text-brand'
-              : 'border border-transparent text-fg-muted hover:bg-brand/10 hover:text-brand'
-          }`}
-        >
-          {t.label}
-          {t.count > 0 && <span className="ml-1.5 font-mono text-xs">{t.count}</span>}
-        </button>
-      ))}
-    </div>
-  );
-
-  if (tab === 'orders') {
-    return (
-      <>
-        {tabs}
-        <OrdersList
-          proposals={orders}
-          allMarkets={allMarkets}
-          specs={specs}
-          onOpenMarket={onOpenMarket}
-          onFocusChart={onFocusChart}
-        />
-      </>
-    );
-  }
-
-  if (markets.length === 0 && proposals.length === 0) {
-    return <>{tabs}<Empty>Nothing waiting on you.</Empty></>;
+  if (markets.length === 0) {
+    return <Empty>Nothing resting and nothing being watched.</Empty>;
   }
 
   const specOf = (symbol: string) => specs.find((s) => s.name === symbol);
@@ -1410,27 +1477,11 @@ function PendingList({ markets, proposals, orders, allMarkets, configs, specs, o
     configs.find((c) => c.symbol === symbol)?.lot_size ?? specOf(symbol)?.volume_min ?? null;
   const priceOf = (symbol: string) => allMarkets.find((m) => m.symbol === symbol)?.price ?? null;
 
-  const rows = [
-    ...proposals.map((p) => ({
-      key: `p:${p.id}`,
-      symbol: p.symbol,
-      label: p.alias ?? p.symbol,
-      side: sideOf(p.side),
-      level: p.level,
-      needsApproval: true,
-      ticket: null as number | null,
-      alias: p.alias ?? p.symbol,
-      // Carried so the card can answer the question it is showing.
-      proposalId: p.id as string | null,
-      barTime: p.bar_time as string | null,
-      note: <>asked <TimeAgo iso={p.created_at} /></>,
-    })),
-    // A market with a proposal is ALREADY in this list, as the question. The
-    // bot writes both rows for one setup — bot_proposals for the decision and
-    // bot_market_state for the level it is watching — so listing both showed
-    // GBPJPY twice at the same price, one asking for approval and one saying
-    // "watching", which reads as two setups on the same market.
-    ...markets.filter((m) => !proposals.some((p) => p.symbol === m.symbol)).map((m) => ({
+  // Resting orders first: one can fill, the other is only being watched, and
+  // the one that can fill is the one worth seeing without scrolling.
+  const rows = [...markets]
+    .sort((a, b) => Number(b.pending_ticket != null) - Number(a.pending_ticket != null))
+    .map((m) => ({
       key: `m:${m.symbol}`,
       symbol: m.symbol,
       label: m.alias,
@@ -1445,12 +1496,9 @@ function PendingList({ markets, proposals, orders, allMarkets, configs, specs, o
       proposalId: null as string | null,
       barTime: null as string | null,
       note: m.pending_ticket ? <span className="font-mono">#{m.pending_ticket}</span> : <>watching</>,
-    })),
-  ];
+    }));
 
   return (
-    <>
-    {tabs}
     <ul className="space-y-2 px-4 pb-6 pt-4">
       {rows.map((r) => {
         const lot = lotOf(r.symbol);
@@ -1538,7 +1586,6 @@ function PendingList({ markets, proposals, orders, allMarkets, configs, specs, o
         );
       })}
     </ul>
-    </>
   );
 }
 
@@ -1555,10 +1602,24 @@ function PendingList({ markets, proposals, orders, allMarkets, configs, specs, o
  * appears in Pending as a resting order), or `missed` if price reached the
  * level first. Both are outcomes worth waiting to see.
  */
-function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }: {
+function OrdersList({
+  awaiting, proposals, allMarkets, configs, specs,
+  tab, onTab, range, onRange, onOpenMarket, onFocusChart,
+}: {
+  /** Needs a decision from you. Listed first, because it is the only thing
+   *  here that does. */
+  awaiting: BotProposal[];
+  /** Already decided, or past deciding. */
   proposals: BotProposal[];
   allMarkets: BotMarket[];
+  configs: BotConfig[];
   specs: BotSymbolSpec[];
+  /** Owned by the workspace, so the URL can carry them and a refresh keeps
+   *  not just the section but what you had filtered inside it. */
+  tab: string;
+  onTab: (v: string) => void;
+  range: string;
+  onRange: (v: string) => void;
   onOpenMarket: (symbol: string) => void;
   onFocusChart: (symbol: string) => void;
 }) {
@@ -1571,7 +1632,6 @@ function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }
   };
   // Same ranges as History, for the same reason: "what did I decide today" is
   // a different question from "what have I decided this month".
-  const [range, setRange] = useState('week');
   const days = RANGES.find((r) => r.key === range)?.days ?? null;
   const cutoff = (() => {
     if (days == null) return null;
@@ -1593,13 +1653,38 @@ function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }
   const priceOf = (s: string) => allMarkets.find((m) => m.symbol === s)?.price ?? null;
   const digitsOf = (s: string) => specs.find((x) => x.name === s)?.digits ?? null;
 
+  const tabs = (
+    <div className="flex items-center gap-1.5 border-b border-border px-4 py-2">
+      {([
+        { key: 'awaiting' as const, label: 'Awaiting you', count: awaiting.length },
+        { key: 'decided' as const, label: 'Decided', count: shown.length },
+      ]).map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onTab(t.key)}
+          className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+            tab === t.key
+              ? 'border border-brand font-semibold text-brand'
+              : 'border border-transparent text-fg-muted hover:bg-brand/10 hover:text-brand'
+          }`}
+        >
+          {t.label}
+          {t.count > 0 && <span className="ml-1.5 font-mono text-xs">{t.count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Ranges belong to Decided only: something waiting on you belongs in every
+  // range, whatever its bar time says.
   const ranges = (
     <div className="scrollbar-none flex items-center gap-1 overflow-x-auto border-b border-border px-4 py-2">
       {RANGES.map((r) => (
         <button
           key={r.key}
           type="button"
-          onClick={() => setRange(r.key)}
+          onClick={() => onRange(r.key)}
           className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
             range === r.key
               ? 'bg-brand/15 font-semibold text-brand'
@@ -1612,9 +1697,87 @@ function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }
     </div>
   );
 
+  const lotOf = (symbol: string) =>
+    configs.find((c) => c.symbol === symbol)?.lot_size
+    ?? specs.find((s) => s.name === symbol)?.volume_min
+    ?? null;
+
+  // The decisions you owe, with the buttons on them.
+  const approvals = (
+    <ul className="space-y-2 px-4 pb-6 pt-4">
+      {awaiting.map((p) => {
+        const label = p.alias ?? p.symbol;
+        const lot = lotOf(p.symbol);
+        return (
+          <li
+            key={`a:${p.id}`}
+            className="rounded-sm border border-warning/40 bg-bg-elevated transition-colors hover:border-brand/40"
+          >
+            <button
+              type="button"
+              onClick={() => onFocusChart(p.symbol)}
+              title={`Show ${label} on the chart`}
+              className="block w-full px-4 py-3 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <SideBadge side={sideOf(p.side)} />
+                <span className="text-sm font-bold text-fg">{label}</span>
+                <span className="rounded-sm bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
+                  Needs approval
+                </span>
+                <span className="ml-auto font-mono tabular text-sm font-bold text-fg">
+                  {lot == null ? '—' : lot.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-subtle">
+                <span className="font-mono">Triggers at {px(p.level)}</span>
+                <span className="ml-auto whitespace-nowrap font-mono">
+                  {pipsAway(priceOf(p.symbol), p.level, digitsOf(p.symbol), p.symbol) ?? '—'}
+                </span>
+              </div>
+            </button>
+
+            <div className="border-t border-border px-4 pb-3 pt-2.5">
+              <ProposalActions
+                id={p.id}
+                level={p.level}
+                price={priceOf(p.symbol)}
+                barTime={p.bar_time}
+                side={sideOf(p.side)}
+              />
+            </div>
+
+            <div className="flex justify-end border-t border-border px-2 py-1">
+              <button
+                type="button"
+                onClick={() => onOpenMarket(p.symbol)}
+                className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-fg-subtle transition-colors hover:bg-brand/10 hover:text-brand"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Details
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (tab === 'awaiting') {
+    return (
+      <>
+        {tabs}
+        {awaiting.length === 0
+          ? <Empty>Nothing waiting on you. Setups needing a decision appear here.</Empty>
+          : approvals}
+      </>
+    );
+  }
+
   if (shown.length === 0) {
     return (
       <>
+        {tabs}
         {ranges}
         <Empty>
           {proposals.length === 0
@@ -1627,6 +1790,7 @@ function OrdersList({ proposals, allMarkets, specs, onOpenMarket, onFocusChart }
 
   return (
     <>
+    {tabs}
     {ranges}
     <ul className="space-y-2 px-4 pb-6 pt-4">
       {shown.map((p) => {
@@ -1788,6 +1952,88 @@ function MissedNotice({ orders }: { orders: BotProposal[] }) {
   );
 }
 
+/**
+ * One closed trade, in full.
+ *
+ * Tapping a History card used to be an <a href="/trade/123">, and on this host
+ * the proxy redirects that to /app?ticket=123 — so it navigated the desk to
+ * itself, moved the chart, and looked like nothing had happened. The trade's
+ * own story had no home here.
+ *
+ * Everything below is already in the row the list was built from; no extra
+ * query. What it deliberately leads with is MAE: "came within a hair of the
+ * stop" is the story a green P&L hides.
+ */
+function TradeDetail({ trade, onBack }: { trade: BotTrade; onBack: () => void }) {
+  const t = trade;
+  const fee = Number(t.commission ?? 0) + Number(t.swap ?? 0);
+
+  return (
+    <div className="px-4 pb-8 pt-4">
+      <div className="flex items-center gap-2 px-1 pb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="-ml-1 flex items-center gap-1 rounded-sm px-1 py-1 text-sm text-fg-muted transition-colors hover:text-brand"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+        <SideBadge side={t.side === 'sell' ? 'sell' : 'buy'} />
+        <span className="text-[15px] font-bold text-fg">{t.symbol}</span>
+        <span className={`ml-auto font-mono tabular text-sm font-bold ${tone(t.pnl)}`}>
+          {signed(t.pnl)}
+        </span>
+      </div>
+
+      <section className="rounded-sm border border-border bg-bg-elevated px-4 py-3">
+        <h4 className="pb-1 text-sm font-bold text-fg">The trade</h4>
+        <Fact label="Entry" value={px(t.open_price)} />
+        <Fact label="Exit" value={px(t.close_price)} />
+        <Fact label="Size" value={`${t.volume} lots`} />
+        <Fact label="Stop" value={px(t.sl)} />
+        <Fact label="Target" value={px(t.tp)} />
+        <Fact label="Closed because" value={closeReasonLabel(t.close_reason)} />
+        <Fact label="Opened" value={closedAtLabel(t.open_ts)} />
+        <Fact label="Closed" value={closedAtLabel(t.close_ts)} last />
+      </section>
+
+      <section className="mt-3 rounded-sm border border-border bg-bg-elevated px-4 py-3">
+        <h4 className="pb-1 text-sm font-bold text-fg">The money</h4>
+        <Fact label="Net P&L" value={signed(t.pnl)} valueClass={tone(t.pnl)} />
+        <Fact label="Commission" value={t.commission == null ? '—' : money(t.commission)} />
+        <Fact label="Swap" value={t.swap == null ? '—' : money(t.swap)} />
+        <Fact label="Fees total" value={fee === 0 ? '—' : money(fee)} />
+        <Fact
+          label="R multiple"
+          value={t.r_multiple == null ? '—' : `${t.r_multiple.toFixed(2)} R`}
+          valueClass={t.r_multiple == null ? 'text-fg' : tone(t.r_multiple)}
+          last
+        />
+      </section>
+
+      <section className="mt-3 rounded-sm border border-border bg-bg-elevated px-4 py-3">
+        <h4 className="pb-1 text-sm font-bold text-fg">How it ran</h4>
+        {/* In price units, measured on bar extremes — mae is how close it came
+            to the stop, which the P&L column cannot tell you. */}
+        <Fact label="Best in favour" value={t.mfe == null ? '—' : px(t.mfe)} valueClass="text-brand" />
+        <Fact label="Worst against" value={t.mae == null ? '—' : px(t.mae)} valueClass="text-danger" />
+        <Fact label="Entry spread" value={t.entry_spread == null ? '—' : px(t.entry_spread)} />
+        <Fact label="With the trend?" value={t.trend_agreement ?? '—'} />
+        <Fact label="Strategy" value={t.strategy ?? '—'} />
+        <Fact label="Timeframe" value={t.timeframe ?? '—'} last />
+      </section>
+
+      {t.ticket != null && (
+        <p className="mt-3 text-center font-mono text-[11px] text-fg-subtle">
+          Ticket #{t.ticket}
+          {t.is_dry_run && <span className="text-warning"> · demo</span>}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Where a decided proposal got to. Green = at the broker, amber = it didn't. */
 function OrderStatusBadge({ status, ticket }: { status: string; ticket: number | null }) {
   const s = status === 'placed'
@@ -1942,9 +2188,16 @@ const RANGES: { key: string; label: string; days: number | null }[] = [
 
 const PAGE = 25;
 
-function HistoryList({ trades }: { trades: BotTrade[] }) {
+function HistoryList({ trades, range, onRange, onOpenTrade }: {
+  trades: BotTrade[];
+  /** From the URL, so a refresh keeps the period you were looking at. */
+  range: string;
+  onRange: (v: string) => void;
+  onOpenTrade: (t: BotTrade) => void;
+}) {
+  // Wins/Losses and the page stay local: they are a glance, not a place, and
+  // putting every control in the address bar makes an unreadable URL.
   const [filter, setFilter] = useState<HistoryFilter>('all');
-  const [range, setRange] = useState('week');
   const [limit, setLimit] = useState(PAGE);
 
   const days = RANGES.find((r) => r.key === range)?.days ?? null;
@@ -1998,7 +2251,7 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
             <button
               key={r.key}
               type="button"
-              onClick={pick(setRange, r.key)}
+              onClick={pick(onRange, r.key)}
               className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
                 range === r.key
                   ? 'bg-brand/15 font-semibold text-brand'
@@ -2028,12 +2281,13 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
         <ul className="space-y-2 px-4 pb-6 pt-3">
           {shown.map((t) => (
             <li key={t.id}>
-              {/* The ticket page is the whole story of one trade — entry
-                  readings, excursions, the analyst's note. Keep the card a
-                  link to it. */}
-              <a
-                href={t.ticket ? `/trade/${t.ticket}` : undefined}
-                className="block rounded-sm border border-border bg-bg-elevated px-4 py-3 transition-colors hover:border-brand/40"
+              {/* A button, not a link. On this host /trade/<ticket> is
+                  redirected to the desk itself, so the old anchor navigated
+                  here from here and looked like a dead tap. */}
+              <button
+                type="button"
+                onClick={() => onOpenTrade(t)}
+                className="block w-full rounded-sm border border-border bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-brand/40"
               >
                 <div className="flex items-center gap-2">
                   <SideBadge side={t.side === 'sell' ? 'sell' : 'buy'} />
@@ -2050,7 +2304,7 @@ function HistoryList({ trades }: { trades: BotTrade[] }) {
                     {closedAtLabel(t.close_ts)}
                   </span>
                 </div>
-              </a>
+              </button>
             </li>
           ))}
 
