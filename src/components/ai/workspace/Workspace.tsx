@@ -25,6 +25,7 @@ import { MarketChart } from '@/components/admin/bot/MarketChart';
 import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline, useNow } from '@/components/admin/bot/BotBits';
 import { MarketEnableToggle } from '@/components/admin/bot/MarketEnableToggle';
 import { CancelOrderButton } from '@/components/admin/bot/CancelOrderButton';
+import { ProposalActions } from './ProposalActions';
 import { TradingSwitchButton } from '@/components/admin/bot/TradingSwitchButton';
 import { ApprovalModeToggle } from '@/components/admin/bot/ApprovalModeToggle';
 import { FlattenAllButton } from '@/components/admin/bot/FlattenAllButton';
@@ -1263,6 +1264,9 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
       needsApproval: true,
       ticket: null as number | null,
       alias: p.alias ?? p.symbol,
+      // Carried so the card can answer the question it is showing.
+      proposalId: p.id as string | null,
+      barTime: p.bar_time as string | null,
       note: <>asked <TimeAgo iso={p.created_at} /></>,
     })),
     ...markets.map((m) => ({
@@ -1277,6 +1281,8 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
       // cancelled, which is why the ticket is carried through.
       ticket: m.pending_ticket ?? null,
       alias: m.alias,
+      proposalId: null as string | null,
+      barTime: null as string | null,
       note: m.pending_ticket ? <span className="font-mono">#{m.pending_ticket}</span> : <>watching</>,
     })),
   ];
@@ -1332,6 +1338,23 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
               <span className="ml-auto whitespace-nowrap font-mono">{pips ?? r.note}</span>
             </div>
             </button>
+
+            {/* The answer, under the question. Outside the card because a
+                button inside a button is invalid HTML — and because approving
+                is not "open this market".
+
+                It is ONLY here. The Telegram alert lost its approve button:
+                a tap in a chat is attributable to a chat account at best, and
+                "who approved this trade" has to be answerable by name weeks
+                later. */}
+            {r.proposalId && (
+              <ProposalActions
+                id={r.proposalId}
+                level={r.level}
+                price={priceOf(r.symbol)}
+                barTime={r.barTime}
+              />
+            )}
           </li>
         );
       })}
