@@ -23,10 +23,10 @@ import {
 import { MarketChart } from '@/components/admin/bot/MarketChart';
 import { TrendChip, StateBadge, TimeAgo, Duration, Sparkline, useNow } from '@/components/admin/bot/BotBits';
 import { MarketEnableToggle } from '@/components/admin/bot/MarketEnableToggle';
+import { CancelOrderButton } from '@/components/admin/bot/CancelOrderButton';
 import { TradingSwitchButton } from '@/components/admin/bot/TradingSwitchButton';
 import { ApprovalModeToggle } from '@/components/admin/bot/ApprovalModeToggle';
 import { FlattenAllButton } from '@/components/admin/bot/FlattenAllButton';
-import { CancelOrderButton } from '@/components/admin/bot/CancelOrderButton';
 import { setLotSizeAction, setCloseAtProfitAction } from '@/lib/admin/trading-bot-actions';
 import type {
   BotMarket, BotTrade, BotEquity, BotSettings, BotProposal, BotConfig, BotSymbolSpec,
@@ -903,6 +903,40 @@ function MarketSettings({ market, enabled, config, spec }: {
 
       {err && <p className="mt-2 text-center text-[11px] text-danger">{err}</p>}
       {saved && !dirty && !err && <p className="mt-2 text-center text-[11px] text-brand">Saved.</p>}
+
+      {/* Who set the size that every trade here is placed at (migration 017).
+          Last writer, not a history — and silent on markets nobody has
+          touched, rather than claiming the defaults were somebody's choice. */}
+      {config?.updated_by && (
+        <p className="mt-3 text-center text-[11px] text-fg-subtle">
+          Last changed by{' '}
+          <span className="text-fg">{config.updated_by_name ?? config.updated_by}</span>
+          {' · '}<TimeAgo iso={config.updated_at} />
+        </p>
+      )}
+
+      {/* Only when something is actually resting at the broker. A cancel on a
+          market the bot is merely watching would have nothing to cancel, and
+          it sits below Save because it is the one control here that ends
+          something rather than adjusting it. */}
+      {market.pending_ticket != null && (
+        <>
+          <hr className="my-4 border-border" />
+          <p className="pb-3 text-center text-[11px] leading-relaxed text-fg-subtle">
+            Order <span className="font-mono text-fg">#{market.pending_ticket}</span> is resting at{' '}
+            <span className="font-mono text-fg">{px(market.level)}</span>. Nothing is risked until it
+            fills.
+          </p>
+          <div className="flex justify-center">
+            <CancelOrderButton
+              symbol={market.symbol}
+              alias={market.alias}
+              ticket={market.pending_ticket}
+              level={market.level}
+            />
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -1062,24 +1096,16 @@ function SettingsPanel({ settings, equity, openCount }: {
           settings.trading_enabled ? 'border-border bg-bg-elevated' : 'border-warning/40 bg-warning/5'
         }`}
       >
+        {/* The heading owns its line. Side by side, "Trading is on" wrapped to
+            two lines and the two controls fought for what was left — on a
+            420px panel there is no room for a label and two buttons in a row. */}
         <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${settings.trading_enabled ? 'bg-brand' : 'bg-warning'}`} />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${settings.trading_enabled ? 'bg-brand' : 'bg-warning'}`} />
           <h4 className="text-sm font-bold text-fg">
             {settings.trading_enabled ? 'Trading is on' : 'Trading is off'}
           </h4>
-          <span className="ml-auto flex items-center gap-2">
-            <TradingSwitchButton
-              enabled={settings.trading_enabled}
-              updatedAt={settings.updated_at}
-              updatedBy={settings.updated_by}
-              seenByBotAt={settings.seen_by_bot_at}
-            />
-            {/* Beside it deliberately: one stops NEW risk, the other gets out
-                of the risk already carried. They are asked for together. */}
-            <FlattenAllButton openCount={openCount} />
-          </span>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+        <p className="mt-1.5 text-[11px] leading-relaxed text-fg-subtle">
           {settings.trading_enabled
             ? 'The bot opens new trades on any enabled market.'
             : 'No new trades are being opened. Open positions and resting orders are still managed.'}
@@ -1090,29 +1116,43 @@ function SettingsPanel({ settings, equity, openCount }: {
             ? <>Bot last read this <TimeAgo iso={settings.seen_by_bot_at} /></>
             : 'The bot has never confirmed reading this flag.'}
         </p>
+        {/* Together deliberately: one stops NEW risk, the other gets out of
+            the risk already carried. They are reached for at the same moment. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <TradingSwitchButton
+            enabled={settings.trading_enabled}
+            updatedAt={settings.updated_at}
+            updatedBy={settings.updated_by}
+            seenByBotAt={settings.seen_by_bot_at}
+          />
+          <FlattenAllButton openCount={openCount} />
+        </div>
       </section>
 
       <section className="mt-3 rounded-sm border border-border bg-bg-elevated px-4 py-4">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-fg">
-            {settings.require_approval ? 'Asks before trading' : 'Places its own orders'}
-          </h4>
-          <span className="ml-auto">
-            <ApprovalModeToggle required={settings.require_approval} />
-          </span>
-        </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+        <h4 className="text-sm font-bold text-fg">
+          {settings.require_approval ? 'Asks before trading' : 'Places its own orders'}
+        </h4>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-fg-subtle">
           {settings.require_approval
             ? 'It proposes setups and waits. Nothing reaches the broker until someone approves it, here or in Telegram.'
             : 'It finds a setup and places the order itself.'}
         </p>
+        <div className="mt-3">
+          <ApprovalModeToggle required={settings.require_approval} />
+        </div>
       </section>
 
       <section className="mt-3 rounded-sm border border-border bg-bg-elevated px-4 py-3">
         <Fact label="Account" value={equity?.is_dry_run ? 'Demo' : 'Live'} valueClass={equity?.is_dry_run ? 'text-warning' : 'text-fg'} />
         <Fact label="Balance" value={money(equity?.balance)} />
         <Fact label="Equity" value={money(equity?.equity)} />
-        <Fact label="Changed by" value={settings.updated_by ?? '—'} last />
+        {/* The person, falling back to the address they signed in with. */}
+        <Fact
+          label="Changed by"
+          value={settings.updated_by_name ?? settings.updated_by ?? '—'}
+          last
+        />
       </section>
     </div>
   );
@@ -1144,11 +1184,23 @@ const sideOf = (signal: string | null | undefined): 'buy' | 'sell' => {
  * one (JPY) — derived from the broker's own `digits`, never assumed, because
  * guessing it on USDJPY is wrong by a factor of 100.
  */
-function pipsAway(price: number | null, level: number | null, digits: number | null): string | null {
-  if (price == null || level == null || digits == null) return null;
+function pipsAway(price: number | null, level: number | null, digits: number | null, symbol: string): string | null {
+  if (price == null || level == null) return null;
   if (!Number.isFinite(price) || !Number.isFinite(level)) return null;
+  const gap = Math.abs(price - level);
+
+  // A pip is a CURRENCY convention. VOL25 is a synthetic index — quoting its
+  // distance as "856 pips" is a number with no meaning attached to it, so
+  // anything that is not a six-letter currency pair is quoted in points, in
+  // the instrument's own units.
+  const s = symbol.toUpperCase().replace(/[^A-Z]/g, '');
+  const isFx = s.length === 6 && digits != null;
+  if (!isFx) {
+    return `${gap < 10 ? gap.toFixed(2) : Math.round(gap).toLocaleString('en-US')} away`;
+  }
+
   const pip = digits >= 3 ? 10 ** -(digits - 1) : 10 ** -digits;
-  const n = Math.abs(price - level) / pip;
+  const n = gap / pip;
   if (!Number.isFinite(n)) return null;
   return `${n < 10 ? n.toFixed(1) : Math.round(n)} pips away`;
 }
@@ -1208,7 +1260,7 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
     <ul className="space-y-2 px-4 pb-6 pt-4">
       {rows.map((r) => {
         const lot = lotOf(r.symbol);
-        const pips = pipsAway(priceOf(r.symbol), r.level, specOf(r.symbol)?.digits ?? null);
+        const pips = pipsAway(priceOf(r.symbol), r.level, specOf(r.symbol)?.digits ?? null, r.symbol);
         return (
           <li key={r.key}>
             {/* The whole card is the target — the ⚙ is the affordance, not the
@@ -1222,9 +1274,21 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
             <div className="flex items-center gap-2">
               <SideBadge side={r.side} />
               <span className="text-sm font-bold text-fg">{r.label}</span>
-              {r.needsApproval && (
+              {/* Three different things share this list and only two of them
+                  can fill. The rail's badge counts the fillable ones, so
+                  without this tag the card and the badge look like they
+                  disagree — a watched level reads as a live order. */}
+              {r.needsApproval ? (
                 <span className="rounded-sm bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                   Needs approval
+                </span>
+              ) : r.ticket ? (
+                <span className="rounded-sm bg-brand/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand">
+                  #{r.ticket}
+                </span>
+              ) : (
+                <span className="rounded-sm bg-surface-hover px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">
+                  Watching
                 </span>
               )}
               <span className="ml-auto font-mono tabular text-sm font-bold text-fg">
@@ -1243,17 +1307,6 @@ function PendingList({ markets, proposals, allMarkets, configs, specs, onOpenMar
               <span className="ml-auto whitespace-nowrap font-mono">{pips ?? r.note}</span>
             </div>
             </button>
-
-            {/* Outside the card, because a button inside a button is invalid
-                HTML and because cancelling is not "open this market". */}
-            {r.ticket != null && (
-              <div className="mt-1.5 px-1">
-                <CancelOrderButton
-                  symbol={r.symbol} alias={r.alias}
-                  ticket={r.ticket} level={r.level}
-                />
-              </div>
-            )}
           </li>
         );
       })}
@@ -1550,7 +1603,9 @@ function BotPulse({ iso }: { iso: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 ${tone.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-      {tone.label} · <TimeAgo iso={iso} />
+      {/* The word itself can straddle a threshold between the server's clock
+          reading and the browser's, same as the timestamp beside it. */}
+      <span suppressHydrationWarning>{tone.label}</span> · <TimeAgo iso={iso} />
     </span>
   );
 }

@@ -216,6 +216,12 @@ export interface BotConfig {
   close_at_profit: number | null;
   enabled: boolean;
   updated_at: string;
+  /** Email of whoever last changed this market's settings (migration 017).
+   *  Null for rows written before it. Last writer, not a log. */
+  updated_by?: string | null;
+  /** That email resolved against public.users — see BotSettings.updated_by_name
+   *  for why this is looked up rather than stored. */
+  updated_by_name?: string | null;
 }
 
 /** Broker contract limits used to validate a lot size (bot_symbols). */
@@ -237,6 +243,13 @@ export interface BotSettings {
   require_approval: boolean;
   updated_at: string;
   updated_by: string | null;
+  /** `updated_by` is stored as the issuer's EMAIL (see issuer() in
+   *  trading-bot-actions). This is that email resolved against public.users —
+   *  "Victor Otung" rather than an address — and null when the row predates
+   *  the email convention, or names nobody with an account. Resolved in
+   *  getBotOverview, never stored: a name that was copied at write time would
+   *  go stale the day someone is renamed. */
+  updated_by_name?: string | null;
   /** Trades before this date are the OLD strategy's record. Kept, not
    *  deleted — it is the evidence of what did not work — but filtered out of
    *  the dashboard by default so the new strategy is measured on its own.
@@ -353,7 +366,7 @@ export async function getBotOverview(): Promise<BotOverview> {
 
   const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings, proposals] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
-    admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at'),
+    admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at, updated_by'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
     admin.from('bot_trades').select(TRADE_COLS).is('close_ts', null).order('open_ts', { ascending: false }),
     admin.from('bot_trades').select(TRADE_COLS).not('close_ts', 'is', null).order('close_ts', { ascending: false }).limit(1000),
@@ -387,9 +400,38 @@ export async function getBotOverview(): Promise<BotOverview> {
   const onlyLive = (t: BotTrade) => liveSymbols.has(t.symbol);
   const closedLive = ((closedTrades.data ?? []) as BotTrade[]).filter(onlyLive);
 
+  // Who last touched the switch, as a person rather than an address. Looked up
+  // rather than stored, so it follows a rename. Left null if the address
+  // belongs to nobody with an account — better a raw email than a wrong name
+  // against a control that stops trading.
+  const settingsRow = (settings.data as BotSettings | null) ?? null;
+  const configRows = (configs.data ?? []) as BotConfig[];
+
+  // One lookup for every address on the page — the switch's and each market's.
+  const emails = [...new Set(
+    [settingsRow?.updated_by, ...configRows.map((c) => c.updated_by)]
+      .filter((e): e is string => !!e && e.includes('@')),
+  )];
+  const nameOf = new Map<string, string>();
+  if (emails.length) {
+    const { data: people } = await admin
+      .from('users')
+      .select('email, full_name')
+      .in('email', emails);
+    for (const p of (people ?? []) as { email: string; full_name: string | null }[]) {
+      if (p.full_name) nameOf.set(p.email, p.full_name);
+    }
+  }
+  const updatedByName = settingsRow?.updated_by
+    ? nameOf.get(settingsRow.updated_by) ?? null
+    : null;
+
   return {
     markets: marketRows,
-    configs: (configs.data ?? []) as BotConfig[],
+    configs: configRows.map((c) => ({
+      ...c,
+      updated_by_name: c.updated_by ? nameOf.get(c.updated_by) ?? null : null,
+    })),
     specs: (specs.data ?? []) as BotSymbolSpec[],
     openTrades: ((openTrades.data ?? []) as BotTrade[]).filter(onlyLive),
     closedTrades: closedLive,
@@ -399,7 +441,7 @@ export async function getBotOverview(): Promise<BotOverview> {
     equity: (equity.data?.[0] as BotEquity | undefined) ?? null,
     equityCurve: ((equityCurve.data ?? []) as BotEquity[]).slice().reverse(), // oldest → newest for a chart
     lastUpdate,
-    settings: (settings.data as BotSettings | null) ?? null,
+    settings: settingsRow ? { ...settingsRow, updated_by_name: updatedByName } : null,
     proposals: (proposals.data ?? []) as BotProposal[],
     // Only what is live: a note matters while the order it describes is still
     // resting or running. Closed trades read theirs on their own page.

@@ -1407,7 +1407,9 @@ function SwitchCaption({ settings }: { settings: BotSettings }) {
   return (
     <span className="text-[11px] text-fg-subtle">
       {settings.trading_enabled ? 'On' : 'Off'} since {when}
-      {settings.updated_by ? ` · ${settings.updated_by}` : ''}
+      {settings.updated_by_name ?? settings.updated_by
+        ? ` · ${settings.updated_by_name ?? settings.updated_by}`
+        : ''}
     </span>
   );
 }

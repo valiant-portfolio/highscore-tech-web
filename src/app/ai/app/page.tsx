@@ -52,7 +52,9 @@ export default async function AiWorkspacePage() {
       settings={settings}
       proposals={proposals}
       lastUpdate={lastUpdate}
-      user={{ name: user.email ?? 'Signed in', initials: initialsOf(user) }}
+      // The person at the desk, not the address they signed in with. The email
+      // is the fallback, because a nameless account is still somebody.
+      user={{ name: user.full_name?.trim() || user.email || 'Signed in', initials: initialsOf(user) }}
     />
   );
 }

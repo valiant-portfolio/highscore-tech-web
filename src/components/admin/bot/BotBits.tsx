@@ -82,6 +82,17 @@ export function useStale(iso: string | null | undefined, staleMs: number): boole
   return stale;
 }
 
+/**
+ * suppressHydrationWarning: the label is derived from Date.now() at render, so
+ * the server's value and the browser's are taken at different instants. On an
+ * hours-old timestamp they agree and nothing shows; on a fresh one the server
+ * writes "16s ago" and hydration reads "17s ago", which React counts as a
+ * mismatch and reports as a Recoverable Error.
+ *
+ * This is the case the attribute exists for — the difference IS the point, and
+ * the client's value is the correct one. The alternative, rendering nothing
+ * until mount, makes every timestamp on the desk flash in on load.
+ */
 export function TimeAgo({ iso, className = '' }: { iso: string | null | undefined; className?: string }) {
   const [, tick] = useState(0);
   useEffect(() => {
@@ -92,7 +103,7 @@ export function TimeAgo({ iso, className = '' }: { iso: string | null | undefine
   if (ms === null) return <span className={className}>never</span>;
   const s = Math.floor(ms / 1000);
   const label = s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : `${Math.floor(s / 86400)}d ago`;
-  return <span className={className}>{label}</span>;
+  return <span className={className} suppressHydrationWarning>{label}</span>;
 }
 
 /**
@@ -126,7 +137,9 @@ export function Duration({ from, className = '' }: { from: string | null | undef
   // A negative age means the clock disagrees with the broker's, not a 0s trade;
   // don't dress that up as a duration.
   if (ms === null || ms < 0) return <span className={className}>—</span>;
-  return <span className={className}>{formatDuration(ms)}</span>;
+  // Same clock-drift case as TimeAgo: server and client read Date.now() a
+  // moment apart, and either side of a minute boundary the text differs.
+  return <span className={className} suppressHydrationWarning>{formatDuration(ms)}</span>;
 }
 
 // v7: three trend states only — 🟢 Uptrend, ⚪ Sideways, 🔴 Downtrend. Strength

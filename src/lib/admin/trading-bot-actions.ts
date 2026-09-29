@@ -53,7 +53,9 @@ export async function setLotSizeAction(symbol: string, lot: number | null): Prom
 
   const { error } = await admin
     .from('bot_symbol_config')
-    .update({ lot_size: saved, updated_at: new Date().toISOString() })
+    // updated_by (migration 017): lot size is the size of every subsequent
+    // trade on this market, so "who set this" is part of the setting.
+    .update({ lot_size: saved, updated_at: new Date().toISOString(), updated_by: await issuer() })
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
@@ -88,7 +90,7 @@ export async function setCloseAtProfitAction(
 
   const { error } = await admin
     .from('bot_symbol_config')
-    .update({ close_at_profit: saved, updated_at: new Date().toISOString() })
+    .update({ close_at_profit: saved, updated_at: new Date().toISOString(), updated_by: await issuer() })
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
@@ -107,7 +109,7 @@ export async function setMarketEnabledAction(symbol: string, enabled: boolean): 
   const admin = botServiceClient();
   const { error } = await admin
     .from('bot_symbol_config')
-    .update({ enabled, updated_at: new Date().toISOString() })
+    .update({ enabled, updated_at: new Date().toISOString(), updated_by: await issuer() })
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/bot');
