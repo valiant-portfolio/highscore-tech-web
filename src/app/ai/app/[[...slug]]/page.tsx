@@ -11,6 +11,13 @@
 //
 // The data is the existing bot's, unchanged: getBotOverview() is the same call
 // the old dashboard made. One source, one desk, new room.
+//
+// ONE CATCH-ALL ROUTE, every section a real path: /app/markets,
+// /app/market/EUR-USD, /app/market/EUR-USD/details, /app/history. It was
+// ?tab=markets, which failed at the three things a query string is bad at — a
+// refresh landing where you were, Back walking where you have been, and a link
+// naming what you are looking at. A folder per section would have duplicated
+// this shell eleven times and let the copies drift.
 
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -18,6 +25,8 @@ import { getBotOverview, symbolForTicket } from '@/lib/admin/trading-bot-queries
 import { getAdminAccess } from '@/lib/admin/access';
 import { getCurrentUser, initialsOf } from '@/lib/auth/queries';
 import { Workspace } from '@/components/ai/workspace/Workspace';
+import { parseDeskRoute } from '@/lib/ai/desk-route';
+import { symbolFromSlug } from '@/lib/ai/market-slug';
 
 export const metadata: Metadata = {
   title: 'Workspace',
@@ -28,11 +37,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function AiWorkspacePage({ searchParams }: {
-  searchParams: Promise<{
-    ticket?: string; symbol?: string; tab?: string; market?: string;
-    view?: string; range?: string;
-  }>;
+export default async function AiWorkspacePage({ params, searchParams }: {
+  params: Promise<{ slug?: string[] }>;
+  searchParams: Promise<{ ticket?: string; symbol?: string }>;
 }) {
   const user = await getCurrentUser();
   // Sign in on THIS host and come back here — the desk does not hand anyone to
@@ -46,18 +53,19 @@ export default async function AiWorkspacePage({ searchParams }: {
     markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate,
   } = await getBotOverview();
 
-  // A Telegram alert links here with the one thing it knows: a ticket.
-  // Resolve it to a market so the desk opens on the thing being asked
-  // about, rather than the welcome screen.
-  const q = await searchParams;
-  const openOn = q.market ?? q.symbol
-    ?? (q.ticket && Number.isFinite(Number(q.ticket)) ? await symbolForTicket(Number(q.ticket)) : null);
+  const route = parseDeskRoute((await params).slug);
 
-  // The desk keeps its place in the URL — ?tab, ?market, ?ticket — so a
-  // refresh lands where you were rather than back on the welcome screen, and
-  // a link to what you are looking at is just the address bar.
-  const openTab = q.tab ?? null;
-  const openTicket = q.ticket && Number.isFinite(Number(q.ticket)) ? Number(q.ticket) : null;
+  // Old links still work: ?symbol= and ?ticket= are in Telegram alerts already
+  // sent, and in people's history. They resolve to the same place the new paths
+  // point at rather than 404ing on a shape we stopped using.
+  const q = await searchParams;
+  const legacyTicket = q.ticket && Number.isFinite(Number(q.ticket)) ? Number(q.ticket) : null;
+  const ticket = route.ticket ?? legacyTicket;
+
+  const openOn = route.marketSlug
+    ? symbolFromSlug(route.marketSlug, markets)
+    : q.symbol
+      ?? (ticket ? await symbolForTicket(ticket) : null);
 
   return (
     <Workspace
@@ -70,13 +78,10 @@ export default async function AiWorkspacePage({ searchParams }: {
       settings={settings}
       proposals={proposals}
       lastUpdate={lastUpdate}
+      section={route.section}
       openOn={openOn}
-      openTab={openTab}
-      openTicket={openTicket}
-      // Sub-state, so a refresh keeps the tab AND what you had filtered
-      // inside it: Orders' Awaiting/Decided, and History's range.
-      openView={q.view ?? null}
-      openRange={q.range ?? null}
+      openDetails={route.details}
+      openTicket={ticket}
       // The person at the desk, not the address they signed in with. The email
       // is the fallback, because a nameless account is still somebody.
       user={{ name: user.full_name?.trim() || user.email || 'Signed in', initials: initialsOf(user) }}

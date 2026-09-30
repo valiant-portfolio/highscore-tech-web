@@ -16,6 +16,8 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { deskPath, marketPath, tradePath } from '@/lib/ai/desk-route';
+import { marketSlug } from '@/lib/ai/market-slug';
 import {
   Sparkles, CandlestickChart, ListFilter, Clock, Activity, History as HistoryIcon,
   FlaskConical, Bell, X, ChevronLeft, ChevronRight, Send, Plus, MoreHorizontal, ChevronDown,
@@ -41,8 +43,8 @@ type Section =
 
 /** How the desk was left: which section, and what was open. Per browser. */
 const DESK_KEY = 'hs-workspace-desk';
+/** Layout only. Where you ARE is the URL's job — see lib/ai/desk-route. */
 type DeskState = {
-  section: Section;
   panelOpen: boolean;
   railOpen: boolean;
   panelSide: 'left' | 'right';
@@ -67,19 +69,24 @@ const px = (n: number | null | undefined) =>
 
 export function Workspace({
   markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user,
-  openOn = null, openTab = null, openTicket = null, openView = null, openRange = null,
+  section, openOn = null, openDetails = false, openTicket = null,
 }: {
-  /** Land on this market rather than the Scora welcome — how a Telegram
-   *  alert arrives: it knows one ticket, and this is where that opens. */
+  /* WHERE WE ARE COMES FROM THE URL, not from state.
+   *
+   * The desk used to hold its own place and mirror it into `?tab=`, which made
+   * the address a description of state rather than the thing driving it — so
+   * Back did nothing useful and a refresh re-derived the answer. These props
+   * are the route, parsed by the page; every click navigates and comes back
+   * through here. */
+  section: Section;
+  /** The market named by `/app/market/<slug>`, already resolved to a symbol. */
   openOn?: string | null;
-  /** ?tab= — the section to open on. */
-  openTab?: string | null;
-  /** ?ticket= — a closed trade to open straight into. */
+  /** `/app/market/<slug>/details` — open the market's own screen. A market in
+   *  the path WITHOUT this only moves the chart, which is the difference
+   *  between looking at something and opening it. */
+  openDetails?: boolean;
+  /** `/app/trade/<ticket>` — a closed trade opened from History. */
   openTicket?: number | null;
-  /** ?view= — the sub-tab within a section (Orders: awaiting | decided). */
-  openView?: string | null;
-  /** ?range= — the period a list is filtered to. */
-  openRange?: string | null;
   /** Newest bot_market_state write — the bot's pulse, not the equity snapshot. */
   lastUpdate: string | null;
   markets: BotMarket[];
@@ -92,10 +99,6 @@ export function Workspace({
   proposals: BotProposal[];
   user: { name: string; initials: string };
 }) {
-  // ?tab wins, then a market/ticket link implies Markets, then the welcome.
-  const [section, setSection] = useState<Section>(
-    openTab && openTab in TITLES ? (openTab as Section) : openOn ? 'markets' : 'scora',
-  );
   const [panelOpen, setPanelOpen] = useState(true);
   const [railOpen, setRailOpen] = useState(true);
   // The ... menu offers "Move to right", so the panel is a side, not a column.
@@ -112,21 +115,15 @@ export function Workspace({
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(DESK_KEY) || '{}') as Partial<DeskState>;
-      // The URL WINS. A link or a refresh is an explicit instruction about
-      // where to be; the saved section is only a default for arriving with
-      // nothing specified.
-      if (!openTab && !openOn && openTicket == null && s.section && s.section in TITLES) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSection(s.section);
-      }
+      // The section is no longer saved here — it is the URL's job now, and two
+      // sources for one answer is how they disagree. Only the LAYOUT is
+      // remembered: which side the panel is on, and whether it is open.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (typeof s.panelOpen === 'boolean') setPanelOpen(s.panelOpen);
       if (typeof s.railOpen === 'boolean') setRailOpen(s.railOpen);
       if (s.panelSide === 'left' || s.panelSide === 'right') setPanelSide(s.panelSide);
     } catch { /* ignore */ }
     setRestored(true);
-    // Once, on mount. The URL props are read here only to decide whether the
-    // saved section may apply; re-running on them would fight the user.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -134,9 +131,9 @@ export function Workspace({
     // Don't write the defaults over the saved state before it is read back.
     if (!restored) return;
     try {
-      localStorage.setItem(DESK_KEY, JSON.stringify({ section, panelOpen, railOpen, panelSide }));
+      localStorage.setItem(DESK_KEY, JSON.stringify({ panelOpen, railOpen, panelSide }));
     } catch { /* ignore */ }
-  }, [restored, section, panelOpen, railOpen, panelSide]);
+  }, [restored, panelOpen, railOpen, panelSide]);
 
   /* Pull fresh data on a timer.
    *
@@ -209,52 +206,39 @@ export function Workspace({
   // Which market the Markets panel is drilled into. It lives up here, not in
   // the panel, because Pending opens it too: the ⚙ on a pending card is the
   // same control as the one on a market card, and must land on the same screen.
-  const [marketFocus, setMarketFocus] = useState<string | null>(openOn);
-  // A closed trade opened from History or Transactions. Held here so Back
-  // returns you to the list you came from, with its filters intact.
-  const [tradeFocus, setTradeFocus] = useState<BotTrade | null>(
-    openTicket == null ? null : closedTrades.find((t) => t.ticket === openTicket) ?? null,
-  );
+  /* The market in view comes from the route, not from state. Held in a
+   * variable rather than useState so a Back or a pasted link is authoritative:
+   * state would have to be re-synced to the URL and the two would drift. */
+  const marketFocus = openOn;
+  // A closed trade is `/app/trade/<ticket>`, so Back leaves it and a link to
+  // one opens it.
+  const tradeFocus = openTicket == null
+    ? null
+    : closedTrades.find((t) => t.ticket === openTicket) ?? null;
   const openTrade = (t: BotTrade) => {
-    setTradeFocus(t);
-    setMarketFocus(t.symbol);   // the chart follows, as it does everywhere else
+    if (t.ticket == null) return;
     setPanelOpen(true);
+    router.push(tradePath(t.ticket));
   };
 
   /* The state INSIDE a section — which sub-tab, which period — lives up here
    * too, for one reason: it has to survive a refresh. Held in the list that
    * owns it, it is gone the moment the page reloads, and "it stays where I
    * left it" would only half work. */
-  const [view, setView] = useState(openView === 'decided' ? 'decided' : 'awaiting');
-  const [range, setRange] = useState(
-    openRange && RANGES.some((r) => r.key === openRange) ? openRange : 'week',
-  );
+  const [view, setView] = useState<'awaiting' | 'decided'>('awaiting');
+  const [range, setRange] = useState('week');
 
-  /* THE URL FOLLOWS THE DESK.
+  /* THE PAGE TITLE CARRIES THE PRICE.
    *
-   * All of this lived in component state, so /app was the only address there
-   * was: a refresh threw you back to the welcome screen, and there was no way
-   * to send anyone what you were looking at.
-   *
-   * history.replaceState, NOT router.replace: this only needs the address bar
-   * to agree with the screen, and router.replace re-runs the server component
-   * — a fresh round of queries for every market you click. Replace rather than
-   * push, so Back leaves the desk instead of walking you back through fifty
-   * markets you glanced at. */
+   * Set from the client because it moves: a title rendered on the server is
+   * the price at the moment the page was built. With the desk in a background
+   * tab this is the only place the number is visible at all. */
   useEffect(() => {
-    if (!restored) return;
-    const q = new URLSearchParams();
-    q.set('tab', section);
-    if (marketFocus) q.set('market', marketFocus);
-    if (tradeFocus?.ticket != null) q.set('ticket', String(tradeFocus.ticket));
-    // Only where they mean something, so the address stays readable.
-    if (section === 'orders') q.set('view', view);
-    if (section === 'orders' || section === 'history') q.set('range', range);
-    const next = `${window.location.pathname}?${q.toString()}`;
-    if (next !== window.location.pathname + window.location.search) {
-      window.history.replaceState(null, '', next);
-    }
-  }, [restored, section, marketFocus, tradeFocus, view, range]);
+    const m = markets.find((x) => x.symbol === marketFocus) ?? null;
+    document.title = m && m.price != null
+      ? `${m.alias} ${px(m.price)} · Highscore`
+      : `${TITLES[section]} · Highscore`;
+  }, [markets, marketFocus, section]);
 
   /* On a phone the rail is a drawer, not a column: 232px of navigation beside
    * a chart leaves room for neither. It slides over, and picking a section
@@ -269,19 +253,30 @@ export function Workspace({
   // in the panel body, so without this, leaving History for Pending kept the
   // trade on screen under Pending's title — the panel said one thing and
   // showed another.
+  /* NAVIGATION IS NAVIGATION. Each of these pushes a path and lets the route
+   * come back through props, so Back and a refresh both work by construction
+   * rather than by us remembering to mirror state into the address. */
   const open = (s: Section) => {
-    setSection(s);
     setPanelOpen(true);
     setNavOpen(false);
-    setTradeFocus(null);
-    if (s === 'markets') setMarketFocus(null);
+    router.push(deskPath(s));
   };
-  const openMarket = (symbol: string) => {
-    setMarketFocus(symbol);
-    setSection('markets');
+
+  /** Point the chart at a market and change the URL to it — WITHOUT opening
+   *  its details. Clicking a market card does this; the ⚙ does the one below. */
+  const focusMarket = (symbol: string) => {
+    const m = markets.find((x) => x.symbol === symbol);
     setPanelOpen(true);
     setNavOpen(false);
-    setTradeFocus(null);
+    router.push(marketPath(marketSlug(symbol, m?.alias ?? null)));
+  };
+
+  /** Open the market's own screen — the deliberate second click. */
+  const openMarket = (symbol: string) => {
+    const m = markets.find((x) => x.symbol === symbol);
+    setPanelOpen(true);
+    setNavOpen(false);
+    router.push(marketPath(marketSlug(symbol, m?.alias ?? null), true));
   };
 
   const NAV: { group: string | null; items: { key: Section; label: string; icon: React.ReactNode; count?: number }[] }[] = [
@@ -512,7 +507,7 @@ export function Workspace({
             {/* A trade takes over the panel wherever you opened it from, and
                 Back puts the list you came from straight back. */}
             {tradeFocus && (
-              <TradeDetail trade={tradeFocus} onBack={() => setTradeFocus(null)} />
+              <TradeDetail trade={tradeFocus} onBack={() => router.push(deskPath(section))} />
             )}
             {!tradeFocus && section === 'scora' && <ScoraPanel name={user.name} />}
             {!tradeFocus && section === 'chart' && <ChartPanel showGrid={showGrid} onGrid={setShowGrid} />}
@@ -522,7 +517,10 @@ export function Workspace({
                 configs={configs}
                 specs={specs}
                 focus={marketFocus}
-                onFocus={setMarketFocus}
+                details={openDetails}
+                onFocus={focusMarket}
+                onOpenDetails={openMarket}
+                onBack={() => marketFocus && focusMarket(marketFocus)}
               />
             )}
             {!tradeFocus && section === 'orders' && (
@@ -537,7 +535,7 @@ export function Workspace({
                 range={range}
                 onRange={setRange}
                 onOpenMarket={openMarket}
-                onFocusChart={setMarketFocus}
+                onFocusChart={focusMarket}
               />
             )}
             {!tradeFocus && section === 'pending' && (
@@ -547,7 +545,7 @@ export function Workspace({
                 configs={configs}
                 specs={specs}
                 onOpenMarket={openMarket}
-                onFocusChart={setMarketFocus}
+                onFocusChart={focusMarket}
               />
             )}
             {!tradeFocus && section === 'active' && (
@@ -864,14 +862,23 @@ function ScoraPanel({ name }: { name: string }) {
  * navigate, because the chart on the right must not blink while you read the
  * reasons a trade is or is not open.
  */
-function MarketList({ markets, configs, specs, focus, onFocus, note }: {
+function MarketList({
+  markets, configs, specs, focus, details, onFocus, onOpenDetails, onBack, note,
+}: {
   markets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
-  /** Which market is open. Owned by the workspace, because Pending and Active
-   *  open this panel too. */
+  /** The market in the URL. Highlighted in the list and shown on the chart. */
   focus: string | null;
-  onFocus: (symbol: string | null) => void;
+  /** True only for `/app/market/<slug>/details`.
+   *
+   *  THIS IS THE FIX: focus used to mean both "show it on the chart" and
+   *  "open its screen", so clicking a card to see its candles buried the list
+   *  you were reading. Two different things now need two different clicks. */
+  details: boolean;
+  onFocus: (symbol: string) => void;
+  onOpenDetails: (symbol: string) => void;
+  onBack: () => void;
   note?: string;
 }) {
   const selected = markets.find((m) => m.symbol === focus) ?? null;
@@ -879,14 +886,16 @@ function MarketList({ markets, configs, specs, focus, onFocus, note }: {
 
   if (markets.length === 0) return <Empty>No markets yet.</Empty>;
 
-  if (selected) {
+  // Only with /details. A market in the path on its own moves the chart and
+  // leaves this list where it was.
+  if (selected && details) {
     return (
       <MarketDetail
         market={selected}
         enabled={cfgOf(selected.symbol)?.enabled ?? true}
         config={cfgOf(selected.symbol)}
         spec={specs.find((s) => s.name === selected.symbol)}
-        onBack={() => onFocus(null)}
+        onBack={onBack}
       />
     );
   }
@@ -903,11 +912,18 @@ function MarketList({ markets, configs, specs, focus, onFocus, note }: {
 
       <ul className="space-y-2">
         {markets.map((m) => (
-          <li key={m.symbol}>
+          <li
+            key={m.symbol}
+            className={`group relative rounded-sm border bg-bg-elevated transition-colors ${
+              m.symbol === focus ? 'border-brand/60' : 'border-border hover:border-brand/40'
+            }`}
+          >
+            {/* The CARD changes the chart. Only the ⚙ opens the market. */}
             <button
               type="button"
               onClick={() => onFocus(m.symbol)}
-              className="group block w-full rounded-sm border border-border bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-brand/40 hover:bg-brand/5"
+              title={`Show ${m.alias} on the chart`}
+              className="block w-full rounded-sm px-4 py-3 text-left transition-colors hover:bg-brand/5"
             >
               <div className="flex items-center gap-2">
                 {/* Green = the bot is allowed to trade here. Not a trend, not a
@@ -920,9 +936,9 @@ function MarketList({ markets, configs, specs, focus, onFocus, note }: {
                 />
                 <span className="text-sm font-bold text-fg">{m.alias}</span>
                 <span className="ml-auto font-mono text-sm text-fg">{px(m.price)}</span>
-                {/* Holds its width whether or not it is visible, so it can
-                    never land on top of the price. */}
-                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" />
+                {/* Space held for the ⚙ that sits over this on hover, so the
+                    icon can never land on top of the price. */}
+                <span className="h-3.5 w-3.5 shrink-0" />
               </div>
 
               <div className="mt-2 flex items-center gap-1.5">
@@ -932,6 +948,19 @@ function MarketList({ markets, configs, specs, focus, onFocus, note }: {
                   {m.pnl == null ? '—' : signed(m.pnl)}
                 </span>
               </div>
+            </button>
+
+            {/* VIEW DETAILS — appears on hover, and is the only way in. Its own
+                button, over the card rather than inside it: a button nested in
+                a button is invalid HTML, and the card's job is the chart. */}
+            <button
+              type="button"
+              onClick={() => onOpenDetails(m.symbol)}
+              title={`${m.alias} details`}
+              aria-label={`${m.alias} details`}
+              className="absolute right-3 top-3 rounded-sm p-1 text-fg-subtle opacity-0 transition-opacity hover:bg-brand/10 hover:text-brand focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
             </button>
           </li>
         ))}
@@ -974,6 +1003,12 @@ function MarketDetail({ market, enabled, config, spec, onBack }: {
         <Fact label="Latest signal" value={market.latest_signal ?? '—'} />
         <Fact label="Price" value={px(market.price)} />
         <Fact label="Level" value={px(market.level)} />
+        {/* The two numbers that say what the trade actually risks. They were on
+            BotMarket all along and simply never rendered, so the panel showed
+            an entry with no stop and no target — the half of a setup you cannot
+            judge it by. Null while flat and before an order rests. */}
+        <Fact label="Stop" value={px(market.sl)} />
+        <Fact label="Target" value={px(market.tp)} />
         <Fact label="P&L" value={market.pnl == null ? '—' : signed(market.pnl)} valueClass={tone(market.pnl)} last />
       </section>
 
@@ -1617,7 +1652,7 @@ function OrdersList({
   /** Owned by the workspace, so the URL can carry them and a refresh keeps
    *  not just the section but what you had filtered inside it. */
   tab: string;
-  onTab: (v: string) => void;
+  onTab: (v: 'awaiting' | 'decided') => void;
   range: string;
   onRange: (v: string) => void;
   onOpenMarket: (symbol: string) => void;
