@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // Candlestick chart for one market, TradingView Lightweight Charts (MIT).
 //
@@ -21,7 +21,9 @@ import {
   CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2,
   Crosshair, Search, Trash2, X, ChevronDown, LineChart, Grid3x3, BarChart3,
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
-  Bookmark, FileText, Layers, Code2, Check, Star,
+  Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
+  ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine,
+  GripVertical, MoreVertical, Copy, RotateCcw,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -31,7 +33,55 @@ import {
   type MouseEventParams,
 } from 'lightweight-charts';
 
-type Tool = 'cursor' | 'hline' | 'trend' | 'text';
+type Tool = 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray';
+
+/** The drawing menu, in the design's order and wording. `clicks` is how many
+ *  points a tool needs; `soon` is drawn but not armable, because a menu that
+ *  hides what it cannot do sends you hunting for a tool that is not there. */
+type DrawItem = {
+  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2; glyph: string; soon?: true;
+};
+const LINE_TOOLS: DrawItem[] = [
+  { tool: 'trend', label: 'Trend Line', keys: 'Alt+T', clicks: 2, glyph: '/' },
+  { tool: 'hline', label: 'Horizontal Line', keys: 'Alt+H', clicks: 1, glyph: '—' },
+  { tool: 'ray', label: 'Ray', clicks: 2, glyph: '↗' },
+  { tool: 'extended', label: 'Extended Line', clicks: 2, glyph: '↔' },
+  { label: 'Vertical Line', keys: 'Alt+V', glyph: '|', soon: true },
+  { tool: 'hray', label: 'Horizontal Ray', clicks: 1, glyph: '⊢' },
+  { label: 'Cross Line', glyph: '+', soon: true },
+  { label: 'Info Line', glyph: '⟋', soon: true },
+  { label: 'Trend Angle', glyph: '∠', soon: true },
+];
+const CHANNEL_TOOLS: DrawItem[] = [
+  { label: 'Parallel Channel', glyph: '⫽', soon: true },
+  { label: 'Disjoint Channel', glyph: '≻', soon: true },
+  { label: 'Flat Top/Bottom', glyph: '⊐', soon: true },
+  { label: 'Linear Regression', glyph: '≋', soon: true },
+];
+const PITCHFORK_TOOLS: DrawItem[] = [
+  { label: 'Pitchfork', glyph: '⊢E', soon: true },
+  { label: 'Schiff Pitchfork', glyph: '⊢E', soon: true },
+  { label: 'Modified Schiff Pitchfork', glyph: '⊢E', soon: true },
+  { label: 'Inside Pitchfork', glyph: '⊣E', soon: true },
+];
+/** The one tool of ours the design has no name for — it is the labelled
+ *  horizontal line, and it belongs with the lines. */
+const EXTRA_TOOLS: DrawItem[] = [
+  { tool: 'text', label: 'Labelled Level', keys: 'Alt+L', clicks: 1, glyph: 'T' },
+];
+
+/** The rail button wears the CURRENT tool's icon, which is how the design
+ *  tells you what a click will draw without a tooltip or an open menu — theirs
+ *  shows a dash because Horizontal Line is selected, not because the button is
+ *  a dash. */
+const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  hline: Minus,
+  hray: ArrowRightToLine,
+  trend: Slash,
+  ray: MoveUpRight,
+  extended: ArrowLeftRight,
+  text: Type,
+};
 
 // One browser Supabase client for the module, pointed at the BOT project — the
 // bot_* tables no longer live in the main app's database. There is no shared
@@ -93,8 +143,43 @@ interface Trade {
 type Drawing =
   // `label` (optional) is what the text tool writes: a level that says WHY it
   // is there — "Asia high" — instead of a bare line you have to remember.
-  | { id: string; kind: 'hline'; price: number; label?: string }
-  | { id: string; kind: 'trend'; t1: number; v1: number; t2: number; v2: number };
+  /* colour, width and dash are per-drawing and optional: absent means the
+   * defaults, which is what every drawing saved before the style toolbar
+   * existed looks like. */
+  | {
+      id: string; kind: 'hline'; price: number; label?: string;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+    }
+  /* `reach` is how far the line runs beyond the two clicks that define it:
+   *   segment  — between them and no further (the default, and what every
+   *              existing saved drawing is, since they have no `reach`)
+   *   ray      — from the first click through the second and onward
+   *   extended — both directions, across the chart
+   *   hray     — flat, from one click onward: a level that only applies from
+   *              a moment, not one drawn across history it predates */
+  | {
+      id: string; kind: 'trend'; t1: number; v1: number; t2: number; v2: number;
+      reach?: 'segment' | 'ray' | 'extended' | 'hray';
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+      /** Drawn as an overlay at the line's midpoint. A level's label rides the
+       *  price axis; a diagonal has no fixed place there, which is the only
+       *  reason labels started out limited to levels. */
+      label?: string;
+    };
+
+/** The palette the style toolbar offers. */
+const DRAW_COLORS = ['#2962FF', '#26a69a', '#ef5350', '#f59e0b', '#a855f7', '#e5e7eb'];
+const DRAW_WIDTHS = [1, 2, 3, 4] as const;
+const DRAW_STYLES = [
+  { key: 'solid', label: 'Solid', dash: '' },
+  { key: 'dashed', label: 'Dashed', dash: '6 4' },
+  { key: 'dotted', label: 'Dotted', dash: '2 3' },
+] as const;
+const lwStyle = (s?: string) =>
+  s === 'dotted' ? LineStyle.Dotted : s === 'solid' ? LineStyle.Solid : LineStyle.Dashed;
+/** One colour for everything a PERSON drew, so it never reads as something the
+ *  bot put there. The bot's own overlays keep the up/down palette. */
+const DRAW_COLOR = '#2962FF';
 const DRAW_KEY = (sym: string, tf: string) => `bot-chart-draw:${sym}::${tf}`;
 const INDS_KEY = 'bot-chart-inds'; // active indicators persist globally (a user pref)
 const FAV_KEY = 'bot-chart-favs';  // starred markets, floated to the top of the search
@@ -111,6 +196,63 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
 
 const fmt = (n: number | null | undefined, digits: number) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits);
+
+/**
+ * The two points a line is actually drawn between, once its reach is applied.
+ *
+ * lightweight-charts has no concept of an infinite line — a LineSeries is the
+ * points you give it. So a ray is a segment recomputed to the edge of the data,
+ * following the same slope. Bounded by the loaded candles (plus a fifth of the
+ * range, so it visibly runs off the edge rather than stopping at the last bar):
+ * extending to infinity would stretch the time scale until the candles were a
+ * sliver.
+ *
+ * Re-derived on every render, which is what makes a ray keep reaching the edge
+ * as new bars arrive instead of ending where it did when it was drawn.
+ */
+function extendLine(
+  d: { t1: number; v1: number; t2: number; v2: number; reach?: string },
+  bars: { time: UTCTimestamp }[],
+  /** The times at the edges of what is on screen, when the caller knows them.
+   *  A ray has to reach the edge of the PANE, not of the data — otherwise it
+   *  visibly stops in mid-air as soon as you pan past its end. */
+  view?: { from: number; to: number } | null,
+): { time: UTCTimestamp; value: number }[] {
+  const reach = d.reach ?? 'segment';
+  const pts = [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }];
+  if (reach === 'segment' || bars.length < 2) {
+    return pts.sort((a, b) => (a.time as number) - (b.time as number));
+  }
+
+  const first = Math.min(bars[0].time as number, view?.from ?? Infinity);
+  const last = Math.max(bars[bars.length - 1].time as number, view?.to ?? -Infinity);
+  const pad = Math.max((last - first) * 0.25, 1);
+  const lo = first - pad;
+  const hi = last + pad;
+
+  // Flat, from the click onward. One point, so no slope to follow.
+  if (reach === 'hray') {
+    return [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: hi as UTCTimestamp, value: d.v1 }];
+  }
+
+  // Price per second along the line. A vertical pair has no slope to extend.
+  const dt = d.t2 - d.t1;
+  if (dt === 0) return pts;
+  const m = (d.v2 - d.v1) / dt;
+  const at = (t: number) => d.v1 + m * (t - d.t1);
+
+  if (reach === 'extended') {
+    return [{ time: lo as UTCTimestamp, value: at(lo) }, { time: hi as UTCTimestamp, value: at(hi) }];
+  }
+
+  // Ray: starts at the first click, runs through the second and onward — so
+  // which edge it reaches depends on which way it was drawn.
+  const end = dt > 0 ? hi : lo;
+  return [
+    { time: d.t1 as UTCTimestamp, value: d.v1 },
+    { time: end as UTCTimestamp, value: at(end) },
+  ].sort((a, b) => (a.time as number) - (b.time as number));
+}
 
 /* ── Symbol search ────────────────────────────────────────────────────────
  * Grouping and long names are derived from the symbol itself. Nothing in the
@@ -290,6 +432,33 @@ export function MarketChart({
   }
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
+  /* Whether a two-click tool is half-way through.
+   *
+   * State, not the trendStart ref the click handler uses: a ref changing does
+   * not re-render, so the banner would never update from "click the first
+   * point" to "click the second" — which is exactly the missing feedback that
+   * made the tools look dead. */
+  const [drawPending, setDrawPending] = useState(false);
+  const [railHidden, setRailHidden] = useState(false);
+  /* The line type the rail button arms when you just click it.
+   *
+   * TradingView's behaviour, and the reason it feels quick: the button is the
+   * tool you last used, not a menu you have to walk through every time. The
+   * chevron under it opens the list to change which one that is. */
+  const [lastLine, setLastLine] = useState<Tool>('hline');
+  /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
+  const [hoverBar, setHoverBar] = useState<
+    { open: number; high: number; low: number; close: number } | null
+  >(null);
+  /** The newest bar, so the legend reads the live candle when nothing is
+   *  hovered. State rather than reading barsRef in render: a ref read during
+   *  render is empty on the first paint, so the strip would start blank and
+   *  only appear once something else happened to re-render. */
+  const [lastBar, setLastBar] = useState<
+    { open: number; high: number; low: number; close: number } | null
+  >(null);
+
   // The Chart panel's switch and the rail's button are two switches on one
   // light: null means "nobody has touched the rail, follow the prop", and
   // whichever was used last wins. Derived, so there is no prop→state effect.
@@ -320,6 +489,11 @@ export function MarketChart({
   const [loading, setLoading] = useState(true);
 
   const [tool, setTool] = useState<Tool>('cursor');
+  /** The armed tool's menu entry — its name and how many clicks it wants.
+   *  Declared here, below `tool`: it was above, which is a temporal dead zone
+   *  and took the whole page down with "Cannot access 'tool' before
+   *  initialization". */
+  const armed = [...LINE_TOOLS, ...EXTRA_TOOLS].find((t) => t.tool === tool);
   const [fs, setFs] = useState(false);
   const [inds, setInds] = useState<Set<IndId>>(() => {
     if (typeof window !== 'undefined') {
@@ -348,6 +522,233 @@ export function MarketChart({
   const hlineObjs = useRef<Map<string, IPriceLine>>(new Map());
   const trendObjs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
   const trendStart = useRef<{ time: Time; value: number } | null>(null);
+  /** The rubber band, in pane pixels. `flat` means a level rather than a line,
+   *  so it is drawn edge to edge at one height. Mirrored into a ref because the
+   *  pointer handler is registered once and cannot read state. */
+  const [band, setBand] = useState<
+    { x1: number; y1: number; x2: number; y2: number; flat: boolean } | null
+  >(null);
+  const bandRef = useRef<typeof band>(null);
+  const clearPreview = () => { bandRef.current = null; setBand(null); };
+
+  /* THE SELECTED DRAWING — what the style toolbar acts on.
+   *
+   * Set when you place one (so it can be styled immediately, without hunting
+   * for it again) and when you click an existing one with the crosshair. */
+  /* The drawing itself, not its id. Derived-from-a-ref was the obvious shape
+   * and the wrong one: the drawings live in a ref, so reading them during
+   * render gives React no reason to re-render when they change — the toolbar
+   * would show stale values after every edit. */
+  const [selected, setSelected] = useState<Drawing | null>(null);
+
+  /** Where each diagonal's label sits, in pane pixels. Recomputed whenever the
+   *  chart moves, because the line's midpoint moves with it. */
+  const [lineLabels, setLineLabels] = useState<
+    { id: string; x: number; y: number; text: string; color: string }[]
+  >([]);
+  /** The ringed dots at the points you actually clicked. */
+  const [handles, setHandles] = useState<{ id: string; x: number; y: number }[]>([]);
+  /* EVERY DIAGONAL, IN PIXELS.
+   *
+   * These were LineSeries, and that was the wrong tool. A series is DATA, so
+   * extending a ray meant adding a far-future point, which grew the time
+   * scale, which fired a range change, which extended it further — a loop
+   * that either ran away or left the ray stopping in mid-air. It also could
+   * not survive two clicks on one bar (duplicate times are rejected).
+   *
+   * Pixels have none of those problems: a line to the edge of the pane is a
+   * line to the edge of the pane. Levels stay as price lines, because those
+   * genuinely belong on the price axis and earn its badge. */
+  const [segs, setSegs] = useState<{
+    id: string; x1: number; y1: number; x2: number; y2: number;
+    color: string; width: number; dash: string;
+  }[]>([]);
+  /** The visible time window, for extending rays to the pane's edge. */
+  const viewRange = (): { from: number; to: number } | null => {
+    const r = chartRef.current?.timeScale().getVisibleRange();
+    return r ? { from: r.from as number, to: r.to as number } : null;
+  };
+
+  const syncLabels = () => {
+    const s = seriesRef.current, c = chartRef.current;
+    if (!s || !c) { setLineLabels([]); setSegs([]); setHandles([]); return; }
+
+    const W = wrapRef.current?.clientWidth ?? 0;
+    const H = wrapRef.current?.clientHeight ?? 0;
+
+    /* Each diagonal, as pane coordinates.
+     *
+     * A ray is the anchor plus the direction of the second click, walked to
+     * whichever edge that direction leads to. An extended line is walked both
+     * ways. Because this is pixels, "the edge" is literally the edge — it
+     * cannot fall short, and it adds nothing to the chart's data. */
+    const out: typeof segs = [];
+    for (const d of drawings.current) {
+      if (d.kind !== 'trend') continue;
+      const ax = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+      const ay = s.priceToCoordinate(d.v1);
+      const bx = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
+      const by = s.priceToCoordinate(d.v2);
+      if (ax == null || ay == null || bx == null || by == null) continue;
+
+      let x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
+      const reach = d.reach ?? 'segment';
+      if (reach === 'hray') {
+        // Flat, from the click to the right-hand edge.
+        x2 = W; y2 = y1;
+      } else if (reach !== 'segment') {
+        const dx = x2 - x1, dy = y2 - y1;
+        if (dx !== 0 || dy !== 0) {
+          // Walk far enough that the end is always off-screen, then let the
+          // SVG clip it. Simpler and steadier than solving for each edge.
+          const far = (W + H) * 2;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          x2 = x1 + ux * far; y2 = y1 + uy * far;
+          if (reach === 'extended') { x1 -= ux * far; y1 -= uy * far; }
+        }
+      }
+      out.push({
+        id: d.id, x1, y1, x2, y2,
+        color: d.color ?? DRAW_COLOR,
+        width: d.width ?? 2,
+        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+      });
+    }
+    setSegs(out);
+
+    // Labels: at the midpoint of the drawn line, so a ray's label sits along
+    // what you can see rather than halfway to an off-screen end.
+    const labels: { id: string; x: number; y: number; text: string; color: string }[] = [];
+    for (const g of out) {
+      const d = drawings.current.find((k) => k.id === g.id);
+      if (!d || d.kind !== 'trend' || !d.label) continue;
+      labels.push({
+        id: d.id,
+        x: (Math.max(0, Math.min(W, g.x1)) + Math.max(0, Math.min(W, g.x2))) / 2,
+        y: (Math.max(0, Math.min(H, g.y1)) + Math.max(0, Math.min(H, g.y2))) / 2,
+        text: d.label,
+        color: g.color,
+      });
+    }
+    setLineLabels(labels);
+
+    /* HANDLES. Drawn as an overlay rather than with the series' own point
+     * markers, because a ray's far end is a computed edge point, not
+     * something you placed — a handle there would invite you to drag a thing
+     * that is not a handle. So: the clicked points only. */
+    const hs: { id: string; x: number; y: number }[] = [];
+    for (const d of drawings.current) {
+      if (d.kind !== 'trend') continue;
+      const reach = d.reach ?? 'segment';
+      const x1 = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+      const y1 = s.priceToCoordinate(d.v1);
+      if (x1 != null && y1 != null) hs.push({ id: `${d.id}:a`, x: x1 as number, y: y1 as number });
+      // The second click is a real point on a segment; on a ray or an extended
+      // line it only set the direction.
+      if (reach === 'segment') {
+        const x2 = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
+        const y2 = s.priceToCoordinate(d.v2);
+        if (x2 != null && y2 != null) hs.push({ id: `${d.id}:b`, x: x2 as number, y: y2 as number });
+      }
+    }
+    setHandles(hs);
+  };
+
+  /** Patch one drawing, redraw it, and save. Redrawn rather than mutated in
+   *  place because colour, width and style are creation options on a series —
+   *  the library has no "change the style of this line" call for all of them. */
+  const patchDrawing = (id: string, patch: Partial<Drawing>) => {
+    const i = drawings.current.findIndex((d) => d.id === id);
+    if (i < 0) return;
+    const next = { ...drawings.current[i], ...patch } as Drawing;
+    drawings.current[i] = next;
+
+    /* APPLIED IN PLACE, not by rebuilding.
+     *
+     * This called renderDrawings(), which removes EVERY drawing and re-adds
+     * them all — so anything that threw while re-adding one took the whole
+     * set off the chart. Changing a colour made every line disappear.
+     *
+     * Colour, width and dash are all live options on a price line and on a
+     * series, so none of that is necessary: set them on the object that is
+     * already there. Nothing is removed, so nothing can fail to come back. */
+    try {
+      const col = next.color ?? DRAW_COLOR;
+      if (next.kind === 'hline') {
+        hlineObjs.current.get(id)?.applyOptions({
+          color: col,
+          lineWidth: (next.width ?? 2) as 1 | 2 | 3 | 4,
+          lineStyle: lwStyle(next.style ?? 'dashed'),
+          axisLabelColor: col,
+          title: next.label ?? '',
+        });
+      }
+      // A diagonal's colour, width and dash are SVG attributes, so re-measuring
+      // the overlay is the whole update.
+      syncLabels();
+    } catch {
+      // The object is missing (hidden, or a symbol change rebuilt the chart):
+      // fall back to a full redraw, which is correct if slower.
+      if (!drawingsHidden) renderDrawings();
+    }
+
+    persistDrawings();
+    syncLabels();
+    setSelected(next);            // so the toolbar shows what it just set
+  };
+  const deleteDrawing = (id: string) => {
+    drawings.current = drawings.current.filter((d) => d.id !== id);
+    setSelected(null);
+    if (!drawingsHidden) renderDrawings();
+    persistDrawings();
+  };
+  const duplicateDrawing = (id: string) => {
+    const d = drawings.current.find((x) => x.id === id);
+    if (!d) return;
+    const copy = { ...d, id: newDrawId() } as Drawing;
+    // Offset a little so the copy is visibly a second line, not one hiding
+    // exactly underneath the original.
+    if (copy.kind === 'hline') copy.price *= 1.0005;
+    else { copy.v1 *= 1.0005; copy.v2 *= 1.0005; }
+    drawings.current.push(copy);
+    if (!drawingsHidden) renderDrawings();
+    persistDrawings();
+    setSelected(copy);
+  };
+
+  /* Alt+T / Alt+H / Alt+L, and Escape to put the crosshair back.
+   *
+   * Alt, not a bare letter: this chart shares the page with a symbol search
+   * and a label prompt, and a bare "t" would arm a tool mid-sentence. Skipped
+   * entirely while focus is in a field, because Alt+T typed into a text box
+   * was meant for the text box.
+   *
+   * Escape also drops a half-finished two-click line, so an accidental first
+   * click is not left waiting for a second one you never meant to give. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Escape') {
+        setTool('cursor');
+        trendStart.current = null;
+        setDrawPending(false);
+        clearPreview();
+        setDrawOpen(false);
+        return;
+      }
+      if (!e.altKey) return;
+      const hit = LINE_TOOLS.find((t) => t.keys?.toLowerCase() === `alt+${e.key.toLowerCase()}`);
+      if (!hit) return;
+      e.preventDefault();
+      if (hit.tool) setTool(hit.tool);
+      trendStart.current = null;
+      setDrawPending(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const drawKeyRef = useRef<string>('');                 // current symbol+tf storage key (read inside once-bound handlers)
   const drag = useRef<{ id: string; kind: 'hline' | 'trend'; lastX: number; lastY: number } | null>(null);
   // Indicators.
@@ -369,12 +770,24 @@ export function MarketChart({
     const series = seriesRef.current, chart = chartRef.current;
     if (!series || !chart) return;
     if (d.kind === 'hline') {
-      hlineObjs.current.set(d.id, series.createPriceLine({ price: d.price, color: '#94a3b8', lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: d.label ?? '' }));
-    } else {
-      const line = chart.addSeries(LineSeries, { color: '#eab308', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-      line.setData([{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }].sort((a, b) => (a.time as number) - (b.time as number)));
-      trendObjs.current.set(d.id, line);
+      // Dashed, and in the drawing blue rather than grey: a level someone drew
+      // has to be distinguishable at a glance from the bot's own SL/TP lines,
+      // which are solid and take the up/down colours. The axis label carries
+      // the exact price, which is the whole reason for drawing it.
+      const col = d.color ?? DRAW_COLOR;
+      hlineObjs.current.set(d.id, series.createPriceLine({
+        price: d.price,
+        color: col,
+        lineWidth: (d.width ?? 2) as 1 | 2 | 3 | 4,
+        lineStyle: lwStyle(d.style ?? 'dashed'),
+        axisLabelVisible: true,
+        axisLabelColor: col,
+        axisLabelTextColor: '#ffffff',
+        title: d.label ?? '',
+      }));
     }
+    // Diagonals are drawn by the SVG overlay — see syncLabels. Nothing to add
+    // to the chart, which is the point: no data, no time-scale side effects.
   };
   const removeDrawingObjects = () => {
     hlineObjs.current.forEach((l) => seriesRef.current?.removePriceLine(l));
@@ -382,7 +795,15 @@ export function MarketChart({
     trendObjs.current.forEach((s) => chartRef.current?.removeSeries(s));
     trendObjs.current.clear();
   };
-  const renderDrawings = () => { removeDrawingObjects(); drawings.current.forEach(addDrawingObject); };
+  /** Per-drawing try/catch: one line the library refuses (duplicate times, a
+   *  disposed series) must not take the other nine off the chart with it. */
+  const renderDrawings = () => {
+    removeDrawingObjects();
+    for (const d of drawings.current) {
+      try { addDrawingObject(d); } catch { /* skip this one, keep the rest */ }
+    }
+    syncLabels();
+  };
   const loadDrawings = (sym: string, t: string): Drawing[] => {
     try { const raw = localStorage.getItem(DRAW_KEY(sym, t)); if (raw) return JSON.parse(raw) as Drawing[]; } catch { /* ignore */ }
     return [];
@@ -653,26 +1074,69 @@ export function MarketChart({
       if (price == null) return;
       if (t === 'hline') {
         const d: Drawing = { id: newDrawId(), kind: 'hline', price };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings();
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+        clearPreview();
+      } else if (t === 'hray') {
+        // One click. A horizontal RAY differs from a horizontal LINE in where
+        // it starts: the line spans all of history, this one applies from the
+        // moment you clicked — which is the honest way to mark a level that
+        // was not there before an event.
+        const d: Drawing = {
+          id: newDrawId(), kind: 'trend', reach: 'hray',
+          t1: param.time as number, v1: price, t2: param.time as number, v2: price,
+        };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+      } else if (t === 'trend' || t === 'ray' || t === 'extended') {
+        // Two clicks. The first is remembered; the second completes it.
+        if (!trendStart.current) {
+          trendStart.current = { time: param.time as Time, value: price };
+          setDrawPending(true);
+          return;
+        }
+        const d: Drawing = {
+          id: newDrawId(), kind: 'trend',
+          reach: t === 'trend' ? 'segment' : t,
+          t1: trendStart.current.time as number, v1: trendStart.current.value,
+          t2: param.time as number, v2: price,
+        };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+        trendStart.current = null;
+        setDrawPending(false);
+        clearPreview();
       } else if (t === 'text') {
         // A labelled level. Cancelling the prompt places nothing — an empty
         // label would just be a plain line the text tool pretended to name.
         const label = window.prompt('Label for this level');
         if (label == null || !label.trim()) return;
         const d: Drawing = { id: newDrawId(), kind: 'hline', price, label: label.trim() };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings();
-      } else if (t === 'trend') {
-        if (!trendStart.current) { trendStart.current = { time: param.time as Time, value: price }; return; }
-        const d: Drawing = {
-          id: newDrawId(), kind: 'trend',
-          t1: trendStart.current.time as number, v1: trendStart.current.value,
-          t2: param.time as number, v2: price,
-        };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings();
-        trendStart.current = null;
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
       }
     };
     chart.subscribeClick(onClick);
+
+    /* THE BAR UNDER THE CURSOR.
+     *
+     * Open, high, low, close and the change across that one candle. Every
+     * other number on this desk is about the account; this is the only place
+     * that answers "what did THIS bar actually do", which is the question you
+     * are asking whenever you put the crosshair on one.
+     *
+     * Falls back to the last bar when the cursor leaves the chart, so the
+     * strip reads the current candle rather than emptying. */
+    const onCrosshair = (param: MouseEventParams) => {
+      const d = param.seriesData.get(series) as
+        | { open: number; high: number; low: number; close: number } | undefined;
+      setHoverBar(d ?? null);
+
+      // The rubber-band preview is an SVG overlay now, not a chart series:
+      // see the pointermove handler below.
+    };
+    chart.subscribeCrosshairMove(onCrosshair);
+
+    // A label sits at its line's midpoint in PIXELS, so panning or zooming
+    // moves it. Re-measured whenever the visible range changes.
+    const onRange = () => syncLabels();
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
 
     // ── Drag-to-move a drawing (cursor tool only) ─────────────────────────
     // Grab a line by clicking within a few px of it, then drag. While dragging we
@@ -708,6 +1172,10 @@ export function MarketChart({
       if (lockedRef.current) return;
       const { x, y } = localXY(e);
       const hit = hitTest(x, y);
+      // Clicking a line selects it — that is how the style toolbar knows what
+      // to act on. Clicking empty space clears the selection, so the toolbar
+      // goes away rather than hovering over nothing.
+      setSelected(hit ? drawings.current.find((k) => k.id === hit.id) ?? null : null);
       if (!hit) return;                       // nothing grabbed → let the chart pan
       e.preventDefault();
       drag.current = { id: hit.id, kind: hit.kind, lastX: x, lastY: y };
@@ -718,6 +1186,39 @@ export function MarketChart({
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return;
       const { x, y } = localXY(e);
+
+      /* THE RUBBER BAND, IN PIXELS.
+       *
+       * This was a chart series driven by the crosshair event, and it kept not
+       * drawing: that path needs the time scale to resolve the cursor to a bar,
+       * which returns nothing while data is loading, in the gap right of the
+       * last candle, or when both ends land on one bar. Three different silent
+       * failures, all of which look identical — a tool that ignores you.
+       *
+       * Pixels always resolve. The anchor is converted to screen coordinates
+       * each frame, so the band tracks the cursor whatever the chart is doing. */
+      const t = toolRef.current;
+      if (t === 'cursor') {
+        if (bandRef.current) { bandRef.current = null; setBand(null); }
+      } else {
+        const st = trendStart.current;
+        const twoClick = t === 'trend' || t === 'ray' || t === 'extended';
+        if (twoClick && st) {
+          const ax = c.timeScale().timeToCoordinate(st.time as UTCTimestamp);
+          const ay = s.priceToCoordinate(st.value);
+          const next = ax != null && ay != null
+            ? { x1: ax as number, y1: ay as number, x2: x, y2: y, flat: false }
+            : null;
+          bandRef.current = next;
+          setBand(next);
+        } else if (!twoClick) {
+          // A level: horizontal, at the cursor's height, across the pane.
+          const next = { x1: 0, y1: y, x2: 0, y2: y, flat: true };
+          bandRef.current = next;
+          setBand(next);
+        }
+      }
+
       const dg = drag.current;
       if (!dg) {
         if (toolRef.current === 'cursor') el!.style.cursor = hitTest(x, y) ? 'grab' : '';
@@ -735,9 +1236,8 @@ export function MarketChart({
         if (pNow != null && pLast != null) { const dv = pNow - pLast; d.v1 += dv; d.v2 += dv; }
         const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
         if (tNow != null && tLast != null) { const dt = (tNow as number) - (tLast as number); d.t1 += dt; d.t2 += dt; }
-        trendObjs.current.get(d.id)?.setData(
-          [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }].sort((a, b) => (a.time as number) - (b.time as number)),
-        );
+        // The overlay owns diagonals now, so moving one is just re-measuring.
+        syncLabels();
       }
       dg.lastX = x; dg.lastY = y;
       el!.style.cursor = 'grabbing';
@@ -814,6 +1314,7 @@ export function MarketChart({
       })).reverse();
       barsRef.current = bars;
       setHasHistory(bars.length > 0);
+      setLastBar(bars.length ? bars[bars.length - 1] : null);
       series.setData(bars);
       redrawIndicators(); // recompute active indicators for the new candles
       renderDrawings();   // re-draw saved manual annotations for this market/timeframe
@@ -946,6 +1447,8 @@ export function MarketChart({
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price };
         }
         series.update(liveBar.current);
+        // The legend's C should track the live price, not the last close.
+        setLastBar({ ...liveBar.current });
       }
     };
 
@@ -970,6 +1473,64 @@ export function MarketChart({
           className={`h-full w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`}
           style={tool !== 'cursor' ? { cursor: 'crosshair' } : undefined}
         />
+
+        {/* Diagonals and their handles. Clipped by the SVG viewport, which is
+            how a ray reaches the edge without existing beyond it. */}
+        {(segs.length > 0 || handles.length > 0) && (
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
+            {segs.map((g) => (
+              <line
+                key={g.id}
+                x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
+                stroke={g.color}
+                strokeWidth={g.width}
+                strokeDasharray={g.dash || undefined}
+                strokeLinecap="round"
+              />
+            ))}
+            {handles.map((h) => (
+              <circle
+                key={h.id}
+                cx={h.x}
+                cy={h.y}
+                r={4.5}
+                fill="#0b0f0d"
+                stroke={DRAW_COLOR}
+                strokeWidth={2}
+              />
+            ))}
+          </svg>
+        )}
+
+        {/* Diagonal labels, at each line's midpoint. */}
+        {lineLabels.map((l) => (
+          <span
+            key={l.id}
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+            style={{ left: l.x, top: l.y, backgroundColor: l.color }}
+          >
+            {l.text}
+          </span>
+        ))}
+
+        {/* The rubber band. pointer-events-none so it never eats the click that
+            is about to commit the line it is previewing. */}
+        {band && (
+          <svg className="pointer-events-none absolute inset-0 h-full w-full">
+            <line
+              x1={band.flat ? 0 : band.x1}
+              y1={band.y1}
+              x2={band.flat ? '100%' : band.x2}
+              y2={band.y2}
+              stroke={DRAW_COLOR}
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+            />
+            {!band.flat && (
+              <circle cx={band.x1} cy={band.y1} r={4} fill="none" stroke={DRAW_COLOR} strokeWidth={2} />
+            )}
+          </svg>
+        )}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">
             Loading {alias}…
@@ -1148,25 +1709,145 @@ export function MarketChart({
 
           {/* Flush to the chart's left edge and full height, as in the design.
               Inset-and-floating left a band of dead canvas beside it. */}
-          <div className="absolute inset-y-0 left-0 z-20 flex w-12 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm scrollbar-none">
+          {/* Collapsed: one button to bring it back, so the rail can get out
+              of the way on a narrow screen without being gone for good. */}
+          {railHidden && (
+            <div className="absolute left-0 top-2 z-20">
+              <button
+                type="button"
+                onClick={() => setRailHidden(false)}
+                title="Show drawing tools"
+                aria-label="Show drawing tools"
+                className="flex h-9 w-7 items-center justify-center rounded-r-md border border-l-0 border-border bg-bg-elevated/95 text-fg-muted backdrop-blur-sm transition-colors hover:text-brand"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* overflow-VISIBLE, deliberately.
+              This was overflow-y-auto, and CSS computes the other axis to auto
+              alongside it — so the drawing menu, which opens to the RIGHT of a
+              48px column, was clipped to that column and invisible. Clicking
+              the chevron did open it; there was simply nothing to see.
+              The tools now fit without scrolling, so the scroll is not needed. */}
+          <div
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-0.5 overflow-visible border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm ${
+              railHidden ? 'hidden' : 'flex'
+            }`}
+          >
             <RailBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Crosshair">
               <Crosshair className="h-4 w-4" />
             </RailBtn>
-            <RailBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points">
-              <PenLine className="h-4 w-4" />
-            </RailBtn>
-            <RailBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price">
-              <LineChart className="h-4 w-4" />
-            </RailBtn>
+            {/* SPLIT BUTTON. The icon arms the line type you last used — one
+                click, no menu, no shortcut to remember. The chevron beneath it
+                opens the list, and picking from there becomes the new default.
+                The rail cannot hold nine line types as nine icons, and making
+                you walk a menu for every line is the thing that makes drawing
+                tools feel slow. */}
+            <div
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                tool !== 'cursor' ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastLine);
+                  trendStart.current = null;
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${[...LINE_TOOLS, ...EXTRA_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
+                  + (tool === 'cursor' ? ' — click to arm' : ' — armed')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  tool !== 'cursor' ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastLine] ?? PenLine;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              {/* At the RIGHT EDGE of the icon, not under it — one control, two
+                  halves, the way the design has it. */}
+              <button
+                type="button"
+                onClick={() => setDrawOpen((v) => !v)}
+                title="Choose a line type"
+                aria-label="Choose a line type"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  drawOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {drawOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss drawing tools"
+                    onClick={() => setDrawOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div className="scrollbar-none absolute left-[calc(100%+6px)] top-0 z-50 max-h-[70vh] w-64 overflow-y-auto rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
+                    {([
+                      ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
+                      ['Channels', CHANNEL_TOOLS],
+                      ['Pitchforks', PITCHFORK_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                          <button
+                            key={t.label}
+                            type="button"
+                            disabled={t.soon}
+                            title={t.soon ? 'Not built yet' : undefined}
+                            onClick={() => {
+                              if (!t.tool) return;
+                              // Picking from the list arms it AND becomes what
+                              // the rail button arms next time.
+                              setTool(t.tool);
+                              setLastLine(t.tool);
+                              setDrawOpen(false);
+                              trendStart.current = null;
+                              setDrawPending(false);
+                              clearPreview();
+                            }}
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                              tool === t.tool && !t.soon
+                                ? 'bg-brand/15 font-semibold text-brand'
+                                : t.soon
+                                  ? 'cursor-not-allowed text-fg-subtle/50'
+                                  : 'text-fg hover:bg-brand/10 hover:text-brand'
+                            }`}
+                          >
+                            <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                            <span className="truncate">{t.label}</span>
+                            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                              {tool === t.tool && !t.soon && <Check className="h-3.5 w-3.5" />}
+                              {t.keys && <span className="font-mono text-[11px] text-fg-subtle">{t.keys}</span>}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* The standalone Horizontal Line and Labelled Level buttons are
+                gone: they are in the split button's menu, and having both meant
+                arming one tool lit TWO buttons green — which reads as
+                everything being selected at once. One tool, one lit control. */}
             <RailBtn active={gridOn} onClick={() => setGridOn((v) => !v)} title={gridOn ? 'Hide grid' : 'Show grid'}>
               <Grid3x3 className="h-4 w-4" />
             </RailBtn>
             <RailBtn onClick={toggleFullscreen} title={fs ? 'Exit full screen' : 'Full screen'}>
               <Maximize2 className="h-4 w-4" />
-            </RailBtn>
-
-            <RailBtn active={tool === 'text'} onClick={() => setTool('text')} title="Label a level — click a price, then name it">
-              <Type className="h-4 w-4" />
             </RailBtn>
             {/* Same destination as the top bar's Indicators — one library, two
                 ways in, rather than two different indicator UIs. */}
@@ -1174,7 +1855,7 @@ export function MarketChart({
               <BarChart3 className="h-4 w-4" />
             </RailBtn>
 
-            <span className="my-1 h-px w-6 bg-border" />
+            <span className="my-1.5 h-px w-7 bg-border" />
 
             {/* Snap back to the live edge after scrolling into history. */}
             <RailBtn
@@ -1201,13 +1882,206 @@ export function MarketChart({
               {drawingsHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </RailBtn>
 
-            <span className="my-1 h-px w-6 bg-border" />
+            <span className="my-1.5 h-px w-7 bg-border" />
 
             <RailBtn onClick={clearDrawings} title="Delete all drawings">
               <Trash2 className="h-4 w-4" />
             </RailBtn>
+
+            {/* Pushed to the bottom, as in the design: the rail folds away when
+                you want the candles and not the tools. */}
+            <span className="mt-auto" />
+            <RailBtn onClick={() => setRailHidden(true)} title="Hide the toolbar">
+              <ChevronsLeft className="h-4 w-4" />
+            </RailBtn>
           </div>
         </div>
+
+        {/* STYLE TOOLBAR — appears when a drawing is selected, acts on that
+            one. Floated over the candles rather than docked, so it is next to
+            the thing it edits. */}
+        {selected && (
+          <div className="absolute left-1/2 top-3 z-40 -translate-x-1/2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 px-1.5 py-1 shadow-xl backdrop-blur-sm">
+              <GripVertical className="h-4 w-4 shrink-0 text-fg-subtle" />
+
+              {/* Colour */}
+              <DrawMenu label={<span className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: selected.color ?? DRAW_COLOR }} />}>
+                {(close) => (
+                  <div className="flex items-center gap-1.5 p-2">
+                    {DRAW_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-label={c}
+                        onClick={() => { patchDrawing(selected.id, { color: c }); close(); }}
+                        className={`h-5 w-5 rounded-sm ring-offset-1 ring-offset-bg-elevated transition-all ${
+                          (selected.color ?? DRAW_COLOR) === c ? 'ring-2 ring-fg' : ''
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </DrawMenu>
+
+              {/* Width */}
+              <DrawMenu label={<span className="font-mono text-[11px]">{selected.width ?? 2}px</span>}>
+                {(close) => DRAW_WIDTHS.map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => { patchDrawing(selected.id, { width: w }); close(); }}
+                    className={`flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors ${
+                      (selected.width ?? 2) === w ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10'
+                    }`}
+                  >
+                    <span className="w-6 shrink-0 rounded bg-current" style={{ height: w }} />
+                    {w}px
+                  </button>
+                ))}
+              </DrawMenu>
+
+              {/* Dash pattern */}
+              <DrawMenu label={<Minus className="h-3.5 w-3.5" />}>
+                {(close) => DRAW_STYLES.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => { patchDrawing(selected.id, { style: s.key }); close(); }}
+                    className={`flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors ${
+                      (selected.style ?? (selected.kind === 'hline' ? 'dashed' : 'solid')) === s.key
+                        ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10'
+                    }`}
+                  >
+                    <svg width="24" height="2" className="shrink-0">
+                      <line x1="0" y1="1" x2="24" y2="1" stroke="currentColor" strokeWidth="2" strokeDasharray={s.dash} />
+                    </svg>
+                    {s.label}
+                  </button>
+                ))}
+              </DrawMenu>
+
+              <span className="mx-0.5 h-5 w-px bg-border" />
+
+              {/* Label. Only a horizontal line carries one — it is drawn on the
+                  price axis, which a diagonal has no place on. */}
+              {/* Any drawing can be labelled now. A level's label rides the
+                  price axis; a diagonal's is drawn at its midpoint by the
+                  overlay below, which is why this was limited before. */}
+              <button
+                type="button"
+                title="Label this drawing"
+                onClick={() => {
+                  const next = window.prompt('Label', selected.label ?? '');
+                  if (next == null) return;
+                  patchDrawing(selected.id, { label: next.trim() || undefined });
+                }}
+                className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors ${
+                  selected.label ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10 hover:text-brand'
+                }`}
+              >
+                <Type className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawingsLocked((v) => !v)}
+                title={drawingsLocked ? 'Unlock drawings' : 'Lock drawings'}
+                className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors ${
+                  drawingsLocked ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10 hover:text-brand'
+                }`}
+              >
+                {drawingsLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => deleteDrawing(selected.id)}
+                title="Delete this drawing"
+                className="flex h-7 w-7 items-center justify-center rounded-sm text-danger transition-colors hover:bg-danger/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+
+              <DrawMenu label={<MoreVertical className="h-3.5 w-3.5" />} align="right">
+                {(close) => (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { duplicateDrawing(selected.id); close(); }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Duplicate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        patchDrawing(selected.id, { color: undefined, width: undefined, style: undefined });
+                        close();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Reset settings
+                    </button>
+                    {/* Bring to front / send to back are in the design and not
+                        here: this library draws each drawing as its own series
+                        and gives no z-order control over them. Listing them as
+                        dead menu items would be worse than leaving them out. */}
+                  </>
+                )}
+              </DrawMenu>
+            </div>
+          </div>
+        )}
+
+        {/* OHLC of the hovered bar, top-left over the candles, as the design
+            has it. The change is against that bar's own open — what this
+            candle did — not against yesterday's close. */}
+        {(() => {
+          const bar = hoverBar ?? lastBar;
+          if (!bar) return null;
+          const chg = bar.close - bar.open;
+          const pct = bar.open ? (chg / bar.open) * 100 : 0;
+          const cls = chg > 0 ? 'text-brand' : chg < 0 ? 'text-danger' : 'text-fg-muted';
+          return (
+            <div className="pointer-events-none absolute left-14 top-14 z-30 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px]">
+              {([['O', bar.open], ['H', bar.high], ['L', bar.low], ['C', bar.close]] as const).map(
+                ([k, v]) => (
+                  <span key={k} className="whitespace-nowrap">
+                    <span className="text-fg-subtle">{k} </span>
+                    <span className={cls}>{fmt(v, digits)}</span>
+                  </span>
+                ),
+              )}
+              <span className={`whitespace-nowrap ${cls}`}>
+                {chg >= 0 ? '+' : ''}{fmt(chg, digits)} ({chg >= 0 ? '+' : ''}{pct.toFixed(2)}%)
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* ARMED-TOOL BANNER.
+            A two-click tool takes one click and draws nothing — correct, and
+            indistinguishable from broken when nothing on screen says a tool is
+            even armed. The old desk toolbar had this hint; the new chrome
+            never got it, so every drawing tool looked dead. */}
+        {tool !== 'cursor' && (
+          <div className="pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2">
+            <span className="flex items-center gap-2 rounded-full border border-brand/40 bg-bg-elevated/95 px-3 py-1.5 text-[11px] shadow-lg backdrop-blur-sm">
+              <PenLine className="h-3.5 w-3.5 text-brand" />
+              <span className="font-semibold text-brand">{armed?.label ?? tool}</span>
+              <span className="text-fg-muted">
+                {drawPending
+                  ? 'click the second point'
+                  : armed?.clicks === 2
+                    ? 'click the first point'
+                    : 'click a price on the chart'}
+              </span>
+              <span className="text-fg-subtle">· Esc to cancel</span>
+            </span>
+          </div>
+        )}
 
         {/* Status strip. "Market open" is the quote feed moving — the only
             evidence this page actually has that the market is trading. */}
@@ -1663,6 +2537,46 @@ function IndicatorLibrary({ active, favs, onToggle, onFav, onClose }: {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A small dropdown for the style toolbar: a button, and a panel under it. */
+function DrawMenu({ label, align = 'left', children }: {
+  label: React.ReactNode;
+  align?: 'left' | 'right';
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-7 items-center gap-1 rounded-sm px-1.5 transition-colors ${
+          open ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10 hover:text-brand'
+        }`}
+      >
+        {label}
+        <ChevronDown className="h-3 w-3 text-fg-subtle" />
+      </button>
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            className={`absolute top-[calc(100%+6px)] z-50 min-w-[9rem] overflow-hidden rounded-md border border-border bg-surface-raised py-1 shadow-xl ${
+              align === 'right' ? 'right-0' : 'left-0'
+            }`}
+          >
+            {children(() => setOpen(false))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
