@@ -10,7 +10,7 @@
 // main app project (createClient).
 
 import { randomUUID } from 'node:crypto';
-import { revalidatePath } from 'next/cache';
+import { refresh, revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { botServiceClient } from '@/lib/supabase/bot';
 import { requireSection } from './access';
@@ -59,7 +59,7 @@ export async function setLotSizeAction(symbol: string, lot: number | null): Prom
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value: saved };
 }
 
@@ -94,7 +94,7 @@ export async function setCloseAtProfitAction(
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value: saved };
 }
 
@@ -112,11 +112,35 @@ export async function setMarketEnabledAction(symbol: string, enabled: boolean): 
     .update({ enabled, updated_at: new Date().toISOString(), updated_by: await issuer() })
     .eq('symbol', symbol);
   if (error) return { ok: false, error: error.message };
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }
 
 /** Who issued a command, for the bot_commands.created_by audit trail. */
+/**
+ * Invalidate the desk.
+ *
+ * THE DESK IS A CATCH-ALL ROUTE — src/app/ai/app/[[...slug]]/page.tsx — and
+ * revalidatePath('/app') does not match it. For a dynamic route Next wants the
+ * route PATTERN and an explicit type, not the URL a visitor typed. The call
+ * silently matched nothing, so an approval landed in the database while the
+ * screen carried on offering Approve and Reject for a decision already made.
+ * Clicking again then hit a row that was no longer pending and did nothing,
+ * which is why it looked like it needed two clicks.
+ *
+ * /bot stays until the old dashboard is deleted: it is cheap, and a stale
+ * screen is exactly what this function exists to prevent.
+ */
+function revalidateDesk(): void {
+  revalidatePath('/ai/app/[[...slug]]', 'page');
+  revalidatePath('/bot');
+  // Push the new payload to whichever router called this, in THIS action's own
+  // response. Without it the client waits for the next 15s poll before the
+  // card it just answered stops offering the decision — the second half of the
+  // "it needed two clicks" report.
+  refresh();
+}
+
 async function issuer(): Promise<string> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -144,7 +168,7 @@ async function queueCommand(
   });
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }
 
@@ -215,7 +239,7 @@ export async function closeAllPositionsAction(): Promise<Result<number>> {
   );
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value: symbols.length };
 }
 
@@ -241,7 +265,7 @@ export async function setTradingEnabledAction(enabled: boolean): Promise<Result<
     .eq('id', 1);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value: enabled };
 }
 
@@ -323,7 +347,7 @@ export async function saveTradeAnalysisAction(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/bot/trade/${ticket}`);
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }
 
@@ -355,7 +379,7 @@ export async function setCutoverAction(iso: string | null): Promise<Result<strin
     .eq('id', 1);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value };
 }
 
@@ -382,7 +406,7 @@ export async function cancelPendingAction(symbol: string, ticket: number | null)
   });
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }
 
@@ -425,8 +449,7 @@ export async function decideProposalAction(
   // BOTH desks. The decision is made on /app now, and revalidating only /bot
   // meant the card you had just approved sat there still offering Approve and
   // Reject — the write had landed, the screen had no idea.
-  revalidatePath('/app');
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }
 
@@ -447,7 +470,7 @@ export async function setApprovalModeAction(required: boolean): Promise<Result<b
     .eq('id', 1);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true, value: required };
 }
 
@@ -478,6 +501,6 @@ export async function recordFixAction(ticket: number, fix: string): Promise<Resu
     .eq('ticket', ticket);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/bot');
+  revalidateDesk();
   return { ok: true };
 }

@@ -20,8 +20,7 @@
 // in the past is how the level was found in the first place, not a fault. The
 // distance is stated and the decision is left to the person making it.
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import { Check, X, Loader2, AlertTriangle } from 'lucide-react';
 import { useNow } from '@/components/admin/bot/BotBits';
 import { decideProposalAction } from '@/lib/admin/trading-bot-actions';
@@ -42,6 +41,14 @@ export function ProposalActions({
   side: 'buy' | 'sell';
 }) {
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  /* Settled HERE, the moment the server says yes.
+   *
+   * router.refresh() re-runs the whole page — nine queries — so there is a
+   * visible gap between the decision landing and the card going away. In
+   * that gap the card still showed Approve, which invites a second click on
+   * a proposal that is no longer pending. The answer is recorded locally so
+   * the buttons go at once; the refresh then catches up in its own time. */
+  const [settled, setSettled] = useState<'approve' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');
@@ -74,28 +81,49 @@ export function ProposalActions({
 
   const dead = expired || passed;
 
-  const router = useRouter();
+  const [, startTransition] = useTransition();
 
+  /* INSIDE A TRANSITION, and the refresh comes back with the action.
+   *
+   * decideProposalAction calls refresh() (next/cache) on the server, so the
+   * new desk payload rides home in the action's OWN response — one round trip
+   * instead of the action plus a separate router.refresh(). Starting it in a
+   * transition is what keeps the buttons disabled until that payload has
+   * actually been applied, rather than the instant the write returned. */
   const decide = (approved: boolean) => {
     setError(null);
     setBusy(approved ? 'approve' : 'reject');
-    void decideProposalAction(id, approved, approved ? undefined : note.trim() || undefined)
-      .then((res) => {
+    startTransition(async () => {
+      try {
+        const res = await decideProposalAction(
+          id, approved, approved ? undefined : note.trim() || undefined,
+        );
         if (!res.ok) { setError(res.error); return; }
         setRejecting(false);
-        // Pull the answer back immediately. Without this the card waits for
-        // the desk's next poll before it stops offering the decision you have
-        // just made, which reads as the button having done nothing.
-        router.refresh();
-      })
+        setSettled(approved ? 'approve' : 'reject');
       // A THROW, not an !ok — requireSection('trading-bot') throws rather than
       // returning, so without this the promise rejected unhandled, the button
       // went back to idle, and nothing on screen said why.
-      .catch((e: unknown) => setError(
-        e instanceof Error && e.message ? e.message : 'Could not record that. Try again.',
-      ))
-      .finally(() => setBusy(null));
+      } catch (e: unknown) {
+        setError(e instanceof Error && e.message ? e.message : 'Could not record that. Try again.');
+      } finally {
+        setBusy(null);
+      }
+    });
   };
+
+  if (settled) {
+    return (
+      <p className="text-[11px] font-semibold text-brand">
+        {settled === 'approve' ? 'Approved' : 'Rejected'} · recorded against your account.
+        <span className="ml-1 font-normal text-fg-subtle">
+          {settled === 'approve'
+            ? 'The bot places it on its next cycle.'
+            : 'Nothing was placed.'}
+        </span>
+      </p>
+    );
+  }
 
   return (
     // No border or background of its own: it lives inside the proposal's card
