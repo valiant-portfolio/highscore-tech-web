@@ -23,9 +23,16 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw,
+  GripVertical, MoreVertical, Copy, RotateCcw, Rows3, Rows4,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
+import {
+  computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
+  duplicateFib, shiftFib, type FibDrawing, type FibGeometry, type FibPoint,
+} from './drawing/fibonacci.ts';
+import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
+import { inferBarSecs } from './drawing/barTime.ts';
+import { FibOverlay } from './drawing/FibOverlay.tsx';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
@@ -33,13 +40,13 @@ import {
   type MouseEventParams,
 } from 'lightweight-charts';
 
-type Tool = 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray';
+type Tool = 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray' | 'fibr' | 'fibe';
 
 /** The drawing menu, in the design's order and wording. `clicks` is how many
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
  *  hides what it cannot do sends you hunting for a tool that is not there. */
 type DrawItem = {
-  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2; glyph: string; soon?: true;
+  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2 | 3; glyph: string; soon?: true;
 };
 const LINE_TOOLS: DrawItem[] = [
   { tool: 'trend', label: 'Trend Line', keys: 'Alt+T', clicks: 2, glyph: '/' },
@@ -69,6 +76,13 @@ const PITCHFORK_TOOLS: DrawItem[] = [
 const EXTRA_TOOLS: DrawItem[] = [
   { tool: 'text', label: 'Labelled Level', keys: 'Alt+L', clicks: 1, glyph: 'T' },
 ];
+/** Fibonacci: levels drawn from two points (retracement) or three (trend-based
+ *  extension). No keyboard shortcut. */
+const FIB_TOOLS: DrawItem[] = [
+  { tool: 'fibr', label: 'Fib Retracement', clicks: 2, glyph: '⌗' },
+  { tool: 'fibe', label: 'Trend-Based Fib Extension', clicks: 3, glyph: '⇶' },
+];
+const isFibTool = (t: Tool): t is 'fibr' | 'fibe' => t === 'fibr' || t === 'fibe';
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
  *  tells you what a click will draw without a tooltip or an open menu — theirs
@@ -81,6 +95,8 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   ray: MoveUpRight,
   extended: ArrowLeftRight,
   text: Type,
+  fibr: Rows3,
+  fibe: Rows4,
 };
 
 // One browser Supabase client for the module, pointed at the BOT project — the
@@ -165,7 +181,8 @@ type Drawing =
        *  price axis; a diagonal has no fixed place there, which is the only
        *  reason labels started out limited to levels. */
       label?: string;
-    };
+    }
+  | FibDrawing;
 
 /** The palette the style toolbar offers. */
 const DRAW_COLORS = ['#2962FF', '#26a69a', '#ef5350', '#f59e0b', '#a855f7', '#e5e7eb'];
@@ -493,7 +510,7 @@ export function MarketChart({
    *  Declared here, below `tool`: it was above, which is a temporal dead zone
    *  and took the whole page down with "Cannot access 'tool' before
    *  initialization". */
-  const armed = [...LINE_TOOLS, ...EXTRA_TOOLS].find((t) => t.tool === tool);
+  const armed = [...LINE_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === tool);
   const [fs, setFs] = useState(false);
   const [inds, setInds] = useState<Set<IndId>>(() => {
     if (typeof window !== 'undefined') {
@@ -529,7 +546,18 @@ export function MarketChart({
     { x1: number; y1: number; x2: number; y2: number; flat: boolean } | null
   >(null);
   const bandRef = useRef<typeof band>(null);
-  const clearPreview = () => { bandRef.current = null; setBand(null); };
+  /* Fibonacci. Clicks collect in a ref (the click handler is registered once);
+   * the step, the projected geometry and the rubber band are state for render.
+   * Always built from refs, never from state captured by the chart effect. */
+  const fibPts = useRef<FibPoint[]>([]);
+  const [fibStep, setFibStep] = useState(0);
+  const [fibGeoms, setFibGeoms] = useState<FibGeometry[]>([]);
+  const [fibPreview, setFibPreview] = useState<FibGeometry | null>(null);
+  const fibCtx = () => makeFibCtx(chartRef.current, seriesRef.current, barsRef.current);
+  const clearPreview = () => {
+    bandRef.current = null; setBand(null);
+    fibPts.current = []; setFibStep(0); setFibPreview(null);
+  };
 
   /* THE SELECTED DRAWING — what the style toolbar acts on.
    *
@@ -571,7 +599,7 @@ export function MarketChart({
 
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
-    if (!s || !c) { setLineLabels([]); setSegs([]); setHandles([]); return; }
+    if (!s || !c) { setLineLabels([]); setSegs([]); setHandles([]); setFibGeoms([]); return; }
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -653,6 +681,9 @@ export function MarketChart({
       }
     }
     setHandles(hs);
+
+    const fc = fibCtx();
+    setFibGeoms(fc ? computeFibGeometries(drawings.current, fc) : []);
   };
 
   /** Patch one drawing, redraw it, and save. Redrawn rather than mutated in
@@ -706,11 +737,13 @@ export function MarketChart({
   const duplicateDrawing = (id: string) => {
     const d = drawings.current.find((x) => x.id === id);
     if (!d) return;
-    const copy = { ...d, id: newDrawId() } as Drawing;
+    const copy: Drawing = d.kind === 'fib'
+      ? duplicateFib(d, newDrawId())
+      : { ...d, id: newDrawId() };
     // Offset a little so the copy is visibly a second line, not one hiding
     // exactly underneath the original.
     if (copy.kind === 'hline') copy.price *= 1.0005;
-    else { copy.v1 *= 1.0005; copy.v2 *= 1.0005; }
+    else if (copy.kind === 'trend') { copy.v1 *= 1.0005; copy.v2 *= 1.0005; }
     drawings.current.push(copy);
     if (!drawingsHidden) renderDrawings();
     persistDrawings();
@@ -750,7 +783,7 @@ export function MarketChart({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const drawKeyRef = useRef<string>('');                 // current symbol+tf storage key (read inside once-bound handlers)
-  const drag = useRef<{ id: string; kind: 'hline' | 'trend'; lastX: number; lastY: number } | null>(null);
+  const drag = useRef<{ id: string; kind: Drawing['kind']; lastX: number; lastY: number } | null>(null);
   // Indicators.
   const barsRef = useRef<Candle[]>([]);
   const indsRef = useRef<Set<IndId>>(inds);
@@ -1069,6 +1102,28 @@ export function MarketChart({
       const t = toolRef.current;
       // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
       if (t === 'cursor') return;
+      if (isFibTool(t)) {
+        // Before the `param.time` guard below: a fib anchor is a LOGICAL bar
+        // slot, so clicking right of the last candle (where param.time is
+        // undefined) is exactly where a projection wants to go.
+        if (!param.point) return;
+        const pt = clickToFibPoint(chartRef.current, seriesRef.current, param.point, barsRef.current);
+        if (!pt) return;
+        const variant = t === 'fibe' ? 'extension' : 'retracement';
+        fibPts.current.push(pt);
+        const n = fibPts.current.length;
+        if (n < fibClicksNeeded(variant)) {
+          setDrawPending(true);
+          setFibStep(n);
+          return;
+        }
+        const d: Drawing = makeFibDrawing(variant, fibPts.current, newDrawId());
+        drawings.current.push(d); persistDrawings(); setSelected(d);
+        clearPreview();
+        setDrawPending(false);
+        syncLabels();
+        return;
+      }
       if (!param.point || param.time === undefined) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
@@ -1147,7 +1202,7 @@ export function MarketChart({
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
-    const hitTest = (x: number, y: number): { id: string; kind: 'hline' | 'trend' } | null => {
+    const hitTest = (x: number, y: number): { id: string; kind: Drawing['kind'] } | null => {
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return null;
       for (const d of drawings.current) {
@@ -1162,6 +1217,11 @@ export function MarketChart({
         const y1 = s.priceToCoordinate(d.v1), y2 = s.priceToCoordinate(d.v2);
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
         if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
+      }
+      const fc = fibCtx();
+      if (fc) {
+        const id = fibHitTest(computeFibGeometries(drawings.current, fc), x, y, HIT);
+        if (id) return { id, kind: 'fib' };
       }
       return null;
     };
@@ -1211,6 +1271,23 @@ export function MarketChart({
             : null;
           bandRef.current = next;
           setBand(next);
+        } else if (isFibTool(t)) {
+          const fc = fibCtx();
+          if (!fibPts.current.length) {
+            // Nothing placed yet: the same flat band a level gets.
+            const next = { x1: 0, y1: y, x2: 0, y2: y, flat: true };
+            bandRef.current = next;
+            setBand(next);
+          } else {
+            bandRef.current = null;
+            setBand(null);
+            const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
+            const variant = t === 'fibe' ? 'extension' : 'retracement';
+            const g = fc && pt
+              ? computeFibGeometry(makeFibDrawing(variant, [...fibPts.current, pt], 'preview'), fc)
+              : null;
+            setFibPreview(g);
+          }
         } else if (!twoClick) {
           // A level: horizontal, at the cursor's height, across the pane.
           const next = { x1: 0, y1: y, x2: 0, y2: y, flat: true };
@@ -1231,6 +1308,11 @@ export function MarketChart({
         if (p == null) return;
         d.price = p;
         hlineObjs.current.get(d.id)?.applyOptions({ price: p });
+      } else if (d.kind === 'fib') {
+        const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
+        const dv = pNow != null && pLast != null ? pNow - pLast : 0;
+        shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
+        syncLabels();
       } else {
         const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
         if (pNow != null && pLast != null) { const dv = pNow - pLast; d.v1 += dv; d.v2 += dv; }
@@ -1502,6 +1584,10 @@ export function MarketChart({
           </svg>
         )}
 
+        {/* Fibonacci levels: projected through logical bar slots, so they keep
+            working right of the last candle. */}
+        <FibOverlay geoms={fibGeoms} preview={fibPreview} digits={digits} selectedId={selected?.id ?? null} />
+
         {/* Diagonal labels, at each line's midpoint. */}
         {lineLabels.map((l) => (
           <span
@@ -1758,7 +1844,7 @@ export function MarketChart({
                   setDrawPending(false);
                   clearPreview();
                 }}
-                title={`${[...LINE_TOOLS, ...EXTRA_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
+                title={`${[...LINE_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
                   + (tool === 'cursor' ? ' — click to arm' : ' — armed')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
                   tool !== 'cursor' ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
@@ -1793,6 +1879,7 @@ export function MarketChart({
                   <div className="scrollbar-none absolute left-[calc(100%+6px)] top-0 z-50 max-h-[70vh] w-64 overflow-y-auto rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
+                      ['Fibonacci', FIB_TOOLS],
                       ['Channels', CHANNEL_TOOLS],
                       ['Pitchforks', PITCHFORK_TOOLS],
                     ] as const).map(([group, items]) => (
@@ -2024,6 +2111,26 @@ export function MarketChart({
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Reset settings
                     </button>
+                    {selected.kind === 'fib' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { patchDrawing(selected.id, { extendRight: !selected.extendRight }); close(); }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
+                        >
+                          <ArrowRightToLine className="h-3.5 w-3.5" />
+                          {selected.extendRight ? 'Stop extending right' : 'Extend lines right'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { patchDrawing(selected.id, { fill: selected.fill === false }); close(); }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
+                        >
+                          <Layers className="h-3.5 w-3.5" />
+                          {selected.fill === false ? 'Fill between levels' : 'Hide fill'}
+                        </button>
+                      </>
+                    )}
                     {/* Bring to front / send to back are in the design and not
                         here: this library draws each drawing as its own series
                         and gives no z-order control over them. Listing them as
@@ -2073,8 +2180,8 @@ export function MarketChart({
               <span className="font-semibold text-brand">{armed?.label ?? tool}</span>
               <span className="text-fg-muted">
                 {drawPending
-                  ? 'click the second point'
-                  : armed?.clicks === 2
+                  ? (fibStep === 2 ? 'click the third point (projection anchor)' : 'click the second point')
+                  : armed?.clicks === 2 || armed?.clicks === 3
                     ? 'click the first point'
                     : 'click a price on the chart'}
               </span>
