@@ -778,6 +778,7 @@ export function MarketChart({
       if (hit.tool) setTool(hit.tool);
       trendStart.current = null;
       setDrawPending(false);
+      clearPreview();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1352,6 +1353,8 @@ export function MarketChart({
     let alive = true;
     setLoading(true);
     liveBar.current = null;
+    // A half-drawn line or fib belongs to the market it was started on.
+    trendStart.current = null; fibPts.current = [];
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -1558,7 +1561,7 @@ export function MarketChart({
 
         {/* Diagonals and their handles. Clipped by the SVG viewport, which is
             how a ray reaches the edge without existing beyond it. */}
-        {(segs.length > 0 || handles.length > 0) && (
+        {!drawingsHidden && (segs.length > 0 || handles.length > 0) && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
             {segs.map((g) => (
               <line
@@ -1586,10 +1589,12 @@ export function MarketChart({
 
         {/* Fibonacci levels: projected through logical bar slots, so they keep
             working right of the last candle. */}
-        <FibOverlay geoms={fibGeoms} preview={fibPreview} digits={digits} selectedId={selected?.id ?? null} />
+        {!drawingsHidden && (
+          <FibOverlay geoms={fibGeoms} preview={fibPreview} digits={digits} selectedId={selected?.id ?? null} />
+        )}
 
         {/* Diagonal labels, at each line's midpoint. */}
-        {lineLabels.map((l) => (
+        {!drawingsHidden && lineLabels.map((l) => (
           <span
             key={l.id}
             className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
@@ -2013,14 +2018,14 @@ export function MarketChart({
               </DrawMenu>
 
               {/* Width */}
-              <DrawMenu label={<span className="font-mono text-[11px]">{selected.width ?? 2}px</span>}>
+              <DrawMenu label={<span className="font-mono text-[11px]">{selected.width ?? (selected.kind === 'fib' ? 1 : 2)}px</span>}>
                 {(close) => DRAW_WIDTHS.map((w) => (
                   <button
                     key={w}
                     type="button"
                     onClick={() => { patchDrawing(selected.id, { width: w }); close(); }}
                     className={`flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors ${
-                      (selected.width ?? 2) === w ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10'
+                      (selected.width ?? (selected.kind === 'fib' ? 1 : 2)) === w ? 'bg-brand/15 text-brand' : 'text-fg hover:bg-brand/10'
                     }`}
                   >
                     <span className="w-6 shrink-0 rounded bg-current" style={{ height: w }} />
