@@ -1000,9 +1000,14 @@ function MarketDetail({ market, enabled, config, spec, onBack }: {
         <Fact label="Trend (M15)" value={market.entry_trend ?? '—'} />
         <Fact label="State" value={market.state ?? '—'} />
         <Fact label="Reason" value={market.reason ?? '—'} />
-        <Fact label="Latest signal" value={market.latest_signal ?? '—'} />
-        <Fact label="Price" value={px(market.price)} />
-        <Fact label="Level" value={px(market.level)} />
+        <Fact label="Signal" value={market.latest_signal ?? '—'} />
+        {/* NAMED FOR WHAT A TRADER CALLS THEM.
+            "Price" used to be the live price and the entry was filed under
+            "Level" — a word that exists in the strategy code and nowhere in
+            the conversation on the desk. So: Latest is where the market is,
+            Price is where we get in. The column that said Level is gone. */}
+        <Fact label="Latest" value={px(market.price)} />
+        <Fact label="Price" value={px(market.level)} />
         {/* The two numbers that say what the trade actually risks. They were on
             BotMarket all along and simply never rendered, so the panel showed
             an entry with no stop and no target — the half of a setup you cannot
