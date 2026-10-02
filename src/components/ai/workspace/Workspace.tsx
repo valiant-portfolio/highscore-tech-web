@@ -160,6 +160,20 @@ export function Workspace({
   }, [router]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  /** How many chart panes. Each is a live subscription and its own poll, so
+   *  this is a load decision as much as a layout one — 1, 2, 4 or 6, not a
+   *  free grid. Remembered, because a desk you have arranged should come back
+   *  arranged. */
+  const [panes, setPanes] = useState(1);
+  useEffect(() => {
+    try {
+      const n = Number(localStorage.getItem('ai-desk-panes'));
+      if ([1, 2, 4, 6].includes(n)) setPanes(n);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('ai-desk-panes', String(panes)); } catch { /* ignore */ }
+  }, [panes]);
 
   const active = markets.filter((m) => m.state === 'active');
   const ready = markets.filter((m) => m.state === 'ready');
@@ -619,29 +633,79 @@ export function Workspace({
               old while the bot is running perfectly — which is exactly how it
               misled us. lastUpdate is the newest bot_market_state write, and
               that happens every cycle. */}
-          <span className="ml-auto shrink-0 text-[11px]">
+          {/* LAYOUT. Four counts, drawn as the shape they make, so the choice
+              reads at a glance rather than as a number you have to picture. */}
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            {([1, 2, 4, 6] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPanes(n)}
+                title={n === 1 ? 'One chart' : `${n} charts`}
+                aria-pressed={panes === n}
+                className={`grid h-7 w-7 place-items-center rounded-sm border transition-colors ${
+                  panes === n
+                    ? 'border-brand/50 bg-brand/15 text-brand'
+                    : 'border-transparent text-fg-subtle hover:bg-brand/10 hover:text-brand'
+                }`}
+              >
+                <span className={`grid gap-px ${
+                  n === 1 ? 'grid-cols-1 grid-rows-1'
+                    : n === 2 ? 'grid-cols-2 grid-rows-1'
+                      : n === 4 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2'
+                }`}
+                >
+                  {Array.from({ length: n }, (_, i) => (
+                    <span key={i} className="h-1.5 w-1.5 bg-current" />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </span>
+          <span className="shrink-0 text-[11px]">
             {lastUpdate
               ? <BotPulse iso={lastUpdate} />
               : <span className="text-fg-subtle">bot has never written</span>}
           </span>
         </header>
 
+        {/* THE LAYOUT GRID.
+            One chart or several, each pane its own market and timeframe — which
+            is why MarketChart takes a paneId: the remembered selection is keyed
+            per pane, and six charts sharing one key would each overwrite the
+            others every time one of them changed.
+
+            Panes are a real cost, not just a layout: each is its own
+            subscription and its own poll, so six on screen is six times the
+            load. The picker offers 1, 2, 4 and 6 rather than a free grid. */}
         <div className="min-h-0 flex-1">
-          <MarketChart
-            chrome="workspace"
-            markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))}
-            showGrid={showGrid}
-            focusSymbol={marketFocus}
-            // Emerald up, the app's red down, muted text — the same values
-            // as the tokens, spelled out because canvas cannot read a CSS
-            // custom property.
-            palette={{ up: '#12B981', down: '#E5484D', text: '#9AA0A6' }}
-            openTrades={active.map((m) => ({
-              symbol: m.symbol,
-              side: (m.latest_signal ?? '').toUpperCase().startsWith('SELL')
-                || (m.latest_signal ?? '').toUpperCase().startsWith('SHORT') ? 'sell' : 'buy',
-            }))}
-          />
+          <div className={`grid h-full w-full gap-px bg-border ${
+            panes === 1 ? 'grid-cols-1 grid-rows-1'
+              : panes === 2 ? 'grid-cols-1 grid-rows-2 md:grid-cols-2 md:grid-rows-1'
+                : panes === 4 ? 'grid-cols-1 grid-rows-4 md:grid-cols-2 md:grid-rows-2'
+                  : 'grid-cols-1 grid-rows-6 md:grid-cols-3 md:grid-rows-2'
+          }`}>
+            {Array.from({ length: panes }, (_, i) => (
+              <div key={i} className="relative min-h-0 min-w-0 bg-bg">
+              <MarketChart
+                chrome="workspace"
+              paneId={panes === 1 ? '' : `p${i}`}
+                markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))}
+                showGrid={showGrid}
+                focusSymbol={i === 0 ? marketFocus : null}
+                // Emerald up, the app's red down, muted text — the same values
+                // as the tokens, spelled out because canvas cannot read a CSS
+                // custom property.
+                palette={{ up: '#12B981', down: '#E5484D', text: '#9AA0A6' }}
+                openTrades={active.map((m) => ({
+                  symbol: m.symbol,
+                  side: (m.latest_signal ?? '').toUpperCase().startsWith('SELL')
+                    || (m.latest_signal ?? '').toUpperCase().startsWith('SHORT') ? 'sell' : 'buy',
+                }))}
+              />
+              </div>
+            ))}
+          </div>
         </div>
 
         <footer className="flex h-9 shrink-0 items-center gap-4 border-t border-border px-5 text-[11px] text-fg-subtle">

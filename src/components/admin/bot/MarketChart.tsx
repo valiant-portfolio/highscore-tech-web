@@ -820,7 +820,7 @@ const DESK_PALETTE: ChartPalette = { up: '#22c55e', down: '#ef4444', text: '#98A
 
 export function MarketChart({
   markets, openTrades = [], showGrid = true, palette = DESK_PALETTE, focusSymbol = null,
-  chrome = 'desk',
+  chrome = 'desk', paneId = '',
 }: {
   markets: { symbol: string; alias: string }[];
   openTrades?: { symbol: string; side: string }[];
@@ -836,7 +836,11 @@ export function MarketChart({
    *  'workspace' — fills its container with the trading-desk chrome: top bar,
    *  vertical tool rail, status strip, and the symbol search. */
   chrome?: 'desk' | 'workspace';
+  /** Distinguishes one pane from another in a grid. Blank for a lone chart,
+   *  which keeps the key it has always used so existing selections survive. */
+  paneId?: string;
 }) {
+  const storeKey = paneId ? `${STORE_KEY}:${paneId}` : STORE_KEY;
   // A market's label reads "Alias — SYMBOL", but when the alias IS the symbol
   // (e.g. NZDUSD) that renders as "NZDUSD — NZDUSD". Show it once in that case.
   const label = (sym: string) => {
@@ -861,7 +865,7 @@ export function MarketChart({
   // (localStorage) that does not exist during SSR.
   useEffect(() => {
     try {
-      const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      const s = JSON.parse(localStorage.getItem(storeKey) || '{}');
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (s.symbol && markets.some((m) => m.symbol === s.symbol)) setSymbol(s.symbol as string);
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -2299,7 +2303,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
 
   // Persist the selection.
   useEffect(() => {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ symbol, tf })); } catch { /* ignore */ }
+    try { localStorage.setItem(storeKey, JSON.stringify({ symbol, tf })); } catch { /* ignore */ }
   }, [symbol, tf]);
 
   // The grid toggles without rebuilding the chart — a rebuild would drop the
