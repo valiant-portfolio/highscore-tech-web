@@ -4690,7 +4690,12 @@ function TopMenu({ label, icon, children }: {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-30 cursor-default"
           />
-          <div className="absolute left-0 top-[calc(100%+4px)] z-40 w-40 overflow-hidden rounded-sm border border-border bg-surface-raised py-1 shadow-xl">
+          {/* Sized to its content, with w-40 only as a floor. It was fixed at w-40
+              with overflow-hidden, which is fine for a list of one-word items
+              and wrong for anything wider: the Layout panel is two columns, so
+              it spilled past the panel and was clipped - the text ended up over
+              the candles with no background behind it. */}
+          <div className="absolute left-0 top-[calc(100%+4px)] z-40 w-max min-w-40 max-w-[min(22rem,90vw)] overflow-hidden rounded-sm border border-border bg-surface-raised py-1 shadow-xl">
             {children(() => setOpen(false))}
           </div>
         </>
