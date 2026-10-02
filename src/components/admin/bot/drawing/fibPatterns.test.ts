@@ -4,6 +4,7 @@ import { computeFibGeometry, fibHitTest, makeFibDrawing } from './fibonacci.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
 import { lineSegmentIntersection } from './fibGeometry.ts';
 import type { FibDrawing, FibPoint } from './fibModel.ts';
+import { ALL_SPEC_LIST } from './fibModel.ts';
 import { patternRatioAt, harmonicLeg, patternValid, buildPattern } from './fibPatterns.ts';
 
 const ctx: FibCtx = { timeToX: (t) => t / 60, priceToY: (p) => 1000 - p, paneW: 800, paneH: 1000 };
@@ -171,4 +172,14 @@ test('gartley with four points: no badge, unknown validity, line-coloured fill',
   const g = geo(d);
   assert.ok(g.texts.every((t) => !t.text.startsWith('Gartley')));
   assert.equal(g.polys[0].color, '#38c0fd');
+});
+test('every pattern variant builds finite geometry from coincident points', () => {
+  for (const s of ALL_SPEC_LIST.filter((x) => x.family === 'pattern')) {
+    const g = geo(mk(s.variant, Array.from({ length: s.clicks }, () => X)));
+    const nums: number[] = [];
+    for (const l of g.lines) nums.push(l.x1, l.y1, l.x2, l.y2);
+    for (const p of g.polys) for (const q of p.pts) nums.push(q.x, q.y);
+    for (const t of g.texts) nums.push(t.x, t.y);
+    assert.ok(nums.every(Number.isFinite), s.variant);
+  }
 });

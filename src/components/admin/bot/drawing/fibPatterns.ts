@@ -45,7 +45,7 @@ export const PATTERN_DEFS: Record<PatternVariant, PatternDef> = {
   butterfly: harmonic('Butterfly', { ab: b(0.74, 0.83), bc: b(0.382, 0.886), cd: b(1.618, 2.618), ad: b(1.272, 1.618) }),
   crab: harmonic('Crab', { ab: b(0.382, 0.618), bc: b(0.382, 0.886), cd: b(2.618, 3.618), ad: b(1.55, 1.69) }),
   shark: harmonic('Shark', { ab: b(0.382, 0.618), bc: b(1.13, 1.618), cd: b(1.618, 2.24), ad: b(0.886, 1.13) }),
-  cypher: harmonic('Cypher', { ab: b(0.382, 0.618), bc: b(0, 0), cd: b(0, 0), ad: b(0, 0) }, true),
+  cypher: harmonic('Cypher', { ab: b(0.382, 0.618), bc: b(0, Infinity), cd: b(0, Infinity), ad: b(0, Infinity) }, true),
 };
 
 const MIN_LEG = 1e-9;
@@ -64,6 +64,7 @@ export function patternRatioAt(d: FibDrawing, i: number): number | null {
   return ratio(leg(d, i, i - 1), leg(d, i - 1, i - 2));
 }
 
+// Unlike Vela (null until all 5 points exist), ratios are coloured from the points present while placing. Intentional.
 /** The harmonic leg ratios: ab = AB/XA, bc = BC/AB, cd = CD/BC, ad = AD/XA. */
 export function harmonicLeg(d: FibDrawing, name: 'ab' | 'bc' | 'cd' | 'ad'): number | null {
   if (name === 'ab') return ratio(leg(d, 2, 1), leg(d, 1, 0));
@@ -141,7 +142,7 @@ export const buildPattern: FibBuilder = (pts: Pt[], d: FibDrawing): Partial<FibG
       const a = pts[i - 1];
       const c = pts[i];
       texts.push({
-        x: (a.x + c.x) / 2 + 6, y: (a.y + c.y) / 2 + 3.5, text: r.toFixed(3),
+        x: (a.x + c.x) / 2 + 6, y: (a.y + c.y) / 2 + 3.5, text: r.toFixed(3), size: 11,
         color: ok === true ? PATTERN_VALID : ok === false ? PATTERN_INVALID : PATTERN_TEXT, anchor: 'start',
       });
     }
