@@ -211,13 +211,13 @@ const SONIC_COLORS: Record<string, string> = {
 };
 const GOLDEN_SONIC_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 4.236, 6.854, 11.09];
 
-/** Specs without a builder yet (ready false) show greyed in the menu. */
+/** Specs without a builder (ready false) show greyed in the menu. */
 export const GEOMETRY_SPEC_LIST: FibSpec[] = [
   {
     family: 'geometry', variant: 'dedekind', toolId: 'dedek', label: 'Dedekind Tessellation', clicks: 2, glyph: '◠',
     levels: [],
     prompts: ['click the first corner', 'click the opposite corner (bottom edge = real axis)'],
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     family: 'geometry', variant: 'sonic', toolId: 'sonic', label: 'Sonic', clicks: 2, glyph: '◉',

@@ -448,6 +448,75 @@ export const buildMach: FibBuilder = (pts, d) => {
   return { lines, curves, texts, connectors: [] };
 };
 
+// --- Dedekind tessellation -------------------------------------------------
+// Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/types/DedekindTessellation.ts: the semicircles of the
+// modular group's fundamental domain tiling on the upper half plane, with the
+// A-B box as the unit-height strip and its bottom edge as the real axis.
+
+/** True when k/n (mod 1) is the centre of a semicircle of curvature n. */
+export function isDedekindCenter(k: number, n: number): boolean {
+  if (n % 2 === 1) return (k * k - 1) % n === 0;
+  if (n % 8 === 0) return (k * k - 1) % n === 0 && ((k * k - 1) / n) % 2 !== 0;
+  return false;
+}
+
+/** The k in [0, n) that are centres for curvature n. */
+export function dedekindCentersInUnit(n: number): number[] {
+  const out: number[] = [];
+  for (let k = 0; k < n; k++) if (isDedekindCenter(k, n)) out.push(k);
+  return out;
+}
+
+export const buildDedekind: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const bot = Math.max(a.y, b.y);
+  const w = right - left;
+  const h = bot - top;
+  if (w < 1 || h < 1) return {};
+  const color = d.color ?? FIB_FALLBACK_COLOR;
+  const unitPx = h;
+  const realSpan = w / h;
+  const maxN = Math.min(64, Math.max(1, Math.round(d.maxCurvature ?? 24)));
+  const xMin = -1 / maxN;
+  const xMax = realSpan + 1 / maxN;
+  const lines: FibGeometry['lines'] = [
+    { x1: left, y1: top, x2: right, y2: top, color, dash: '3 3' },
+    { x1: left, y1: bot, x2: right, y2: bot, color, dash: '3 3' },
+    { x1: left, y1: top, x2: left, y2: bot, color, dash: '3 3' },
+    { x1: right, y1: top, x2: right, y2: bot, color, dash: '3 3' },
+  ];
+  for (let k = Math.floor(2 * xMin); k <= Math.ceil(2 * xMax); k++) {
+    if (Math.abs(k) % 2 !== 1) continue;
+    const x = left + (k / 2) * unitPx;
+    if (x < left - 0.5 || x > right + 0.5) continue;
+    lines.push({ x1: x, y1: bot, x2: x, y2: top, color });
+  }
+  const curves: FibGeometry['curves'] = [];
+  for (let n = 1; n <= maxN; n++) {
+    const rPx = unitPx / n;
+    if (rPx < 0.75) continue;
+    const centres = dedekindCentersInUnit(n);
+    for (let t = Math.floor(xMin) - 1; t <= Math.ceil(xMax) + 1; t++) {
+      for (const k of centres) {
+        const c = k / n + t;
+        if (c + 1 / n < xMin || c - 1 / n > xMax) continue;
+        const cx = left + c * unitPx;
+        if (cx + rPx < left - 1 || cx - rPx > right + 1) continue;
+        const th0 = Math.acos(Math.min(1, Math.max(-1, (right - cx) / rPx)));
+        const th1 = Math.acos(Math.min(1, Math.max(-1, (left - cx) / rPx)));
+        if (th1 - th0 < 1e-6) continue;
+        const steps = Math.max(4, Math.min(96, Math.round((rPx * (th1 - th0)) / 3)));
+        curves.push({ pts: ellipsePoints(cx, bot, rPx, -rPx, th0, th1, steps), color });
+      }
+    }
+  }
+  return { lines, curves, connectors: [] };
+};
+
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {
   retracement: buildLevels,
@@ -469,4 +538,5 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   supersonic: buildMach,
   goldensonic: buildMach,
   goldensupersonic: buildMach,
+  dedekind: buildDedekind,
 };

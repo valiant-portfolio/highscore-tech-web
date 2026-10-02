@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFibGeometry, computeFibGeometries, fibHitTest, makeFibDrawing } from './fibonacci.ts';
 import { FIB_SPEC_LIST, ALL_SPEC_LIST } from './fibModel.ts';
-import { FIB_BUILDERS } from './fibShapes.ts';
+import { FIB_BUILDERS, dedekindCentersInUnit } from './fibShapes.ts';
 import type { FibVariant, FibDrawing } from './fibModel.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
 import { distToPolyline, distToSeg } from './fibGeometry.ts';
@@ -415,7 +415,7 @@ test('gann square: flat box has no arcs and stays finite; d.color overrides', ()
   assert.ok(c.lines.slice(14).every((l) => l.color === '#abcdef'));
 });
 
-test('every ready spec across all families has a builder; only dedekind waits', () => {
+test('every ready spec across all families has a builder', () => {
   for (const s of ALL_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });
 // --- Mach family -------------------------------------------------------------
@@ -511,4 +511,38 @@ test('mach: degenerate, showRatios false, d.color', () => {
   const c = geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), color: '#abcdef' });
   assert.ok(c.curves.every((k) => k.color === '#abcdef'));
   assert.ok(c.lines.every((l) => l.color === '#abcdef'));
+});
+// --- Dedekind tessellation ---------------------------------------------------
+
+test('dedekind centres in the unit interval', () => {
+  const exp: Record<number, number[]> = { 1: [0], 2: [], 3: [1, 2], 4: [], 5: [1, 4], 8: [3, 5], 16: [7, 9], 24: [5, 11, 13, 19] };
+  for (const n of Object.keys(exp)) assert.deepEqual(dedekindCentersInUnit(Number(n)), exp[Number(n)], `n=${n}`);
+});
+
+test('dedekind: maxCurvature 1 gives one vertical, a border and two exact arcs', () => {
+  const g = geo({ ...makeFibDrawing('dedekind', [A, B], 'k'), maxCurvature: 1 });
+  assert.equal(g.lines.length, 5);
+  assert.equal(g.lines.filter((l) => l.dash === '3 3').length, 4);
+  const v = g.lines.find((l) => !l.dash)!;
+  near(v.x1, 150); near(v.y1, 900); near(v.y2, 800);
+  assert.equal(g.curves.length, 2);
+  const [c0, c1] = g.curves;
+  near(c0.pts[0].x, 200); near(c0.pts[0].y, 900);
+  near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
+  near(c1.pts[0].x, 200); near(c1.pts[0].y, 800);
+  near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
+  assert.equal(g.connectors.length, 0);
+});
+
+test('dedekind: default curvature stays inside the box and finite; flat box is empty; d.color', () => {
+  const g = geo(makeFibDrawing('dedekind', [A, B], 'k'));
+  assert.ok(g.curves.length > 20);
+  for (const c of g.curves) for (const q of c.pts) {
+    assert.ok(Number.isFinite(q.x) && Number.isFinite(q.y));
+    assert.ok(q.x >= 100 - 1e-6 && q.x <= 200 + 1e-6 && q.y >= 800 - 1e-6 && q.y <= 900 + 1e-6, `${q.x},${q.y}`);
+  }
+  const flat = geo(makeFibDrawing('dedekind', [A, { t: 12000, p: 100 }], 'k'));
+  assert.equal(flat.curves.length, 0); assert.equal(flat.lines.length, 0);
+  const col = geo({ ...makeFibDrawing('dedekind', [A, B], 'k'), color: '#abcdef' });
+  assert.ok(col.curves.every((k) => k.color === '#abcdef') && col.lines.every((l) => l.color === '#abcdef'));
 });
