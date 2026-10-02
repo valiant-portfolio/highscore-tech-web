@@ -70,7 +70,7 @@ export function computeFibGeometry(d: FibDrawing, ctx: FibCtx): FibGeometry | nu
     labelX: pts[0].x,
     labelY: pts[0].y - 12,
   };
-  if (pts.length < spec.clicks) return base;
+  if (pts.length < spec.clicks && !spec.partial) return base;
   return { ...base, ...build(pts.slice(0, spec.clicks), d, ctx) };
 }
 

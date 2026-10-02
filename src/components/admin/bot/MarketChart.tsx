@@ -28,7 +28,7 @@ import {
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
   type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
@@ -51,7 +51,7 @@ type Tool =
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
  *  hides what it cannot do sends you hunting for a tool that is not there. */
 type DrawItem = {
-  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2 | 3; glyph: string; soon?: true;
+  tool?: Tool; label: string; keys?: string; clicks?: number; glyph: string; soon?: true;
 };
 const LINE_TOOLS: DrawItem[] = [
   { tool: 'trend', label: 'Trend Line', keys: 'Alt+T', clicks: 2, glyph: '/' },
@@ -91,6 +91,9 @@ const FIB_TOOLS = specItems(ALL_SPEC_LIST);      // armed/title lookups keep wor
 const FIB_MENU = specItems(FIB_SPEC_LIST);
 const GANN_TOOLS = specItems(GANN_SPEC_LIST);
 const GEOMETRY_TOOLS = specItems(GEOMETRY_SPEC_LIST);
+const PATTERN_TOOLS = specItems(PATTERN_SPEC_LIST);
+const ELLIOTT_TOOLS = specItems(ELLIOTT_SPEC_LIST);
+const HARMONIC_TOOLS = specItems(HARMONIC_SPEC_LIST);
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
@@ -2292,6 +2295,9 @@ export function MarketChart({
                       ['Fibonacci', FIB_MENU],
                       ['Gann', GANN_TOOLS],
                       ['Geometry', GEOMETRY_TOOLS],
+                      ['Patterns', PATTERN_TOOLS],
+                      ['Elliott Waves', ELLIOTT_TOOLS],
+                      ['Harmonics', HARMONIC_TOOLS],
                       ['Channels', CHANNEL_TOOLS],
                       ['Pitchforks', PITCHFORK_TOOLS],
                     ] as const).map(([group, items]) => (

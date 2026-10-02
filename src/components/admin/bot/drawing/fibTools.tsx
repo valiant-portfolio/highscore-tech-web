@@ -2,6 +2,7 @@ import {
   Rows3, Rows4, AlignVerticalDistributeCenter, TriangleRight, Columns3, Scaling, Fan,
   Timer, Target, Rainbow, Cone, Shell,
   Radar, Grid2x2, Aperture, Bubbles, Radio, Plane, Disc3, Rocket,
+  Activity, Spline, Mountain, TrendingUpDown, AudioWaveform, Waypoints,
   type LucideIcon,
 } from 'lucide-react';
 import type { FibToolId } from './fibModel.ts';
@@ -28,4 +29,15 @@ export const FIB_TOOL_ICONS: Record<FibToolId, LucideIcon> = {
   ssonic: Plane,
   gsonic: Disc3,
   gssonic: Rocket,
+  xabcd: Activity,
+  abcd: Spline,
+  hs: Mountain,
+  ew5: TrendingUpDown,
+  ewabc: AudioWaveform,
+  gartley: Waypoints,
+  bat: Waypoints,
+  bfly: Waypoints,
+  crab: Waypoints,
+  shark: Waypoints,
+  cypher: Waypoints,
 };

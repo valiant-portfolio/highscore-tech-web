@@ -10,6 +10,7 @@ import type { FibDrawing } from './fibModel.ts';
 import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibTimeRatios, fibLevelColor, formatFibPct, formatRatio, FIB_SPECS } from './fibModel.ts';
 import type { FibCtx, FibGeometry, Pt } from './fibGeometry.ts';
 import { rayEnd, ellipsePoints, ellipseSamples, paneIntersects } from './fibGeometry.ts';
+import { PATTERN_BUILDERS } from './fibPatterns.ts';
 
 export type FibBuilder = (pts: Pt[], d: FibDrawing, ctx: FibCtx) => Partial<FibGeometry>;
 
@@ -542,4 +543,5 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   goldensonic: buildMach,
   goldensupersonic: buildMach,
   dedekind: buildDedekind,
+  ...PATTERN_BUILDERS,
 };

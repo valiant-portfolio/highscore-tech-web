@@ -6,11 +6,14 @@
 export type FibVariant =
   | 'retracement' | 'extension' | 'extension2' | 'fan' | 'timezones' | 'channel' | 'srfan'
   | 'trendtime' | 'circles' | 'arcs' | 'wedge' | 'spiral'
-  | 'gannfan' | 'gannbox' | 'gannsquare' | 'dedekind' | 'sonic' | 'supersonic' | 'goldensonic' | 'goldensupersonic';
+  | 'gannfan' | 'gannbox' | 'gannsquare' | 'dedekind' | 'sonic' | 'supersonic' | 'goldensonic' | 'goldensupersonic'
+  | 'xabcd' | 'abcd' | 'headshoulders' | 'elliottimpulse' | 'elliottcorrection'
+  | 'gartley' | 'bat' | 'butterfly' | 'crab' | 'shark' | 'cypher';
 export type FibToolId =
   | 'fibr' | 'fibe' | 'fibx' | 'fibf' | 'fibtz' | 'fibc' | 'fibsr'
   | 'fibtt' | 'fibo' | 'fiba' | 'fibw' | 'fibs'
-  | 'gannf' | 'gannb' | 'ganns' | 'dedek' | 'sonic' | 'ssonic' | 'gsonic' | 'gssonic';
+  | 'gannf' | 'gannb' | 'ganns' | 'dedek' | 'sonic' | 'ssonic' | 'gsonic' | 'gssonic'
+  | 'xabcd' | 'abcd' | 'hs' | 'ew5' | 'ewabc' | 'gartley' | 'bat' | 'bfly' | 'crab' | 'shark' | 'cypher';
 
 export interface FibPoint { t: number; p: number }
 
@@ -18,7 +21,7 @@ export interface FibDrawing {
   id: string;
   kind: 'fib';
   variant: FibVariant;
-  /** In click order: two or three anchors depending on the variant. */
+  /** In click order: as many anchors as the variant's tool takes. */
   points: FibPoint[];
   /** Absent means the defaults for the variant. */
   levels?: number[];
@@ -52,11 +55,13 @@ export interface FibToggle {
 }
 
 export interface FibSpec {
-  family: 'fib' | 'gann' | 'geometry';
+  family: 'fib' | 'gann' | 'geometry' | 'pattern';
   variant: FibVariant;
   toolId: FibToolId;
   label: string;
-  clicks: 2 | 3;
+  clicks: number;
+  /** Drawn while only some of its clicks are placed (the pattern tools). */
+  partial?: true;
   glyph: string;
   levels: number[];
   timeLevels?: number[];
@@ -241,11 +246,47 @@ export const GEOMETRY_SPEC_LIST: FibSpec[] = [
   },
 ];
 
-export const ALL_SPEC_LIST: FibSpec[] = [...FIB_SPEC_LIST, ...GANN_SPEC_LIST, ...GEOMETRY_SPEC_LIST];
+
+// Pattern tools. Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/toolbar.ts and types/PatternDrawing.ts. The Elliott and
+// Harmonic specs stay ready:false until their builders land.
+export const PATTERN_LINE_COLOR = '#38c0fd';
+export const PATTERN_VALID = '#0ecb81';
+export const PATTERN_INVALID = '#f6465d';
+export const PATTERN_TEXT = 'var(--fg)';
+
+const XABCD_PROMPTS = ['click X', 'click A', 'click B', 'click C', 'click D'];
+const pat = (variant: FibVariant, toolId: FibToolId, label: string, glyph: string, prompts: string[], fillDefault: boolean, ready: boolean): FibSpec => ({
+  family: 'pattern', variant, toolId, label, clicks: prompts.length, glyph, levels: [], prompts, fillDefault, toggles: [], partial: true, ready,
+});
+
+export const PATTERN_SPEC_LIST: FibSpec[] = [
+  pat('xabcd', 'xabcd', 'XABCD Pattern', 'X', XABCD_PROMPTS, true, true),
+  pat('abcd', 'abcd', 'ABCD Pattern', 'A', ['click A', 'click B', 'click C', 'click D'], false, true),
+  pat('headshoulders', 'hs', 'Head & Shoulders', '\u2A53', [
+    'click the start', 'click the left shoulder', 'click the first trough', 'click the head',
+    'click the second trough', 'click the right shoulder', 'click the end',
+  ], false, true),
+];
+
+export const ELLIOTT_SPEC_LIST: FibSpec[] = [
+  pat('elliottimpulse', 'ew5', 'Elliott Impulse Wave (1-5)', '\u2464', ['click point 1', 'click point 2', 'click point 3', 'click point 4', 'click point 5'], false, false),
+  pat('elliottcorrection', 'ewabc', 'Elliott Correction Wave (ABC)', '\u24D2', ['click A', 'click B', 'click C'], false, false),
+];
+
+export const HARMONIC_SPEC_LIST: FibSpec[] = [
+  pat('gartley', 'gartley', 'Gartley', 'G', XABCD_PROMPTS, true, false),
+  pat('bat', 'bat', 'Bat', 'B', XABCD_PROMPTS, true, false),
+  pat('butterfly', 'bfly', 'Butterfly', 'F', XABCD_PROMPTS, true, false),
+  pat('crab', 'crab', 'Crab', 'C', XABCD_PROMPTS, true, false),
+  pat('shark', 'shark', 'Shark', 'S', XABCD_PROMPTS, true, false),
+  pat('cypher', 'cypher', 'Cypher', 'Y', XABCD_PROMPTS, true, false),
+];
+export const ALL_SPEC_LIST: FibSpec[] = [...FIB_SPEC_LIST, ...GANN_SPEC_LIST, ...GEOMETRY_SPEC_LIST, ...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST];
 export const FIB_SPECS = Object.fromEntries(ALL_SPEC_LIST.map((s) => [s.variant, s])) as Record<FibVariant, FibSpec>;
 export const FIB_TOOL_VARIANT = Object.fromEntries(ALL_SPEC_LIST.map((s) => [s.toolId, s.variant])) as Record<FibToolId, FibVariant>;
 
-export const fibClicksNeeded = (v: FibVariant): 2 | 3 => FIB_SPECS[v].clicks;
+export const fibClicksNeeded = (v: FibVariant): number => FIB_SPECS[v].clicks;
 export const fibPrompt = (v: FibVariant, placed: number): string =>
   FIB_SPECS[v].prompts[Math.min(placed, FIB_SPECS[v].clicks - 1)];
 
