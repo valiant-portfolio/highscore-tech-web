@@ -165,6 +165,18 @@ export function Workspace({
    *  free grid. Remembered, because a desk you have arranged should come back
    *  arranged. */
   const [panes, setPanes] = useState(1);
+  /* SYNC. What the panes share.
+   *
+   * Symbol and interval are pushed down: one pane reports a change, the page
+   * holds it, every pane follows. Crosshair goes sideways instead, over a bus
+   * inside MarketChart — routing a cursor up through the page and back on every
+   * mouse move would re-render the whole desk per frame.
+   *
+   * Style is listed and off: the panes draw one series type, so there is no
+   * second style for them to agree on yet. */
+  const [sync, setSync] = useState({ symbol: false, interval: false, crosshair: false });
+  const [syncedSymbol, setSyncedSymbol] = useState<string | null>(null);
+  const [syncedTf, setSyncedTf] = useState<string | null>(null);
   useEffect(() => {
     try {
       const n = Number(localStorage.getItem('ai-desk-panes'));
@@ -662,6 +674,37 @@ export function Workspace({
               </button>
             ))}
           </span>
+          {/* SYNC, beside the layout it applies to. Hidden on a single pane:
+              there is nothing to synchronise with. */}
+          {panes > 1 && (
+            <span className="flex shrink-0 items-center gap-2 border-l border-border pl-2">
+              {([
+                ['symbol', 'Symbol'], ['interval', 'Interval'], ['crosshair', 'Crosshair'],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setSync((v) => ({ ...v, [k]: !v[k] }))}
+                  aria-pressed={sync[k]}
+                  title={`Sync ${label.toLowerCase()} across panes`}
+                  className={`flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-[11px] transition-colors ${
+                    sync[k] ? 'text-brand' : 'text-fg-subtle hover:text-fg'
+                  }`}
+                >
+                  <span className={`h-3 w-5 rounded-full transition-colors ${
+                    sync[k] ? 'bg-brand/40' : 'bg-surface-hover'
+                  }`}
+                  >
+                    <span className={`block h-3 w-3 rounded-full transition-transform ${
+                      sync[k] ? 'translate-x-2 bg-brand' : 'bg-fg-subtle'
+                    }`}
+                    />
+                  </span>
+                  {label}
+                </button>
+              ))}
+            </span>
+          )}
           <span className="shrink-0 text-[11px]">
             {lastUpdate
               ? <BotPulse iso={lastUpdate} />
@@ -690,6 +733,11 @@ export function Workspace({
               <MarketChart
                 chrome="workspace"
               paneId={panes === 1 ? '' : `p${i}`}
+                syncSymbol={sync.symbol ? syncedSymbol : null}
+                syncTf={sync.interval ? syncedTf : null}
+                syncCrosshair={sync.crosshair && panes > 1}
+                onSymbolChange={(v) => sync.symbol && setSyncedSymbol(v)}
+                onTfChange={(v) => sync.interval && setSyncedTf(v)}
                 markets={markets.map((m) => ({ symbol: m.symbol, alias: m.alias }))}
                 showGrid={showGrid}
                 focusSymbol={i === 0 ? marketFocus : null}

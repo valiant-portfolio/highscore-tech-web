@@ -188,6 +188,20 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
 // RLS policies rather than by the logged-in user.
 const supabase = createBotClient();
 
+/* CROSSHAIR SYNC.
+ *
+ * A module-level bus rather than props: panes are siblings, and threading
+ * "where is every other chart's cursor" up through the page and back down on
+ * every mouse move would re-render the whole desk per frame. Each pane posts
+ * the time under its cursor and listens for the others'.
+ *
+ * Time, not a pixel: panes can be on different timeframes and different widths,
+ * and the only thing they genuinely share is the moment being pointed at. */
+const crosshairBus = {
+  subs: new Set<(t: number | null, from: string) => void>(),
+  post(t: number | null, from: string) { for (const fn of this.subs) fn(t, from); },
+};
+
 const STORE_KEY = 'bot-chart-selection'; // persists {symbol, tf} across a refresh
 
 // v6: bot_bars now syncs 8 timeframes. The DB stores D1/W1 but Olivia's picker
@@ -821,6 +835,7 @@ const DESK_PALETTE: ChartPalette = { up: '#22c55e', down: '#ef4444', text: '#98A
 export function MarketChart({
   markets, openTrades = [], showGrid = true, palette = DESK_PALETTE, focusSymbol = null,
   chrome = 'desk', paneId = '',
+  syncSymbol = null, syncTf = null, onSymbolChange, onTfChange, syncCrosshair = false,
 }: {
   markets: { symbol: string; alias: string }[];
   openTrades?: { symbol: string; side: string }[];
@@ -836,6 +851,15 @@ export function MarketChart({
    *  'workspace' — fills its container with the trading-desk chrome: top bar,
    *  vertical tool rail, status strip, and the symbol search. */
   chrome?: 'desk' | 'workspace';
+  /** When symbol or interval sync is on, the value every pane is to show.
+   *  Null means not synced, and the pane keeps its own. */
+  syncSymbol?: string | null;
+  syncTf?: string | null;
+  /** Told when THIS pane changes, so the page can pass it to the others. */
+  onSymbolChange?: (s: string) => void;
+  onTfChange?: (t: string) => void;
+  /** Post and follow the crosshair across panes. */
+  syncCrosshair?: boolean;
   /** Distinguishes one pane from another in a grid. Blank for a lone chart,
    *  which keeps the key it has always used so existing selections survive. */
   paneId?: string;
@@ -859,6 +883,43 @@ export function MarketChart({
   // and exactly the "1 Issue" the dev overlay kept reporting.
   const [symbol, setSymbol] = useState(() => markets[0]?.symbol ?? '');
   const [tf, setTf] = useState<string>('M15');
+
+  /* FOLLOW THE SYNCED VALUE when there is one. Guarded on inequality: without
+   * it a pane that reports its own change would be handed that change straight
+   * back and set state again, which is a render loop. */
+  useEffect(() => {
+    if (syncSymbol && syncSymbol !== symbol) setSymbol(syncSymbol);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncSymbol]);
+  useEffect(() => {
+    if (syncTf && syncTf !== tf) setTf(syncTf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncTf]);
+  useEffect(() => { onSymbolChange?.(symbol); /* eslint-disable-next-line */ }, [symbol]);
+  useEffect(() => { onTfChange?.(tf); /* eslint-disable-next-line */ }, [tf]);
+
+  /* CROSSHAIR ACROSS PANES.
+   *
+   * Posts the time under this chart's cursor and follows what the others post.
+   * `from` keeps a pane from answering its own message, which would fight the
+   * cursor it already has. setCrosshairPosition needs a price as well, so the
+   * hovered bar's close is used — the vertical is what carries the meaning, and
+   * a price from another market would put the horizontal somewhere false. */
+  const paneKey = paneId || 'solo';
+  useEffect(() => { syncCrosshairRef.current = syncCrosshair; paneKeyRef.current = paneKey; }, [syncCrosshair, paneKey]);
+  useEffect(() => {
+    if (!syncCrosshair) return;
+    const follow = (t: number | null, from: string) => {
+      if (from === paneKey) return;
+      const ch = chartRef.current, se = seriesRef.current;
+      if (!ch || !se) return;
+      if (t == null) { ch.clearCrosshairPosition(); return; }
+      const bar = barsRef.current.find((b) => (b.time as number) === t);
+      if (bar) ch.setCrosshairPosition(bar.close, t as UTCTimestamp, se);
+    };
+    crosshairBus.subs.add(follow);
+    return () => { crosshairBus.subs.delete(follow); };
+  }, [syncCrosshair, paneKey]);
 
   // Restore the last-viewed market + timeframe so a refresh keeps your place.
   // setState in an effect is the point here: this reads an external store
@@ -1208,6 +1269,10 @@ export function MarketChart({
   const setBandLabel = (v: string | null) => { bandLabelRef.current = v; setBandLabelState(v); };
   /** timeAtX lives inside the chart effect; the pointer handler needs it too. */
   const timeAtXRef = useRef<((x: number) => number | null) | null>(null);
+  /* The crosshair handler is subscribed once, so the live values reach it
+   * through refs rather than a closure that would hold the first render's. */
+  const syncCrosshairRef = useRef(false);
+  const paneKeyRef = useRef('solo');
   const snapRef = useRef<((t: number, v: number, y: number) => { t: number; v: number }) | null>(null);
 
   /** The fork being placed, previewed in full. Separate from the rubber band:
@@ -2523,6 +2588,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const match = tHere == null ? undefined
         : barsRef.current.find((bar) => (bar.time as number) === tHere);
       setHoverBar(d ? { ...d, time: tHere, vol: match?.vol } : null);
+      if (syncCrosshairRef.current) crosshairBus.post(tHere ?? null, paneKeyRef.current);
 
       // The rubber-band preview is an SVG overlay now, not a chart series:
       // see the pointermove handler below.
