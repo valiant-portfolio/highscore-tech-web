@@ -23,7 +23,7 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Circle,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Columns3, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -1000,8 +1000,11 @@ export function MarketChart({
   const [lastMeas, setLastMeas] = useState<Tool>('pos');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
-    { open: number; high: number; low: number; close: number } | null
+    { open: number; high: number; low: number; close: number; time?: number; vol?: number } | null
   >(null);
+  /** The data window, as in the design: everything about the bar under the
+   *  cursor, in one column, instead of an OHLC strip that has to fit a line. */
+  const [dataWinOpen, setDataWinOpen] = useState(false);
   /** The newest bar, so the legend reads the live candle when nothing is
    *  hovered. State rather than reading barsRef in render: a ref read during
    *  render is empty on the first paint, so the strip would start blank and
@@ -2510,7 +2513,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     const onCrosshair = (param: MouseEventParams) => {
       const d = param.seriesData.get(series) as
         | { open: number; high: number; low: number; close: number } | undefined;
-      setHoverBar(d ?? null);
+      /* Volume is not on the series — the candlestick series carries OHLC only —
+       * so it is looked up on the bar with the same timestamp. */
+      const tHere = param.time as number | undefined;
+      const match = tHere == null ? undefined
+        : barsRef.current.find((bar) => (bar.time as number) === tHere);
+      setHoverBar(d ? { ...d, time: tHere, vol: match?.vol } : null);
 
       // The rubber-band preview is an SVG overlay now, not a chart series:
       // see the pointermove handler below.
@@ -3272,6 +3280,13 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             >
               <Layers className="h-4 w-4" />
             </RailBtn>
+            <RailBtn
+              active={dataWinOpen}
+              onClick={() => setDataWinOpen((v) => !v)}
+              title={dataWinOpen ? 'Hide the data window' : 'Data window'}
+            >
+              <Columns3 className="h-4 w-4" />
+            </RailBtn>
             <RailBtn onClick={copyCandles} title={copied ? 'Copied' : 'Copy these candles as CSV'}>
               {copied ? <Check className="h-4 w-4 text-brand" /> : <Code2 className="h-4 w-4" />}
             </RailBtn>
@@ -3813,6 +3828,58 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             </RailBtn>
           </div>
         </div>
+
+        {/* THE DATA WINDOW.
+            Everything about one bar, in a column. The OHLC strip across the top
+            has to fit on a line, so it drops the date and the volume - the two
+            things you most often want when you are reading a candle rather than
+            watching one. Falls back to the newest bar when nothing is hovered,
+            like the strip does, so it is never blank. */}
+        {dataWinOpen && (() => {
+          const bar = hoverBar ?? lastBar;
+          const secs = bar && 'time' in bar && bar.time != null
+            ? bar.time as number
+            : (barsRef.current[barsRef.current.length - 1]?.time as number | undefined);
+          // Bars are stored shifted into the viewer's zone (see utcTz), so the
+          // shift is undone before formatting or the clock reads wrong by it.
+          const when = secs == null ? null
+            : new Date((secs - new Date().getTimezoneOffset() * 60) * 1000);
+          const row = (k: string, v: string, tone = 'text-fg') => (
+            <div key={k} className="flex items-baseline justify-between gap-6 py-1.5">
+              <span className="text-[13px] text-fg-muted">{k}</span>
+              <span className={`font-mono text-[13px] font-semibold ${tone}`}>{v}</span>
+            </div>
+          );
+          const up = bar ? bar.close >= bar.open : true;
+          const tone = up ? 'text-up' : 'text-down';
+          return (
+            <aside className="absolute inset-y-0 right-0 z-30 w-56 overflow-y-auto border-l border-border bg-bg-elevated/95 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <span className="text-sm font-bold text-fg">Data window</span>
+                <button
+                  type="button"
+                  onClick={() => setDataWinOpen(false)}
+                  aria-label="Close the data window"
+                  className="text-fg-subtle transition-colors hover:text-fg"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="px-4 py-2">
+                <p className="pb-1 pt-2 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">Time</p>
+                {row('Date', when ? when.toISOString().slice(0, 10) : '—')}
+                {row('Time', when ? when.toISOString().slice(11, 16) : '—')}
+                <p className="pb-1 pt-4 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">Price</p>
+                {row('Open', fmt(bar?.open, digits), tone)}
+                {row('High', fmt(bar?.high, digits), tone)}
+                {row('Low', fmt(bar?.low, digits), tone)}
+                {row('Close', fmt(bar?.close, digits), tone)}
+                <p className="pb-1 pt-4 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">Volume</p>
+                {row('Volume', bar && 'vol' in bar && bar.vol != null ? String(bar.vol) : '—', tone)}
+              </div>
+            </aside>
+          );
+        })()}
 
         {/* STYLE TOOLBAR — appears when a drawing is selected, acts on that
             one. Floated over the candles rather than docked, so it is next to
