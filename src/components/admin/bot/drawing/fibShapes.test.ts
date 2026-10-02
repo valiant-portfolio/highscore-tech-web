@@ -268,15 +268,22 @@ test('wedge: C at the B edge (zero sweep) is finite; fill false drops sectors', 
   d.fill = false;
   assert.equal(geo(d).polys.length, 0);
 });
-test('wedge: the wrap picks the short way round', () => {
-  // B at angle -3pi/4 -ish, C at +3pi/4: the short sweep crosses pi, not zero
+test('wedge: the wrap picks the short way round (Δ = −π/2 through θ=π, not +3π/2 through 0)', () => {
   const g = geo(makeFibDrawing('wedge', [{ t: 18000, p: 100 }, { t: 12000, p: 200 }, { t: 12000, p: 0 }], 'w'));
-  const arc = g.curves[0].pts;
-  const sweepEnds = Math.hypot(arc[0].x - arc.at(-1)!.x, arc[0].y - arc.at(-1)!.y);
-  assert.ok(Number.isFinite(sweepEnds));
-  assert.ok(arc.every((p) => p.x <= 300 + 1e-6)); // stays left of the apex
+  const r1 = g.curves[5].pts;
+  near(r1[0].x, 200, 1e-9); near(r1[0].y, 800, 1e-9);
+  near(r1.at(-1)!.x, 200, 1e-9); near(r1.at(-1)!.y, 1000, 1e-9);
+  const ang = (p: { x: number; y: number }) => Math.atan2(p.y - 900, p.x - 300);
+  let sweep = 0;
+  for (let i = 1; i < r1.length; i++) {
+    let d = ang(r1[i]) - ang(r1[i - 1]);
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d <= -Math.PI) d += 2 * Math.PI;
+    sweep += d;
+  }
+  near(sweep, -Math.PI / 2, 1e-9);
+  near(Math.min(...r1.map((p) => p.x)), 300 - 100 * Math.SQRT2, 0.02);
+  assert.ok(r1.every((p) => p.x <= 300 + 1e-6));
 });
-
 // --- spiral -----------------------------------------------------------------
 
 test('spiral: passes through B at t=0, grows, under 2000 points', () => {
@@ -338,14 +345,14 @@ for (const s of ready) {
   });
   test(`${s.variant}: every level and line colour is set`, () => {
     const g = geo(makeFibDrawing(s.variant, samplePts.slice(0, s.clicks), 'k'));
-    for (const c of [...g.levels, ...g.lines, ...g.polys, ...g.texts]) assert.match(c.color, /^#[0-9A-Fa-f]{6}$/);
+    for (const c of [...g.levels, ...g.lines, ...g.curves, ...g.polys, ...g.texts]) assert.match(c.color, /^#[0-9A-Fa-f]{6}$/);
   });
   test(`${s.variant}: a drawing colour overrides the palette`, () => {
     const d = makeFibDrawing(s.variant, samplePts.slice(0, s.clicks), 'k');
     d.color = '#123456';
     const g = geo(d);
     // the srfan grid is a fixed neutral, not a level
-    for (const c of [...g.levels, ...g.lines.filter((l) => l.dash !== '2 3'), ...g.polys, ...g.texts]) assert.equal(c.color, '#123456');
+    for (const c of [...g.levels, ...g.lines.filter((l) => l.dash !== '2 3'), ...g.curves, ...g.polys, ...g.texts]) assert.equal(c.color, '#123456');
   });
 }
 

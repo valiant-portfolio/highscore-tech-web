@@ -581,6 +581,7 @@ export function MarketChart({
   const setGridOn = (next: boolean | ((v: boolean) => boolean)) =>
     setGridOverride((prev) => (typeof next === 'function' ? next(prev ?? showGrid) : next));
   const [drawingsHidden, setDrawingsHidden] = useState(false);
+  const drawingsHiddenRef = useRef(false);
   const [drawingsLocked, setDrawingsLocked] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [indFavs, setIndFavs] = useState<string[]>([]);
@@ -717,9 +718,13 @@ export function MarketChart({
     return r ? { from: r.from as number, to: r.to as number } : null;
   };
 
+  /** Empties everything syncLabels draws, without projecting anything. */
+  const clearOverlay = () => {
+    setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = [];
+  };
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
-    if (!s || !c) { setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = []; return; }
+    if (!s || !c) { clearOverlay(); return; }
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -947,7 +952,7 @@ export function MarketChart({
   const deleteDrawing = (id: string) => {
     drawings.current = drawings.current.filter((d) => d.id !== id);
     setSelected(null);
-    if (!drawingsHidden) renderDrawings();
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
     persistDrawings();
   };
   const duplicateDrawing = (id: string) => {
@@ -969,7 +974,7 @@ export function MarketChart({
       if (copy.kind === 'pitchfork') copy.v3 *= 1.0005;
     }
     drawings.current.push(copy);
-    if (!drawingsHidden) renderDrawings();
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
     persistDrawings();
     setSelected(copy);
   };
@@ -1089,7 +1094,7 @@ export function MarketChart({
   // edits and nobody expects ⟲ to scroll them back. Redo is dropped the moment
   // a new line is drawn, which is what every editor does.
   const redoStack = useRef<Drawing[]>([]);
-  const repaint = () => { if (!drawingsHidden) renderDrawings(); persistDrawings(); };
+  const repaint = () => { if (!drawingsHidden) renderDrawings(); else syncLabels(); persistDrawings(); };
   const undoDrawing = () => {
     const d = drawings.current.pop();
     if (!d) return;
@@ -1295,6 +1300,7 @@ export function MarketChart({
   // chart, the list in `drawings` (and localStorage) is untouched, so showing
   // them again brings back exactly what was there. Deleting is the trash.
   useEffect(() => {
+    drawingsHiddenRef.current = drawingsHidden;
     if (!chartRef.current || !seriesRef.current) return;
     if (drawingsHidden) removeDrawingObjects();
     else renderDrawings();
@@ -1520,7 +1526,7 @@ export function MarketChart({
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
         if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
       }
-      const fibId = fibHitTest(fibGeomsRef.current, x, y, HIT);
+      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, HIT);
       if (fibId) return { id: fibId, kind: 'fib' };
       /* A fork is grabbed by any of its lines. Tested against what is ON SCREEN
        * — the segments syncLabels already computed — rather than re-deriving
@@ -1741,6 +1747,7 @@ export function MarketChart({
     removeDrawingObjects();
     drawKeyRef.current = DRAW_KEY(symbol, tf);
     drawings.current = loadDrawings(symbol, tf);
+    clearOverlay(); // the old market's overlay must not linger, or stay hit-testable
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.

@@ -307,12 +307,14 @@ export const buildSpiral: FibBuilder = (pts, d, ctx) => {
   const s = d.ccw ? -1 : 1;
   const limit = 4 * (ctx.paneW + ctx.paneH);
   const out: Pt[] = [];
-  const step = TAU / 48;
-  for (let t = -8 * Math.PI; t <= 4 * Math.PI + 1e-9; t += step) {
+  for (let t = -8 * Math.PI; t <= 4 * Math.PI + 1e-9; ) {
     const rho = Math.SQRT2 * Math.pow(PHI, t / (Math.PI / 2));
-    if (rho * Math.max(W, H) > limit) break;
+    const rpx = rho * Math.max(W, H);
+    if (rpx > limit) break;
     const th = thB + s * t;
     out.push({ x: a.x + rho * W * Math.cos(th), y: a.y + rho * H * Math.sin(th) });
+    // Chord error stays under half a pixel; coarser than 2pi/48 never.
+    t += Math.min(TAU / 48, 2 * Math.acos(1 - 0.5 / Math.max(1, rpx)));
   }
   return { curves: [{ pts: out, color: d.color ?? FIB_FALLBACK_COLOR }] };
 };
