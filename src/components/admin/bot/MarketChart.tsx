@@ -23,7 +23,7 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Circle,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -47,6 +47,7 @@ type Tool =
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
   | 'cross' | 'vline' | 'info' | 'angle' | 'arrow'
   | 'chpar' | 'chdis' | 'chflat' | 'chlin'
+  | 'pos' | 'dpr' | 'mag' | 'avwap' | 'vprof'
   | FibToolId;
 
 /** Which channel a tool draws. All but the regression take three clicks and
@@ -123,6 +124,23 @@ const GEOMETRY_TOOLS = specItems(GEOMETRY_SPEC_LIST);
 const PATTERN_TOOLS = specItems(PATTERN_SPEC_LIST);
 const ELLIOTT_TOOLS = specItems(ELLIOTT_SPEC_LIST);
 const HARMONIC_TOOLS = specItems(HARMONIC_SPEC_LIST);
+/* MEASUREMENTS and VOLUME.
+ *
+ * The two volume tools are CALCULATED from the bars between their anchors, like
+ * the linear regression — they are not placed, they are measured. The others
+ * report on the span you mark out. */
+const MEASURE_TOOLS: DrawItem[] = [
+  { tool: 'pos', label: 'Long/Short Position', clicks: 3, glyph: '⊞' },
+  { tool: 'dpr', label: 'Date & Price Range', clicks: 2, glyph: '▤' },
+  { tool: 'mag', label: 'Magnifier', clicks: 2, glyph: '⌕' },
+];
+const VOLUME_TOOLS: DrawItem[] = [
+  { tool: 'avwap', label: 'Anchored VWAP', clicks: 1, glyph: '⌁' },
+  { tool: 'vprof', label: 'Fixed Range Volume Profile', clicks: 2, glyph: '▥' },
+];
+const MEASURE_IDS = new Set(['pos', 'dpr', 'mag', 'avwap', 'vprof']);
+const isMeasureTool = (t: Tool): boolean => MEASURE_IDS.has(t as string);
+
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 /** Patterns, Elliott waves and harmonics — the families on the second button. */
 const PAT_TOOL_IDS = new Set(
@@ -205,7 +223,9 @@ const TF_SECONDS: Record<string, number> = {
 // up with the broker's week/month boundaries and would paint a spurious bar).
 const INTRADAY_MAX_SECS = 3600;
 
-type Candle = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
+/** `vol` is tick_volume. The bot has always written it; the chart simply never
+ *  selected it, which is why there was nothing to weight a VWAP by. */
+type Candle = { time: UTCTimestamp; open: number; high: number; low: number; close: number; vol: number };
 
 function utcTz(dateStrOrMs: string | number): UTCTimestamp {
   const ms = typeof dateStrOrMs === 'string' ? new Date(dateStrOrMs).getTime() : dateStrOrMs;
@@ -264,6 +284,15 @@ type Drawing =
       /** Per drawing, not per chart: one line can be pinned while the rest
        *  stay editable, which a single global lock cannot express. */
       locked?: boolean;
+    }
+  /* MEASUREMENTS and VOLUME. All anchor-driven, all reporting on the span
+   * between their points — so one kind with a variant rather than five. */
+  | {
+      id: string; kind: 'measure';
+      variant: 'pos' | 'dpr' | 'avwap' | 'vprof';
+      pts: DPt[];
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+      label?: string;
     }
   /** A moment, marked. Its point carries a price nothing reads — a vertical
    *  line is about WHEN, and has no height to move. */
@@ -546,6 +575,12 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'info': return { id, kind: 'trend', reach: 'segment', readout: 'info', pts };
     case 'angle': return { id, kind: 'trend', reach: 'segment', readout: 'angle', pts };
     case 'arrow': return { id, kind: 'trend', reach: 'segment', arrow: true, pts };
+    case 'pos': return { id, kind: 'measure', variant: 'pos', pts };
+    case 'dpr': return { id, kind: 'measure', variant: 'dpr', pts };
+    case 'avwap': return { id, kind: 'measure', variant: 'avwap', pts };
+    case 'vprof': return { id, kind: 'measure', variant: 'vprof', pts };
+    // The magnifier is an action, not a drawing: it zooms to what you marked.
+    case 'mag': return null;
     default: return null;
   }
 }
@@ -875,6 +910,7 @@ export function MarketChart({
    *  them — and its own lastPat, so arming a harmonic does not change what the
    *  Fibonacci button arms. */
   const [patOpen, setPatOpen] = useState(false);
+  const [measOpen, setMeasOpen] = useState(false);
   /* WHERE A FLYOUT CAN ACTUALLY FIT.
    *
    * The menus hang off their rail button at top-0 and were allowed 70vh. The
@@ -887,6 +923,7 @@ export function MarketChart({
    * only as far as it must to fit, and never taller than the window. */
   const fibBtnRef = useRef<HTMLDivElement | null>(null);
   const patBtnRef = useRef<HTMLDivElement | null>(null);
+  const measBtnRef = useRef<HTMLDivElement | null>(null);
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
   const [fibMaxW, setFibMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -911,6 +948,18 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [patOpen]);
+  const [measMaxH, setMeasMaxH] = useState<number | null>(null);
+  const [measMaxW, setMeasMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!measOpen) { setMeasMaxH(null); return; }
+    const place = () => {
+      setMeasMaxH(flyoutMaxH(measBtnRef.current, wrapRef.current));
+      setMeasMaxW(flyoutMaxW(measBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [measOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not a ref: a ref changing does
@@ -948,6 +997,7 @@ export function MarketChart({
   const [lastLine, setLastLine] = useState<Tool>('hline');
   const [lastFib, setLastFib] = useState<Tool>('fibr');
   const [lastPat, setLastPat] = useState<Tool>(PATTERN_SPEC_LIST[0].toolId as Tool);
+  const [lastMeas, setLastMeas] = useState<Tool>('pos');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
     { open: number; high: number; low: number; close: number } | null
@@ -1388,6 +1438,152 @@ export function MarketChart({
       }
     }
 
+    /* MEASUREMENTS AND VOLUME. */
+    for (const d of drawDraft()) {
+      if (d.kind !== 'measure') continue;
+      const pt = (t: number, v: number): Pt | null => {
+        const mx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const my0 = s.priceToCoordinate(v);
+        return mx0 == null || my0 == null ? null : { x: mx0 as number, y: my0 as number };
+      };
+      const color = d.color ?? DRAW_COLOR;
+      const width = d.width ?? 2;
+      const dash = d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '';
+      const [mA, mB, mC] = d.pts;
+      if (!mA) continue;
+
+      if (d.variant === 'pos') {
+        /* ENTRY, STOP, TARGET — the three prices a trade is actually made of.
+         * Reward above the entry in green, risk below it in red, and the ratio
+         * between them stated, because R:R is the number the box exists to
+         * answer and counting pixels is not an answer. */
+        if (!mB || !mC) continue;
+        const pe = pt(mA.t, mA.v), ps = pt(mA.t, mB.v), pg = pt(mA.t, mC.v);
+        const right = pt(mC.t, mC.v);
+        if (!pe || !ps || !pg || !right) continue;
+        const x1 = pe.x, x2 = right.x;
+        quads.push({ id: `${d.id}#risk`, color: palette.down, pts: [
+          { x: x1, y: pe.y }, { x: x2, y: pe.y }, { x: x2, y: ps.y }, { x: x1, y: ps.y },
+        ] });
+        quads.push({ id: `${d.id}#reward`, color: palette.up, pts: [
+          { x: x1, y: pe.y }, { x: x2, y: pe.y }, { x: x2, y: pg.y }, { x: x1, y: pg.y },
+        ] });
+        out.push({ id: d.id, x1, y1: pe.y, x2, y2: pe.y, color, width, dash });
+        const risk = Math.abs(mA.v - mB.v), reward = Math.abs(mC.v - mA.v);
+        extraLabels.push({
+          id: `${d.id}#rr`, x: (x1 + x2) / 2, y: Math.min(pg.y, ps.y) - 12,
+          text: `${fmt(reward, digitsRef.current)} / ${fmt(risk, digitsRef.current)}`
+            + `  R:R ${risk > 0 ? (reward / risk).toFixed(2) : '—'}`,
+          color, readout: true,
+        });
+        continue;
+      }
+
+      if (d.variant === 'dpr') {
+        // What the box spans: price, percent, bars and elapsed time.
+        if (!mB) continue;
+        const q1 = pt(mA.t, mA.v), q2 = pt(mB.t, mB.v);
+        if (!q1 || !q2) continue;
+        quads.push({ id: `${d.id}#box`, color, pts: [
+          { x: q1.x, y: q1.y }, { x: q2.x, y: q1.y }, { x: q2.x, y: q2.y }, { x: q1.x, y: q2.y },
+        ] });
+        out.push({ id: d.id, x1: q1.x, y1: q1.y, x2: q2.x, y2: q1.y, color, width, dash });
+        out.push({ id: `${d.id}#b`, x1: q1.x, y1: q2.y, x2: q2.x, y2: q2.y, color, width, dash });
+        const dv = mB.v - mA.v;
+        const pct = mA.v !== 0 ? (dv / Math.abs(mA.v)) * 100 : 0;
+        const step = barStepSecs();
+        const bars = step > 0 ? Math.abs(Math.round((mB.t - mA.t) / step)) : 0;
+        const mins = Math.abs(mB.t - mA.t) / 60;
+        const span = mins >= 1440 ? `${(mins / 1440).toFixed(1)}d`
+          : mins >= 60 ? `${(mins / 60).toFixed(1)}h` : `${Math.round(mins)}m`;
+        extraLabels.push({
+          id: `${d.id}#r`, x: (q1.x + q2.x) / 2, y: Math.min(q1.y, q2.y) - 12,
+          text: `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct.toFixed(2)}%)`
+            + String.fromCharCode(10) + `${bars} bars · ${span}`,
+          color, readout: true,
+        });
+        continue;
+      }
+
+      if (d.variant === 'avwap') {
+        /* ANCHORED VWAP: every bar from the anchor onward, each typical price
+         * weighted by its volume. Volume is the whole point — an average that
+         * ignores it is just a moving mean and would mislead anyone reading it
+         * as VWAP. Bars with no volume contribute nothing rather than skewing
+         * it toward quiet periods. */
+        const from = mA.t;
+        let pv = 0, vv = 0;
+        let prev: Pt | null = null;
+        for (const bar of barsRef.current) {
+          if ((bar.time as number) < from) continue;
+          const typical = (bar.high + bar.low + bar.close) / 3;
+          pv += typical * bar.vol; vv += bar.vol;
+          if (vv <= 0) continue;
+          const here = pt(bar.time as number, pv / vv);
+          if (!here) continue;
+          if (prev) {
+            out.push({
+              id: `${d.id}#${bar.time}`, x1: prev.x, y1: prev.y, x2: here.x, y2: here.y,
+              color, width, dash,
+            });
+          }
+          prev = here;
+        }
+        if (prev) {
+          extraLabels.push({
+            id: `${d.id}#v`, x: prev.x, y: prev.y, text: `VWAP ${fmt(pv / vv, digitsRef.current)}`,
+            color, readout: true,
+          });
+        }
+        continue;
+      }
+
+      if (d.variant === 'vprof') {
+        /* FIXED RANGE VOLUME PROFILE: the bars between the two anchors, their
+         * volume dropped into price buckets and drawn as rows from the left.
+         * The widest row is the point of control — where the most trading
+         * happened — and it is drawn in the up colour so it can be found
+         * without reading every row. */
+        if (!mB) continue;
+        const lo = Math.min(mA.t, mB.t), hi = Math.max(mA.t, mB.t);
+        const rows = barsRef.current.filter(
+          (bar) => (bar.time as number) >= lo && (bar.time as number) <= hi,
+        );
+        if (rows.length < 2) continue;
+        const top = Math.max(...rows.map((r) => r.high));
+        const bot = Math.min(...rows.map((r) => r.low));
+        if (!(top > bot)) continue;
+        const N = 24;
+        const buckets = new Array<number>(N).fill(0);
+        for (const bar of rows) {
+          const mid = (bar.high + bar.low + bar.close) / 3;
+          const i = Math.min(N - 1, Math.max(0, Math.floor(((mid - bot) / (top - bot)) * N)));
+          buckets[i] += bar.vol;
+        }
+        const peak = Math.max(...buckets);
+        if (peak <= 0) continue;
+        const xL = pt(lo, bot), xR = pt(hi, bot);
+        if (!xL || !xR) continue;
+        const wMax = Math.max(40, (xR.x - xL.x) * 0.3);
+        for (let i = 0; i < N; i++) {
+          if (buckets[i] <= 0) continue;
+          const pTop = pt(lo, bot + ((top - bot) * (i + 1)) / N);
+          const pBot = pt(lo, bot + ((top - bot) * i) / N);
+          if (!pTop || !pBot) continue;
+          const w = (buckets[i] / peak) * wMax;
+          quads.push({
+            id: `${d.id}#r${i}`,
+            color: buckets[i] === peak ? palette.up : color,
+            pts: [
+              { x: xL.x, y: pTop.y }, { x: xL.x + w, y: pTop.y },
+              { x: xL.x + w, y: pBot.y }, { x: xL.x, y: pBot.y },
+            ],
+          });
+        }
+        continue;
+      }
+    }
+
     /* VERTICAL LINE and CROSS LINE.
      *
      * Both run the full height (and the cross the full width) of the pane, so
@@ -1629,6 +1825,24 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
 
+    }
+
+    for (const d of drawDraft()) {
+      if (d.kind !== 'measure' || d.id !== selForHandles) continue;
+      d.pts.forEach((q, i) => {
+        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hy = s.priceToCoordinate(q.v);
+        if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
+      });
+    }
+
+    for (const d of drawDraft()) {
+      if (d.kind !== 'measure' || d.id !== selForHandles) continue;
+      d.pts.forEach((q, i) => {
+        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hy = s.priceToCoordinate(q.v);
+        if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
+      });
     }
 
     /* VERTICAL and CROSS get a handle too.
@@ -2250,6 +2464,25 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       }
 
       const pts: DPt[] = forkPts.current.map((q) => ({ t: q.time as number, v: q.value }));
+      /* THE MAGNIFIER zooms to what you marked rather than leaving anything
+       * behind — it is a view change, not a drawing, which is why buildDrawing
+       * returns nothing for it. */
+      /* THE MAGNIFIER zooms to what you marked rather than leaving anything
+       * behind — a view change, not a drawing, which is why buildDrawing
+       * returns nothing for it. */
+      if (t === 'mag') {
+        const lo = Math.min(pts[0].t, pts[1].t), hi = Math.max(pts[0].t, pts[1].t);
+        try {
+          chart.timeScale().setVisibleRange({ from: lo as UTCTimestamp, to: hi as UTCTimestamp });
+        } catch { /* a range the scale cannot take is simply not applied */ }
+        forkPts.current = []; setDraftLen(0);
+        previewRef.current = null;
+        setDrawPending(false);
+        clearPreview();
+        setTool('cursor');
+        return;
+      }
+
       const made = buildDrawing(t, pts, newDrawId());
       forkPts.current = []; setDraftLen(0);
       previewRef.current = null;
@@ -2330,7 +2563,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * cannot disagree. */
       for (const d of drawings.current) {
         if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
-          && d.kind !== 'channel') continue;
+          && d.kind !== 'channel' && d.kind !== 'measure') continue;
         const mine = segsRef.current.filter(
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
@@ -2531,7 +2764,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         // Order DESCENDING then flip to ascending below: `.limit()` keeps the rows
         // the DB returns FIRST, so ascending+limit would hand back the OLDEST 1500
         // bars and cut off everything recent (the chart froze days in the past).
-        supabase.from('bot_bars').select('ts,open,high,low,close')
+        supabase.from('bot_bars').select('ts,open,high,low,close,tick_volume')
           .eq('symbol', symbol).eq('timeframe', tf).order('ts', { ascending: false }).limit(1500),
         supabase.from('bot_trades').select('id,side,open_ts,open_price,close_ts,close_price,sl,tp,pnl,close_reason')
           .eq('symbol', symbol).order('open_ts', { ascending: false }).limit(300),
@@ -2559,6 +2792,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const bars: Candle[] = (barsRes.data ?? []).map((b) => ({
         time: utcTz(b.ts as string),
         open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close),
+        vol: Number(b.tick_volume ?? 0),
       })).reverse();
       barsRef.current = bars;
       setHasHistory(bars.length > 0);
@@ -2688,11 +2922,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         // Intraday: roll into a fresh bucket when the clock crosses it. H4+ : just
         // extend the last historical bar (epoch buckets don't match broker weeks/months).
         if (!lb) {
-          liveBar.current = { time: bucket, open: price, high: price, low: price, close: price };
+          liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
         } else if (secs <= INTRADAY_MAX_SECS && (bucket as number) > (lb.time as number)) {
-          liveBar.current = { time: bucket, open: price, high: price, low: price, close: price };
+          liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
         } else {
-          liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price };
+          liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price, vol: lb.vol };
         }
         series.update(liveBar.current);
         // The legend's C should track the live price, not the last close.
@@ -3403,6 +3637,111 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 </>
               )}
             </div>
+            {/* MEASUREMENTS and VOLUME, on their own control.
+                It was a section inside the line menu, which buried eleven
+                tools two levels down under an icon that draws lines — and a
+                fib is not a line type. Same split-button shape as the one
+                above: the icon arms the fib you last used, the chevron opens
+                the list. Its own `lastMeas`, so arming a fib does not change
+                what the line button arms. */}
+            <div
+              ref={measBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isMeasureTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastMeas);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastMeas)?.label ?? 'Measurements'}`
+                  + (isMeasureTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isMeasureTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastMeas] ?? Ruler;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMeasOpen((v) => !v)}
+                title="Choose a measurement tool"
+                aria-label="Choose a measurement tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  measOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {measOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss measurement tools"
+                    onClick={() => setMeasOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(measMaxH ? { maxHeight: measMaxH } : {}),
+                      ...(measMaxW ? { width: measMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Measurements', MEASURE_TOOLS],
+                      ['Volume', VOLUME_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastMeas(t.tool);
+                          setMeasOpen(false);
+                          forkPts.current = []; setDraftLen(0);
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* The tool families above, the chart's own controls below —
+                as the design separates them. */}
+            <div className="my-1 h-px w-6 bg-border" />
             {/* The standalone Horizontal Line and Labelled Level buttons are
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
