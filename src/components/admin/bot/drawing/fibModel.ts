@@ -87,7 +87,7 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     variant: 'extension2', toolId: 'fibx', label: 'Fib Extension', clicks: 2, glyph: '⇑',
     levels: DEFAULT_EXTENSION2_LEVELS,
     prompts: ['click the start of the move', 'click the end of the move'],
-    fillDefault: true, toggles: [T_EXTEND_RIGHT, T_FILL], ready: false,
+    fillDefault: true, toggles: [T_EXTEND_RIGHT, T_FILL], ready: true,
   },
   {
     variant: 'extension', toolId: 'fibe', label: 'Trend-Based Fib Extension', clicks: 3, glyph: '⇶',
@@ -105,13 +105,13 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     variant: 'timezones', toolId: 'fibtz', label: 'Fib Time Zones', clicks: 2, glyph: '⫼',
     levels: [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987],
     prompts: ['click the start', 'click one interval later'],
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     variant: 'channel', toolId: 'fibc', label: 'Fib Channel', clicks: 3, glyph: '⫽',
     levels: [0, 0.25, 0.382, 0.5, 0.618, 0.75, 1, 1.618, 2.618, 3.618, 4.236],
     prompts: ['click the first point of the base line', 'click the second point', 'click where the channel edge should sit'],
-    fillDefault: true, toggles: [T_EXTEND_LEFT, T_EXTEND_RIGHT, T_FILL], ready: false,
+    fillDefault: true, toggles: [T_EXTEND_LEFT, T_EXTEND_RIGHT, T_FILL], ready: true,
   },
   {
     variant: 'srfan', toolId: 'fibsr', label: 'Fib Speed Resistance Fan', clicks: 2, glyph: '◰',
@@ -125,7 +125,7 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     variant: 'trendtime', toolId: 'fibtt', label: 'Trend-Based Fib Time', clicks: 3, glyph: '⫿',
     levels: [0, 0.382, 0.5, 0.618, 1, 1.382, 1.618, 2, 2.618, 3, 3.618, 4.236],
     prompts: ['click the first point', 'click the second point', 'click the third point (projection anchor)'],
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     variant: 'circles', toolId: 'fibo', label: 'Fib Circles', clicks: 2, glyph: '◎',

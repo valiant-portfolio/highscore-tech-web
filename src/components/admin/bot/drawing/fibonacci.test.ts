@@ -125,3 +125,19 @@ test('duplicateFib offsets prices and keeps the original', () => {
   near(c.points[0].p, 100.05);
   assert.equal(d.points[0].p, 100);
 });
+
+test('fibHitTest: lines and curves, never fills', () => {
+  const g = computeFibGeometry(makeFibDrawing('retracement', [A, B], 'g'), ctx)!;
+  const shaped = {
+    ...g, id: 'shape', levels: [], connectors: [], bands: [],
+    lines: [{ x1: 100, y1: 100, x2: 300, y2: 100, color: '#000' }],
+    curves: [{ pts: [{ x: 500, y: 500 }, { x: 600, y: 500 }, { x: 600, y: 600 }], color: '#000', closed: true }],
+    polys: [{ pts: [{ x: 0, y: 700 }, { x: 100, y: 700 }, { x: 100, y: 800 }], color: '#000' }],
+  };
+  assert.equal(fibHitTest([shaped], 200, 104, 7), 'shape'); // on the line
+  assert.equal(fibHitTest([shaped], 200, 120, 7), null);
+  assert.equal(fibHitTest([shaped], 550, 503, 7), 'shape'); // on the curve
+  assert.equal(fibHitTest([shaped], 550, 550, 7), 'shape'); // on the closing edge of the curve
+  assert.equal(fibHitTest([shaped], 550, 580, 7), null);
+  assert.equal(fibHitTest([shaped], 20, 710, 7), null); // inside a fill
+});
