@@ -476,6 +476,49 @@ function flyoutMaxH(el: HTMLElement | null, within: HTMLElement | null): number 
   return Math.max(200, floor - top - 8);
 }
 
+/* HOW MANY CLICKS A TOOL WANTS, in one place.
+ *
+ * It was spread across the click handler as literals — 2 here, 3 there, 4 for
+ * the disjoint channel — and the banner counted separately in the JSX. Two
+ * places to tell the same truth is one place to get it wrong, and the hint
+ * saying "click the third point" for a four-click tool is how that shows up.
+ */
+function clicksNeeded(tool: Tool, all: DrawItem[]): number {
+  return all.find((t) => t.tool === tool)?.clicks ?? 1;
+}
+
+/* THE DRAWING A SET OF CLICKS MAKES.
+ *
+ * One builder, used by the click that commits a drawing AND by the preview
+ * that preceded it — the preview passes the clicks so far plus the cursor as
+ * the last point, and gets back the SAME drawing the next click would produce.
+ *
+ * That is the whole reason it exists. Preview and commit used to be separate
+ * code: a rubber band here, a ghost there, each worked out by hand per tool.
+ * They drifted, and a preview that lies about what it will draw is worse than
+ * none - you aim with it.
+ */
+function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
+  if (pts.length === 0) return null;
+  const fork = FORK_VARIANT[tool];
+  if (fork) return { id, kind: 'pitchfork', pts, variant: fork };
+  const chan = CHANNEL_VARIANT[tool];
+  if (chan) return { id, kind: 'channel', variant: chan, pts, fill: true };
+  switch (tool) {
+    case 'hline': return { id, kind: 'hline', price: pts[0].v };
+    case 'text': return { id, kind: 'hline', price: pts[0].v };
+    case 'vline': return { id, kind: 'vline', pts };
+    case 'cross': return { id, kind: 'cross', pts };
+    case 'hray': return { id, kind: 'trend', reach: 'hray', pts: [pts[0], pts[0]] };
+    case 'trend': return { id, kind: 'trend', reach: 'segment', pts };
+    case 'ray': return { id, kind: 'trend', reach: 'ray', pts };
+    case 'extended': return { id, kind: 'trend', reach: 'extended', pts };
+    case 'info': return { id, kind: 'trend', reach: 'segment', readout: 'info', pts };
+    case 'angle': return { id, kind: 'trend', reach: 'segment', readout: 'angle', pts };
+    default: return null;
+  }
+}
+
 /** One click, stored as the chart stores it: a time and a price, never a
  *  pixel — pixels are what a zoom changes. */
 type DPt = { t: number; v: number };
@@ -1183,6 +1226,19 @@ export function MarketChart({
       const pd = cD ? pt(cD.t, cD.v) : null;
       const r = channelSegments(pa, pb, pc, pd, d.variant, d.id, style);
       out.push(...r.segs);
+      /* THE MEDIAN, half way between the boundaries. A channel is read against
+       * its centre as much as its edges — price crossing the middle is the
+       * signal the two outer lines only bracket. Dashed and faint: it is
+       * derived, not a line anyone placed. */
+      if (r.quad && (d.variant === 'parallel' || d.variant === 'flat')) {
+        const [ma, mb, mc, md] = r.quad;
+        out.push({
+          id: `${d.id}#mid`,
+          x1: (ma.x + md.x) / 2, y1: (ma.y + md.y) / 2,
+          x2: (mb.x + mc.x) / 2, y2: (mb.y + mc.y) / 2,
+          color: style.color, width: Math.max(1, style.width - 1), dash: '4 4',
+        });
+      }
       if (r.quad && d.fill !== false) {
         quads.push({ id: `${d.id}#fill`, pts: r.quad, color: style.color });
       }
@@ -1241,12 +1297,16 @@ export function MarketChart({
       const lenA = Math.hypot(dxA, dyA);
       if (lenA < 1) continue;
       const r = Math.max(18, Math.min(52, lenA * 0.45));
+      /* The reference leg runs the WIDTH of the line it measures, not a short
+       * stub beside the arc. An angle is between two lines, and the one it is
+       * measured from should be as present as the one you drew. */
+      const legLen = Math.max(40, Math.abs(dxA));
       const color = d.color ?? DRAW_COLOR;
       // The reference leg, pointing right from the anchor — the direction the
       // angle is measured FROM. Dashed and thin: it is a reference, not a line
       // anyone drew.
       out.push({
-        id: `${d.id}#base`, x1, y1, x2: x1 + r * 1.5, y2: y1,
+        id: `${d.id}#base`, x1, y1, x2: x1 + legLen, y2: y1,
         color, width: 1, dash: '4 4',
       });
       const a1 = Math.atan2(dyA, dxA);                 // screen angle, y grows down
@@ -1312,8 +1372,12 @@ export function MarketChart({
         } else {
           const step = barStepSecs();
           const bars = step > 0 ? Math.abs(Math.round((rB.t - rA.t) / step)) : 0;
+          // The ANGLE belongs here too: move, percentage, bars AND slope is the
+          // whole reading, and it is the one number you cannot get by eye.
+          const degI = -Math.atan2(g.y2 - g.y1, g.x2 - g.x1) * (180 / Math.PI);
           text = `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
-            + (bars ? `  ${bars} bar${bars === 1 ? '' : 's'}` : '');
+            + (bars ? `  ${bars} bar${bars === 1 ? '' : 's'}` : '')
+            + `  ${degI >= 0 ? '+' : ''}${degI.toFixed(1)}°`;
         }
         if (d.label) text = `${d.label} · ${text}`;
       }
@@ -2112,7 +2176,9 @@ export function MarketChart({
     // Grab a line by clicking within a few px of it, then drag. While dragging we
     // freeze the chart's own pan/zoom so the move doesn't scroll the candles.
     const el = wrapRef.current;
-    const HIT = 7; // px proximity to grab a line
+    // 12px, matching the reference: a 2px line is a hard thing to hit and a
+    // miss reads as the drawing being unselectable rather than as a near miss.
+    const HIT = 12;
     const localXY = (e: PointerEvent) => {
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -3455,21 +3521,16 @@ export function MarketChart({
                 {isFibTool(tool)
                   // Each fib tool words its own prompt (see fibModel.ts).
                   ? fibPrompt(FIB_TOOL_VARIANT[tool], drawPending ? fibStep : 0)
-                  : drawPending
-                  // A three-click tool has to say WHICH point it is waiting
-                  // for: "click the second point" through two of them is the
-                  // same hint twice, and reads as a click that did not land.
-                  // Counted, not special-cased: a four-click tool needs a
-                  // fourth ordinal, and the next tool will need its own.
-                  ? `click the ${['first', 'second', 'third', 'fourth'][forkPts.current.length] ?? 'next'} point`
-                  : FORK_VARIANT[tool]
-                      // "Pivot" is the pitchfork's word for its first click and
-                      // means nothing on a channel, which has no pivot - it has
-                      // a line and an offset.
-                      ? 'click the pivot'
-                      : (armed?.clicks ?? 1) > 1
-                        ? 'click the first point'
-                        : 'click a price on the chart'}
+                  : (() => {
+                    /* COUNTED DOWN, not named. "Click the third point" has to
+                     * be extended by hand for every tool that wants a fourth,
+                     * and says nothing about how much is left. How many more
+                     * clicks it needs answers both, for any count. */
+                    const need = clicksNeeded(tool, ALL_DRAW_TOOLS);
+                    const left = Math.max(0, need - forkPts.current.length - (trendStart.current ? 1 : 0));
+                    if (need <= 1) return 'click a price on the chart';
+                    return `click ${left} more point${left === 1 ? '' : 's'}`;
+                  })()}
               </span>
               <span className="text-fg-subtle">· Esc to cancel</span>
             </span>
