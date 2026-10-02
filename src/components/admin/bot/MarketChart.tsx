@@ -15,7 +15,7 @@
 // (localStorage). Client-side indicators (MA/EMA/Bollinger) and manual drawings
 // (h-line/trend) are drawn on top.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createBotClient } from '@/lib/supabase/bot-client';
 import {
   CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2,
@@ -91,8 +91,35 @@ const EXTRA_TOOLS: DrawItem[] = [
  *  extension). No keyboard shortcut. */
 const FIB_TOOLS: DrawItem[] = [
   { tool: 'fibr', label: 'Fib Retracement', clicks: 2, glyph: '⌗' },
+  { label: 'Fib Extension', glyph: '⌸', soon: true },
   { tool: 'fibe', label: 'Trend-Based Fib Extension', clicks: 3, glyph: '⇶' },
+  { label: 'Fib Fan', glyph: '◺', soon: true },
+  { label: 'Fib Time Zones', glyph: '⦀', soon: true },
+  { label: 'Fib Channel', glyph: '⫽', soon: true },
+  { label: 'Fib Speed Resistance Fan', glyph: '◸', soon: true },
+  { label: 'Trend-Based Fib Time', glyph: '⫿', soon: true },
+  { label: 'Fib Circles', glyph: '◎', soon: true },
+  { label: 'Fib Speed Resistance Arcs', glyph: '◠', soon: true },
+  { label: 'Fib Wedge', glyph: '◿', soon: true },
+  { label: 'Fib Spiral', glyph: '◉', soon: true },
 ];
+/** Gann and Geometry share the Fibonacci button in the design, so they are
+ *  listed under it rather than invented a button of their own. None are built;
+ *  they are shown greyed for the same reason the rest are — a tool that is
+ *  missing from the menu reads as one you misremembered. */
+const GANN_TOOLS: DrawItem[] = [
+  { label: 'Gann Fan', glyph: '◤', soon: true },
+  { label: 'Gann Box', glyph: '▦', soon: true },
+  { label: 'Gann Square', glyph: '▧', soon: true },
+];
+const GEOMETRY_TOOLS: DrawItem[] = [
+  { label: 'Dedekind Tessellation', glyph: '◠', soon: true },
+  { label: 'Sonic', glyph: '◗', soon: true },
+  { label: 'Supersonic', glyph: '◖', soon: true },
+  { label: 'Golden Sonic', glyph: '◑', soon: true },
+  { label: 'Golden Supersonic', glyph: '◐', soon: true },
+];
+
 const isFibTool = (t: Tool): t is 'fibr' | 'fibe' => t === 'fibr' || t === 'fibe';
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
@@ -332,6 +359,24 @@ function TimeframeRing({ value, live, onPick, onClose }: {
       </div>
     </div>
   );
+}
+
+/* HOW TALL A FLYOUT MAY BE.
+ *
+ * Position is left to CSS: `absolute left-[calc(100%+6px)] top-0` pins the menu
+ * to its own button and cannot drift, which measuring it in JS demonstrably
+ * could — a mis-measured rect put the menu in the middle of the chart, nowhere
+ * near the control that opened it.
+ *
+ * Only the HEIGHT needs the viewport, because that is the one thing CSS cannot
+ * work out here: the menu starts partway down the rail, so `70vh` of it ran off
+ * the bottom of the window and the items past the edge were unreachable however
+ * the inner list scrolled. This caps it to the room actually below the button.
+ */
+function flyoutMaxH(el: HTMLElement | null): number {
+  const fallback = Math.round(window.innerHeight * 0.7);
+  if (!el) return fallback;
+  return Math.max(200, window.innerHeight - el.getBoundingClientRect().top - 8);
 }
 
 /** A line of the overlay, in pane pixels. */
@@ -685,6 +730,40 @@ export function MarketChart({
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
+  /** Same viewport fitting as the Fibonacci flyout — the Lines menu is the
+   *  longer of the two and overflowed the window first. */
+  const drawBtnRef = useRef<HTMLDivElement | null>(null);
+  const [drawMaxH, setDrawMaxH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!drawOpen) { setDrawMaxH(null); return; }
+    const place = () => setDrawMaxH(flyoutMaxH(drawBtnRef.current));
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [drawOpen]);
+  /** Fibonacci has its own rail button, so it has its own open state and its
+   *  own "last used" — arming a fib must not change what the LINE button
+   *  arms, or the two controls would fight over one memory. */
+  const [fibOpen, setFibOpen] = useState(false);
+  /* WHERE A FLYOUT CAN ACTUALLY FIT.
+   *
+   * The menus hang off their rail button at top-0 and were allowed 70vh. The
+   * button sits partway down the chart, so a long list ran straight off the
+   * bottom of the window — and the items past the edge were unreachable no
+   * matter how the inner list scrolled, because it was the BOX that overflowed,
+   * not its contents.
+   *
+   * Measured against the viewport on open: pinned beside the button, slid up
+   * only as far as it must to fit, and never taller than the window. */
+  const fibBtnRef = useRef<HTMLDivElement | null>(null);
+  const [fibMaxH, setFibMaxH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!fibOpen) { setFibMaxH(null); return; }
+    const place = () => setFibMaxH(flyoutMaxH(fibBtnRef.current));
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [fibOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not the trendStart ref the click handler uses: a ref changing does
@@ -699,6 +778,7 @@ export function MarketChart({
    * tool you last used, not a menu you have to walk through every time. The
    * chevron under it opens the list to change which one that is. */
   const [lastLine, setLastLine] = useState<Tool>('hline');
+  const [lastFib, setLastFib] = useState<Tool>('fibr');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
     { open: number; high: number; low: number; close: number } | null
@@ -2637,6 +2717,7 @@ export function MarketChart({
                 you walk a menu for every line is the thing that makes drawing
                 tools feel slow. */}
             <div
+              ref={drawBtnRef}
               className={`group relative flex h-9 items-center rounded-sm transition-colors ${
                 tool !== 'cursor' ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
               }`}
@@ -2682,10 +2763,12 @@ export function MarketChart({
                     onClick={() => setDrawOpen(false)}
                     className="fixed inset-0 z-40 cursor-default"
                   />
-                  <div className="scrollbar-none absolute left-[calc(100%+6px)] top-0 z-50 max-h-[70vh] w-64 overflow-y-auto rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
+                  <div
+                    style={drawMaxH ? { maxHeight: drawMaxH } : undefined}
+                    className="absolute left-[calc(100%+6px)] top-0 z-50 w-64 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
-                      ['Fibonacci', FIB_TOOLS],
                       ['Channels', CHANNEL_TOOLS],
                       ['Pitchforks', PITCHFORK_TOOLS],
                     ] as const).map(([group, items]) => (
@@ -2726,6 +2809,108 @@ export function MarketChart({
                               {t.keys && <span className="font-mono text-[11px] text-fg-subtle">{t.keys}</span>}
                             </span>
                           </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* FIBONACCI, on its own control.
+                It was a section inside the line menu, which buried eleven
+                tools two levels down under an icon that draws lines — and a
+                fib is not a line type. Same split-button shape as the one
+                above: the icon arms the fib you last used, the chevron opens
+                the list. Its own `lastFib`, so arming a fib does not change
+                what the line button arms. */}
+            <div
+              ref={fibBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isFibTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastFib);
+                  trendStart.current = null;
+                  forkPts.current = [];
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${FIB_TOOLS.find((t) => t.tool === lastFib)?.label ?? 'Fibonacci'}`
+                  + (isFibTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isFibTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastFib] ?? Rows3;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFibOpen((v) => !v)}
+                title="Choose a Fibonacci tool"
+                aria-label="Choose a Fibonacci tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  fibOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {fibOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss Fibonacci tools"
+                    onClick={() => setFibOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={fibMaxH ? { maxHeight: fibMaxH } : undefined}
+                    className="absolute left-[calc(100%+6px)] top-0 z-50 w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Fibonacci', FIB_TOOLS],
+                      ['Gann', GANN_TOOLS],
+                      ['Geometry', GEOMETRY_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastFib(t.tool);
+                          setFibOpen(false);
+                          trendStart.current = null;
+                          forkPts.current = [];
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
                         ))}
                       </div>
                     ))}
