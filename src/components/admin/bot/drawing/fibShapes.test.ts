@@ -415,7 +415,8 @@ test('gann square: flat box has no arcs and stays finite; d.color overrides', ()
   assert.ok(c.lines.slice(14).every((l) => l.color === '#abcdef'));
 });
 
-test('every ready spec across all families has a builder', () => {
+test('every spec is ready and has a builder', () => {
+  assert.ok(ALL_SPEC_LIST.every((s) => s.ready));
   for (const s of ALL_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });
 // --- Mach family -------------------------------------------------------------
@@ -506,6 +507,7 @@ test('mach: degenerate, showRatios false, d.color', () => {
     assert.equal(z.curves.length, 0); assert.equal(z.lines.length, 0);
     finite(geo(makeFibDrawing(v, [MA, MB], 'm')));
   }
+  finite(geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), mach: NaN }));
   const g = geo({ ...makeFibDrawing('sonic', [MA, MB], 'm'), showRatios: false });
   assert.equal(g.texts.length, 0);
   const c = geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), color: '#abcdef' });
@@ -545,4 +547,17 @@ test('dedekind: default curvature stays inside the box and finite; flat box is e
   assert.equal(flat.curves.length, 0); assert.equal(flat.lines.length, 0);
   const col = geo({ ...makeFibDrawing('dedekind', [A, B], 'k'), color: '#abcdef' });
   assert.ok(col.curves.every((k) => k.color === '#abcdef') && col.lines.every((l) => l.color === '#abcdef'));
+});
+test('dedekind: verticals stay inside the box; a narrow box clips its arcs', () => {
+  const wide = geo({ ...makeFibDrawing('dedekind', [A, { t: 18000, p: 200 }], 'k'), maxCurvature: 1 });
+  assert.deepEqual(wide.lines.filter((l) => !l.dash).map((l) => l.x1), [150, 250]);
+  assert.equal(wide.curves.length, 3);
+  const g = geo({ ...makeFibDrawing('dedekind', [A, { t: 9000, p: 200 }], 'k'), maxCurvature: 1 });
+  assert.equal(g.curves.length, 2);
+  const [c0, c1] = g.curves;
+  const y = 900 - 100 * Math.sin(Math.PI / 3);
+  near(c0.pts[0].x, 150); near(c0.pts[0].y, y);
+  near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
+  near(c1.pts[0].x, 150); near(c1.pts[0].y, y);
+  near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
 });

@@ -402,8 +402,11 @@ export const buildGannSquare: FibBuilder = (pts, d) => {
 // centres drift along the A-B axis at M times the radius growth, enclosed by
 // the tangent "Mach cone" rays (a single wall at M = 1).
 
-const machOf = (d: FibDrawing): number =>
-  d.variant === 'sonic' || d.variant === 'goldensonic' ? 1 : Math.min(20, Math.max(1.01, d.mach ?? 2));
+const machOf = (d: FibDrawing): number => {
+  if (d.variant === 'sonic' || d.variant === 'goldensonic') return 1;
+  const m = Number.isFinite(d.mach) ? d.mach! : 2;
+  return Math.min(20, Math.max(1.01, m));
+};
 
 export const buildMach: FibBuilder = (pts, d) => {
   const [a, b] = pts;
@@ -492,7 +495,7 @@ export const buildDedekind: FibBuilder = (pts, d) => {
   for (let k = Math.floor(2 * xMin); k <= Math.ceil(2 * xMax); k++) {
     if (Math.abs(k) % 2 !== 1) continue;
     const x = left + (k / 2) * unitPx;
-    if (x < left - 0.5 || x > right + 0.5) continue;
+    if (x < left || x > right) continue;
     lines.push({ x1: x, y1: bot, x2: x, y2: top, color });
   }
   const curves: FibGeometry['curves'] = [];
