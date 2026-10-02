@@ -270,8 +270,8 @@ export const PATTERN_SPEC_LIST: FibSpec[] = [
 ];
 
 export const ELLIOTT_SPEC_LIST: FibSpec[] = [
-  pat('elliottimpulse', 'ew5', 'Elliott Impulse Wave (1-5)', '\u2464', ['click point 1', 'click point 2', 'click point 3', 'click point 4', 'click point 5'], false, false),
-  pat('elliottcorrection', 'ewabc', 'Elliott Correction Wave (ABC)', '\u24D2', ['click A', 'click B', 'click C'], false, false),
+  pat('elliottimpulse', 'ew5', 'Elliott Impulse Wave (1-5)', '\u2464', ['click point 1', 'click point 2', 'click point 3', 'click point 4', 'click point 5'], false, true),
+  pat('elliottcorrection', 'ewabc', 'Elliott Correction Wave (ABC)', '\u24D2', ['click A', 'click B', 'click C'], false, true),
 ];
 
 export const HARMONIC_SPEC_LIST: FibSpec[] = [

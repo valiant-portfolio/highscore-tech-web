@@ -72,7 +72,7 @@ test('formatRatio: up to three decimals, no trailing zeros', () => {
   assert.equal(formatRatio(11.09), '11.09');
   assert.equal(formatRatio(0), '0');
 });
-test('pattern specs: partial, one prompt and one label per click, Elliott and Harmonic not ready yet', () => {
+test('pattern specs: partial, one prompt and one label per click, Harmonics not ready yet', () => {
   assert.equal(PATTERN_SPEC_LIST.length, 3);
   assert.equal(ELLIOTT_SPEC_LIST.length, 2);
   assert.equal(HARMONIC_SPEC_LIST.length, 6);
@@ -84,8 +84,8 @@ test('pattern specs: partial, one prompt and one label per click, Elliott and Ha
     assert.deepEqual(s.toggles, [], s.variant);
   }
   assert.deepEqual(specs.map((s) => s.clicks), [5, 4, 7, 5, 3, 5, 5, 5, 5, 5, 5]);
-  assert.deepEqual([...PATTERN_SPEC_LIST].map((s) => s.ready), [true, true, true]);
-  assert.ok([...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST].every((s) => !s.ready));
+  assert.ok([...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST].every((s) => s.ready));
+  assert.ok(HARMONIC_SPEC_LIST.every((s) => !s.ready));
   assert.equal(fibPrompt('headshoulders', 3), 'click the head');
   assert.equal(fibClicksNeeded('headshoulders'), 7);
 });

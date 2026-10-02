@@ -90,12 +90,20 @@ test('head and shoulders: partial has no neckline; coincident first leg falls ba
   assert.ok([n.x1, n.y1, n.x2, n.y2].every(Number.isFinite));
 });
 
-test('elliott and harmonic shapes build when called directly', () => {
+test('elliott impulse and correction through the registry', () => {
+  const imp = geo(mk('elliottimpulse', [X, A, B, C, D]));
+  assert.equal(imp.lines.length, 4);
+  assert.deepEqual(imp.texts.map((t) => t.text), ['1', '2', '3', '4', '5']);
+  assert.equal(imp.polys.length, 0);
+  const cor = geo(mk('elliottcorrection', [X, A, B]));
+  assert.equal(cor.lines.length, 2);
+  assert.deepEqual(cor.texts.map((t) => t.text), ['A', 'B', 'C']);
+  assert.equal(computeFibGeometry(mk('elliottcorrection', [X]), ctx), null);
+});
+
+test('harmonic shapes build when called directly', () => {
   const pts = [X, A, B, C, D];
   const px = pts.map((p) => ({ x: p.t / 60, y: 1000 - p.p }));
-  const imp = buildPattern(px, mk('elliottimpulse', pts), ctx);
-  assert.equal(imp.lines!.length, 4);
-  assert.deepEqual(imp.texts!.map((t) => t.text), ['1', '2', '3', '4', '5']);
   const gar = buildPattern(px, mk('gartley', pts), ctx);
   assert.equal(gar.texts!.length, 9);
   assert.equal(gar.polys![0].color, '#0ecb81');

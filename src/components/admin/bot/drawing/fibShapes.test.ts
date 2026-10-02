@@ -415,7 +415,7 @@ test('gann square: flat box has no arcs and stays finite; d.color overrides', ()
   assert.ok(c.lines.slice(14).every((l) => l.color === '#abcdef'));
 });
 
-test('a spec is ready exactly when it has a builder (Elliott and Harmonic land in later batches)', () => {
+test('a spec is ready exactly when it has a builder (Harmonics land in a later batch)', () => {
   for (const s of ALL_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });
 // --- Mach family -------------------------------------------------------------
