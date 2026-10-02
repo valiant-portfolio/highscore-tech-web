@@ -871,6 +871,10 @@ export function MarketChart({
    * point" to "click the second" — which is exactly the missing feedback that
    * made the tools look dead. */
   const [drawPending, setDrawPending] = useState(false);
+  /** How many points the draft holds — STATE, because the banner reads it.
+   *  forkPts is a ref so the once-bound click handler can write to it, and a
+   *  ref changing re-renders nothing. */
+  const [draftLen, setDraftLen] = useState(0);
   const [railHidden, setRailHidden] = useState(false);
   /* The line type the rail button arms when you just click it.
    *
@@ -1673,7 +1677,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (e.key === 'Escape') {
         setTool('cursor');
-        forkPts.current = [];
+        forkPts.current = []; setDraftLen(0);
         setDrawPending(false);
         clearPreview();
         setDrawOpen(false);
@@ -1697,7 +1701,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (!hit) return;
       e.preventDefault();
       if (hit.tool) setTool(hit.tool);
-      forkPts.current = [];
+      forkPts.current = []; setDraftLen(0);
       setDrawPending(false);
       clearPreview();
     };
@@ -1817,7 +1821,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   const clearDrawings = () => {
     removeDrawingObjects();
     drawings.current = [];
-    forkPts.current = [];
+    forkPts.current = []; setDraftLen(0);
     persistDrawings();
   };
 
@@ -2169,19 +2173,20 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * preview uses, so what you aimed at is what you get. */
       const need = clicksNeeded(t, ALL_DRAW_TOOLS);
       forkPts.current.push({ time: time as Time, value: sPrice });
+      setDraftLen(forkPts.current.length);
       if (forkPts.current.length < need) { setDrawPending(true); return; }
 
       // The one tool that asks a question before it draws.
       let typed: string | undefined;
       if (t === 'text') {
         const answer = window.prompt('Label for this level');
-        if (answer == null || !answer.trim()) { forkPts.current = []; setDrawPending(false); return; }
+        if (answer == null || !answer.trim()) { forkPts.current = []; setDraftLen(0); setDrawPending(false); return; }
         typed = answer.trim();
       }
 
       const pts: DPt[] = forkPts.current.map((q) => ({ t: q.time as number, v: q.value }));
       const made = buildDrawing(t, pts, newDrawId());
-      forkPts.current = [];
+      forkPts.current = []; setDraftLen(0);
       previewRef.current = null;
       setDrawPending(false);
       clearPreview();
@@ -2445,7 +2450,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     setLoading(true);
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    fibPts.current = []; forkPts.current = [];
+    fibPts.current = []; forkPts.current = []; setDraftLen(0);
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -3030,7 +3035,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 type="button"
                 onClick={() => {
                   setTool(lastLine);
-                  forkPts.current = [];
+                  forkPts.current = []; setDraftLen(0);
                   setDrawPending(false);
                   clearPreview();
                 }}
@@ -3092,7 +3097,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                               setTool(t.tool);
                               setLastLine(t.tool);
                               setDrawOpen(false);
-                              forkPts.current = [];
+                              forkPts.current = []; setDraftLen(0);
                               setDrawPending(false);
                               clearPreview();
                             }}
@@ -3135,7 +3140,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 type="button"
                 onClick={() => {
                   setTool(lastFib);
-                  forkPts.current = [];
+                  forkPts.current = []; setDraftLen(0);
                   setDrawPending(false);
                   clearPreview();
                 }}
@@ -3193,7 +3198,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           setTool(t.tool);
                           setLastFib(t.tool);
                           setFibOpen(false);
-                          forkPts.current = [];
+                          forkPts.current = []; setDraftLen(0);
                                   setDrawPending(false);
                           clearPreview();
                         }}
@@ -3489,7 +3494,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                      * and says nothing about how much is left. How many more
                      * clicks it needs answers both, for any count. */
                     const need = clicksNeeded(tool, ALL_DRAW_TOOLS);
-                    const left = Math.max(0, need - forkPts.current.length);
+                    const left = Math.max(0, need - draftLen);
                     if (need <= 1) return 'click a price on the chart';
                     return `click ${left} more point${left === 1 ? '' : 's'}`;
                   })()}
