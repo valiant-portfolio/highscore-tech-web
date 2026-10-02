@@ -23,7 +23,7 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, Rows3, Rows4,
+  GripVertical, MoreVertical, Copy, RotateCcw, Rows3, Rows4, GitFork,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -40,7 +40,10 @@ import {
   type MouseEventParams,
 } from 'lightweight-charts';
 
-type Tool = 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray' | 'fibr' | 'fibe';
+type Tool =
+  | 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray'
+  | 'pitchfork' | 'cross' | 'vline' | 'info' | 'angle'
+  | 'fibr' | 'fibe';
 
 /** The drawing menu, in the design's order and wording. `clicks` is how many
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
@@ -53,11 +56,11 @@ const LINE_TOOLS: DrawItem[] = [
   { tool: 'hline', label: 'Horizontal Line', keys: 'Alt+H', clicks: 1, glyph: '—' },
   { tool: 'ray', label: 'Ray', clicks: 2, glyph: '↗' },
   { tool: 'extended', label: 'Extended Line', clicks: 2, glyph: '↔' },
-  { label: 'Vertical Line', keys: 'Alt+V', glyph: '|', soon: true },
+  { tool: 'vline', label: 'Vertical Line', keys: 'Alt+V', clicks: 1, glyph: '|' },
   { tool: 'hray', label: 'Horizontal Ray', clicks: 1, glyph: '⊢' },
-  { label: 'Cross Line', glyph: '+', soon: true },
-  { label: 'Info Line', glyph: '⟋', soon: true },
-  { label: 'Trend Angle', glyph: '∠', soon: true },
+  { tool: 'cross', label: 'Cross Line', clicks: 1, glyph: '+' },
+  { tool: 'info', label: 'Info Line', clicks: 2, glyph: '⟋' },
+  { tool: 'angle', label: 'Trend Angle', clicks: 2, glyph: '∠' },
 ];
 const CHANNEL_TOOLS: DrawItem[] = [
   { label: 'Parallel Channel', glyph: '⫽', soon: true },
@@ -66,7 +69,7 @@ const CHANNEL_TOOLS: DrawItem[] = [
   { label: 'Linear Regression', glyph: '≋', soon: true },
 ];
 const PITCHFORK_TOOLS: DrawItem[] = [
-  { label: 'Pitchfork', glyph: '⊢E', soon: true },
+  { tool: 'pitchfork', label: 'Pitchfork', clicks: 3, glyph: '⊢E' },
   { label: 'Schiff Pitchfork', glyph: '⊢E', soon: true },
   { label: 'Modified Schiff Pitchfork', glyph: '⊢E', soon: true },
   { label: 'Inside Pitchfork', glyph: '⊣E', soon: true },
@@ -95,6 +98,11 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   ray: MoveUpRight,
   extended: ArrowLeftRight,
   text: Type,
+  pitchfork: GitFork,
+  cross: Crosshair,
+  vline: Minus,
+  info: Slash,
+  angle: Slash,
   fibr: Rows3,
   fibe: Rows4,
 };
@@ -181,6 +189,41 @@ type Drawing =
        *  price axis; a diagonal has no fixed place there, which is the only
        *  reason labels started out limited to levels. */
       label?: string;
+      /* INFO LINE and TREND ANGLE are trend lines that report on themselves,
+       * so they are this kind with a readout rather than kinds of their own —
+       * which means they inherit dragging, hit-testing and styling instead of
+       * each needing its own copy. `readout` says which number to show; the
+       * text is computed at render time, because a move or a drag changes it
+       * and a stored string would go stale the moment you touched the line. */
+      readout?: 'info' | 'angle';
+    }
+  /** A moment, marked. One click: no price, because it is about WHEN. */
+  | {
+      id: string; kind: 'vline'; t1: number; label?: string;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+    }
+  /** A time AND a price — the two lines crossing where you clicked. */
+  | {
+      id: string; kind: 'cross'; t1: number; v1: number; label?: string;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+    }
+  /* ANDREWS' PITCHFORK — three clicks, three lines.
+   *
+   * p1 is the pivot; p2 and p3 are the swing that followed it. The MEDIAN runs
+   * from p1 through the midpoint of p2-p3 and onward; the two tines run from p2
+   * and from p3, parallel to it. That is the whole construction, and it is why
+   * this cannot be three trend lines drawn by hand: move any anchor and all
+   * three lines have to be re-derived together.
+   *
+   * Stored as the three clicks only. The lines themselves are geometry, and
+   * geometry recomputed at render time cannot drift out of step with the points
+   * it came from — the same reason a ray stores its direction, not its end. */
+  | {
+      id: string; kind: 'pitchfork';
+      t1: number; v1: number; t2: number; v2: number; t3: number; v3: number;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+      /** Rides the median, the line the fork is actually read against. */
+      label?: string;
     }
   | FibDrawing;
 
@@ -194,6 +237,59 @@ const DRAW_STYLES = [
 ] as const;
 const lwStyle = (s?: string) =>
   s === 'dotted' ? LineStyle.Dotted : s === 'solid' ? LineStyle.Solid : LineStyle.Dashed;
+
+/** A line of the overlay, in pane pixels. */
+type Seg = {
+  id: string; x1: number; y1: number; x2: number; y2: number;
+  color: string; width: number; dash: string;
+};
+type Pt = { x: number; y: number };
+
+/* ANDREWS' PITCHFORK, as pixels.
+ *
+ * ONE function for the committed fork and the one still being placed. They were
+ * going to be two — syncLabels measuring the saved drawing, the preview drawing
+ * a rubber band — and that is how a preview ends up showing something other
+ * than what the click produces. The third point is the cursor until it is a
+ * click; nothing else about the construction changes.
+ *
+ * Median: p1 through the midpoint of p2-p3. Tines: p2 and p3, parallel to it.
+ * All three run forward from their own anchor, because a fork is read forward.
+ * Pixels, not price, because "parallel" has to mean parallel on screen — price
+ * and time have different units, so tines built in price space would splay
+ * apart as soon as the axis rescaled.
+ */
+function forkSegments(
+  p1: Pt, p2: Pt, p3: Pt, id: string,
+  style: { color: string; width: number; dash: string },
+  W: number, H: number,
+): Seg[] {
+  const mid = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+  const dx = mid.x - p1.x, dy = mid.y - p1.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return [];                       // all three on one spot
+  const ux = dx / len, uy = dy / len;
+  const far = (W + H) * 2;
+  const { color, width, dash } = style;
+  const ray = (from: Pt, segId: string): Seg => ({
+    id: segId,
+    x1: from.x, y1: from.y, x2: from.x + ux * far, y2: from.y + uy * far,
+    color, width, dash,
+  });
+  return [
+    // The median takes the drawing's own id — that is what puts a label on the
+    // median rather than on an arbitrary tine.
+    ray(p1, id),
+    ray(p2, `${id}#tine-a`),
+    ray(p3, `${id}#tine-b`),
+    // The base: the swing the fork was built from, not one of the three lines
+    // you trade. Always dashed and a touch thinner, whatever the fork's style.
+    {
+      id: `${id}#base`, x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
+      color, width: Math.max(1, width - 1), dash: '4 4',
+    },
+  ];
+}
 /** One colour for everything a PERSON drew, so it never reads as something the
  *  bot put there. The bot's own overlays keep the up/down palette. */
 const DRAW_COLOR = '#2962FF';
@@ -501,6 +597,11 @@ export function MarketChart({
   const lockedRef = useRef(false);
   useEffect(() => { lockedRef.current = drawingsLocked; }, [drawingsLocked]);
   const [digits, setDigits] = useState(5);
+  /* The click and range handlers are subscribed once, so they hold the FIRST
+   * render's syncLabels and would format every readout at the initial 5 dp
+   * whatever the symbol turned out to need. A ref is read when it is used. */
+  const digitsRef = useRef(5);
+  useEffect(() => { digitsRef.current = digits; }, [digits]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -510,7 +611,7 @@ export function MarketChart({
    *  Declared here, below `tool`: it was above, which is a temporal dead zone
    *  and took the whole page down with "Cannot access 'tool' before
    *  initialization". */
-  const armed = [...LINE_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === tool);
+  const armed = [...LINE_TOOLS, ...PITCHFORK_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === tool);
   const [fs, setFs] = useState(false);
   const [inds, setInds] = useState<Set<IndId>>(() => {
     if (typeof window !== 'undefined') {
@@ -539,6 +640,9 @@ export function MarketChart({
   const hlineObjs = useRef<Map<string, IPriceLine>>(new Map());
   const trendObjs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
   const trendStart = useRef<{ time: Time; value: number } | null>(null);
+  /** The pitchfork's clicks so far. Its own ref rather than reusing trendStart,
+   *  which holds one point: this needs two before the third completes it. */
+  const forkPts = useRef<{ time: Time; value: number }[]>([]);
   /** The rubber band, in pane pixels. `flat` means a level rather than a line,
    *  so it is drawn edge to edge at one height. Mirrored into a ref because the
    *  pointer handler is registered once and cannot read state. */
@@ -557,6 +661,7 @@ export function MarketChart({
   const clearPreview = () => {
     bandRef.current = null; setBand(null);
     fibPts.current = []; setFibStep(0); setFibPreview(null);
+    ghostRef.current = []; setGhostState([]);
   };
 
   /* THE SELECTED DRAWING — what the style toolbar acts on.
@@ -591,6 +696,18 @@ export function MarketChart({
     id: string; x1: number; y1: number; x2: number; y2: number;
     color: string; width: number; dash: string;
   }[]>([]);
+  /** The same segments, readable from the pointer handlers. Those run outside
+   *  React's render, so they cannot see `segs` state — and hit-testing a fork
+   *  against anything other than what is drawn is how a line you can see stops
+   *  being a line you can grab. */
+  const segsRef = useRef<typeof segs>([]);
+
+  /** The fork being placed, previewed in full. Separate from the rubber band:
+   *  that is one line, and a fork is four. */
+  const [ghost, setGhostState] = useState<Seg[]>([]);
+  const ghostRef = useRef<Seg[]>([]);
+  const setGhost = (v: Seg[]) => { ghostRef.current = v; setGhostState(v); };
+
   /** The visible time window, for extending rays to the pane's edge. */
   const viewRange = (): { from: number; to: number } | null => {
     const r = chartRef.current?.timeScale().getVisibleRange();
@@ -599,7 +716,7 @@ export function MarketChart({
 
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
-    if (!s || !c) { setLineLabels([]); setSegs([]); setHandles([]); setFibGeoms([]); return; }
+    if (!s || !c) { setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); return; }
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -643,6 +760,61 @@ export function MarketChart({
         dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
       });
     }
+    /* THE FORK, derived here rather than stored.
+     *
+     * Median: p1 through the midpoint of p2-p3. Tines: p2 and p3, each parallel
+     * to it. All three are walked to the right-hand edge from their own anchor,
+     * so the fork opens forward in time the way it is read — a pitchfork that
+     * ran backwards over the swing that defined it would be describing history
+     * it already has.
+     *
+     * Done in PIXELS, like the rays above, because "parallel" has to mean
+     * parallel on screen. Price and time have different units and a rescale
+     * changes their ratio, so tines computed in price space would splay apart
+     * the moment the axis moved. */
+    for (const d of drawings.current) {
+      if (d.kind !== 'pitchfork') continue;
+      const pt = (t: number, v: number) => {
+        const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const y = s.priceToCoordinate(v);
+        return x == null || y == null ? null : { x: x as number, y: y as number };
+      };
+      const p1 = pt(d.t1, d.v1), p2 = pt(d.t2, d.v2), p3 = pt(d.t3, d.v3);
+      if (!p1 || !p2 || !p3) continue;
+      out.push(...forkSegments(p1, p2, p3, d.id, {
+        color: d.color ?? DRAW_COLOR,
+        width: d.width ?? 2,
+        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+      }, W, H));
+    }
+
+    /* VERTICAL LINE and CROSS LINE.
+     *
+     * Both run the full height (and the cross the full width) of the pane, so
+     * only the anchored axis is measured — the other end is the edge. The
+     * vertical is anchored in TIME alone, which is why it has no price: it
+     * marks a moment, and a moment has no height. */
+    for (const d of drawings.current) {
+      if (d.kind !== 'vline' && d.kind !== 'cross') continue;
+      const cx = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+      if (cx == null) continue;
+      const color = d.color ?? DRAW_COLOR;
+      const width = d.width ?? 2;
+      const dash = d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '';
+      // The vertical takes the drawing's own id so the label pass lands on it.
+      out.push({ id: d.id, x1: cx as number, y1: 0, x2: cx as number, y2: H, color, width, dash });
+      if (d.kind === 'cross') {
+        const cy = s.priceToCoordinate(d.v1);
+        if (cy != null) {
+          out.push({
+            id: `${d.id}#h`, x1: 0, y1: cy as number, x2: W, y2: cy as number,
+            color, width, dash,
+          });
+        }
+      }
+    }
+
+    segsRef.current = out;
     setSegs(out);
 
     // Labels: at the midpoint of the drawn line, so a ray's label sits along
@@ -650,12 +822,39 @@ export function MarketChart({
     const labels: { id: string; x: number; y: number; text: string; color: string }[] = [];
     for (const g of out) {
       const d = drawings.current.find((k) => k.id === g.id);
-      if (!d || d.kind !== 'trend' || !d.label) continue;
+      if (!d || d.kind === 'hline') continue;
+      /* THE READOUT, worked out here rather than stored.
+       *
+       * Info reports what the line spans: the price move, the same as a
+       * percentage, and how many bars it took. Angle reports its slope in
+       * degrees. Both are properties of where the ends currently are, so
+       * computing them at render is what keeps them true after a drag —
+       * a stored string would still describe where the line used to be.
+       *
+       * The angle is measured in PIXELS on purpose. An angle in price-over-
+       * time has no meaning you can see, because the axes have different
+       * units and a rescale would change the number without the line moving. */
+      let text = d.label ?? '';
+      if (d.kind === 'trend' && d.readout) {
+        const dv = d.v2 - d.v1;
+        const pct = d.v1 !== 0 ? (dv / Math.abs(d.v1)) * 100 : 0;
+        if (d.readout === 'angle') {
+          const deg = -Math.atan2(g.y2 - g.y1, g.x2 - g.x1) * (180 / Math.PI);
+          text = `${deg >= 0 ? '+' : ''}${deg.toFixed(1)}°`;
+        } else {
+          const step = barStepSecs();
+          const bars = step > 0 ? Math.abs(Math.round((d.t2 - d.t1) / step)) : 0;
+          text = `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
+            + (bars ? ` · ${bars} bar${bars === 1 ? '' : 's'}` : '');
+        }
+        if (d.label) text = `${d.label} · ${text}`;
+      }
+      if (!text) continue;
       labels.push({
         id: d.id,
         x: (Math.max(0, Math.min(W, g.x1)) + Math.max(0, Math.min(W, g.x2))) / 2,
         y: (Math.max(0, Math.min(H, g.y1)) + Math.max(0, Math.min(H, g.y2))) / 2,
-        text: d.label,
+        text,
         color: g.color,
       });
     }
@@ -678,6 +877,19 @@ export function MarketChart({
         const x2 = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
         const y2 = s.priceToCoordinate(d.v2);
         if (x2 != null && y2 != null) hs.push({ id: `${d.id}:b`, x: x2 as number, y: y2 as number });
+      }
+    }
+    /* All three of a fork's points are real clicks, so all three get a handle —
+     * unlike a ray, whose far end is a computed edge. */
+    for (const d of drawings.current) {
+      if (d.kind !== 'pitchfork') continue;
+      const pts: [number, number, string][] = [
+        [d.t1, d.v1, 'a'], [d.t2, d.v2, 'b'], [d.t3, d.v3, 'c'],
+      ];
+      for (const [t, v, key] of pts) {
+        const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const y = s.priceToCoordinate(v);
+        if (x != null && y != null) hs.push({ id: `${d.id}:${key}`, x: x as number, y: y as number });
       }
     }
     setHandles(hs);
@@ -743,7 +955,15 @@ export function MarketChart({
     // Offset a little so the copy is visibly a second line, not one hiding
     // exactly underneath the original.
     if (copy.kind === 'hline') copy.price *= 1.0005;
-    else if (copy.kind === 'trend') { copy.v1 *= 1.0005; copy.v2 *= 1.0005; }
+    // A vertical has no price to nudge, so the copy steps sideways by a bar —
+    // nudging nothing would stack it exactly on the original.
+    else if (copy.kind === 'vline') copy.t1 += barStepSecs();
+    // A fib was already offset by duplicateFib above.
+    else if (copy.kind !== 'fib') {
+      copy.v1 *= 1.0005;
+      if (copy.kind === 'trend' || copy.kind === 'pitchfork') copy.v2 *= 1.0005;
+      if (copy.kind === 'pitchfork') copy.v3 *= 1.0005;
+    }
     drawings.current.push(copy);
     if (!drawingsHidden) renderDrawings();
     persistDrawings();
@@ -766,6 +986,7 @@ export function MarketChart({
       if (e.key === 'Escape') {
         setTool('cursor');
         trendStart.current = null;
+        forkPts.current = [];
         setDrawPending(false);
         clearPreview();
         setDrawOpen(false);
@@ -777,6 +998,7 @@ export function MarketChart({
       e.preventDefault();
       if (hit.tool) setTool(hit.tool);
       trendStart.current = null;
+      forkPts.current = [];
       setDrawPending(false);
       clearPreview();
     };
@@ -787,6 +1009,15 @@ export function MarketChart({
   const drag = useRef<{ id: string; kind: Drawing['kind']; lastX: number; lastY: number } | null>(null);
   // Indicators.
   const barsRef = useRef<Candle[]>([]);
+
+  /** Seconds per bar, read off the loaded candles rather than parsed out of the
+   *  timeframe label — the data is the authority on its own spacing. 0 when
+   *  there are not two bars to measure between. */
+  const barStepSecs = (): number => {
+    const b = barsRef.current;
+    if (b.length < 2) return 0;
+    return (b[b.length - 1].time as number) - (b[b.length - 2].time as number);
+  };
   const indsRef = useRef<Set<IndId>>(inds);
   const indSeries = useRef<ISeriesApi<'Line'>[]>([]);
 
@@ -846,6 +1077,7 @@ export function MarketChart({
     removeDrawingObjects();
     drawings.current = [];
     trendStart.current = null;
+    forkPts.current = [];
     persistDrawings();
   };
 
@@ -1099,6 +1331,33 @@ export function MarketChart({
 
     // Drawing: a click places a horizontal line at the price, or the two ends of
     // a trend line. Reads the current tool from a ref so we subscribe only once.
+    /* THE TIME UNDER A CLICK — including past the last candle.
+     *
+     * param.time is set only when the click lands ON a bar. Click the gap to
+     * the right of the newest candle, which is exactly where you point a fork
+     * or a ray, and it is undefined — so the handler below used to bail and
+     * the click vanished. The preview already solved this in pixels and said
+     * so in its own comment; the click path never got the same treatment, and
+     * a tool that drops half your clicks reads as a tool that does nothing.
+     *
+     * Past the last bar there is no bar to ask, so the time is extrapolated
+     * from the last two: their spacing is the timeframe, and barSpacing is how
+     * wide a bar is on screen. That keeps the anchor a real timestamp rather
+     * than a pixel, which is what lets it survive a zoom. */
+    const timeAtX = (x: number): number | null => {
+      const ts = chart.timeScale();
+      const onBar = ts.coordinateToTime(x);
+      if (onBar != null) return onBar as number;
+      const bars = barsRef.current;
+      if (bars.length < 2) return null;
+      const last = bars[bars.length - 1].time as number;
+      const step = last - (bars[bars.length - 2].time as number);
+      const lastX = ts.timeToCoordinate(last as UTCTimestamp);
+      const spacing = ts.options().barSpacing;
+      if (lastX == null || step <= 0 || !spacing) return null;
+      return last + Math.round((x - (lastX as number)) / spacing) * step;
+    };
+
     const onClick = (param: MouseEventParams) => {
       const t = toolRef.current;
       // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
@@ -1125,9 +1384,11 @@ export function MarketChart({
         syncLabels();
         return;
       }
-      if (!param.point || param.time === undefined) return;
+      if (!param.point) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
+      const time = (param.time as number | undefined) ?? timeAtX(param.point.x);
+      if (time == null) return;
       if (t === 'hline') {
         const d: Drawing = { id: newDrawId(), kind: 'hline', price };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
@@ -1139,26 +1400,62 @@ export function MarketChart({
         // was not there before an event.
         const d: Drawing = {
           id: newDrawId(), kind: 'trend', reach: 'hray',
-          t1: param.time as number, v1: price, t2: param.time as number, v2: price,
+          t1: time, v1: price, t2: time, v2: price,
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-      } else if (t === 'trend' || t === 'ray' || t === 'extended') {
+        syncLabels();           // a horizontal ray is a diagonal too — same overlay
+      } else if (t === 'vline' || t === 'cross') {
+        // One click each. A vertical line marks WHEN and takes no price; a
+        // cross marks when AND what, so it keeps both.
+        const d: Drawing = t === 'vline'
+          ? { id: newDrawId(), kind: 'vline', t1: time }
+          : { id: newDrawId(), kind: 'cross', t1: time, v1: price };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+        clearPreview();
+        syncLabels();
+      } else if (t === 'trend' || t === 'ray' || t === 'extended' || t === 'info' || t === 'angle') {
         // Two clicks. The first is remembered; the second completes it.
         if (!trendStart.current) {
-          trendStart.current = { time: param.time as Time, value: price };
+          trendStart.current = { time: time as Time, value: price };
           setDrawPending(true);
           return;
         }
         const d: Drawing = {
           id: newDrawId(), kind: 'trend',
-          reach: t === 'trend' ? 'segment' : t,
+          // Info and Angle are segments: they measure the span you drew, so
+          // running on past it would be reporting on something you did not mark.
+          reach: t === 'ray' || t === 'extended' ? t : 'segment',
+          ...(t === 'info' || t === 'angle' ? { readout: t } : {}),
           t1: trendStart.current.time as number, v1: trendStart.current.value,
-          t2: param.time as number, v2: price,
+          t2: time, v2: price,
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         trendStart.current = null;
         setDrawPending(false);
         clearPreview();
+        syncLabels();           // see the pitchfork branch — the overlay needs measuring
+      } else if (t === 'pitchfork') {
+        // Three clicks: pivot, then the two ends of the swing off it. The first
+        // two are only remembered — nothing is drawn until the third, because
+        // two points do not yet describe a fork.
+        forkPts.current.push({ time: time as Time, value: price });
+        if (forkPts.current.length < 3) { setDrawPending(true); return; }
+        const [a, b, c3] = forkPts.current;
+        const d: Drawing = {
+          id: newDrawId(), kind: 'pitchfork',
+          t1: a.time as number, v1: a.value,
+          t2: b.time as number, v2: b.value,
+          t3: c3.time as number, v3: c3.value,
+        };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+        forkPts.current = [];
+        setDrawPending(false);
+        clearPreview();
+        // Diagonals live in the SVG overlay, and the overlay is only rebuilt by
+        // syncLabels. Without this the fork is in `drawings` but nothing has
+        // measured it yet, so it stays invisible until a pan or zoom happens to
+        // trigger a re-measure — which reads as the tool not working.
+        syncLabels();
       } else if (t === 'text') {
         // A labelled level. Cancelling the prompt places nothing — an empty
         // label would just be a plain line the text tool pretended to name.
@@ -1224,6 +1521,21 @@ export function MarketChart({
         const id = fibHitTest(computeFibGeometries(drawings.current, fc), x, y, HIT);
         if (id) return { id, kind: 'fib' };
       }
+      /* A fork is grabbed by any of its lines. Tested against what is ON SCREEN
+       * — the segments syncLabels already computed — rather than re-deriving
+       * the geometry here, so the thing you can see and the thing you can grab
+       * cannot disagree. */
+      for (const d of drawings.current) {
+        if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross') continue;
+        const mine = segsRef.current.filter(
+          (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
+        );
+        for (const g of mine) {
+          if (distToSeg(x, y, g.x1, g.y1, g.x2, g.y2) <= HIT) {
+            return { id: d.id, kind: 'trend' };
+          }
+        }
+      }
       return null;
     };
     const onDown = (e: PointerEvent) => {
@@ -1263,8 +1575,57 @@ export function MarketChart({
         if (bandRef.current) { bandRef.current = null; setBand(null); }
       } else {
         const st = trendStart.current;
-        const twoClick = t === 'trend' || t === 'ray' || t === 'extended';
-        if (twoClick && st) {
+        const twoClick = t === 'trend' || t === 'ray' || t === 'extended'
+          || t === 'info' || t === 'angle';
+        const W0 = wrapRef.current?.clientWidth ?? 0;
+        const H0 = wrapRef.current?.clientHeight ?? 0;
+        /* A FORK IN PROGRESS previews from its last click to the cursor.
+         *
+         * It fell through to the level preview below, so arming a three-click
+         * tool drew a flat line across the pane — a preview of a drawing you
+         * were not making. Before the first click there is nothing to draw
+         * from, so it previews nothing rather than something wrong. */
+        if (t === 'vline' || t === 'cross') {
+          /* Previewed as the lines themselves, at the cursor. The flat band
+           * below would have shown a horizontal line for both — right for half
+           * of a cross and wrong for a vertical. */
+          const style = { color: DRAW_COLOR, width: 2, dash: '' };
+          const g: Seg[] = [{ id: 'ghost-v', x1: x, y1: 0, x2: x, y2: H0, ...style }];
+          if (t === 'cross') g.push({ id: 'ghost-h', x1: 0, y1: y, x2: W0, y2: y, ...style });
+          setGhost(g);
+          if (bandRef.current) { bandRef.current = null; setBand(null); }
+        } else if (t === 'pitchfork') {
+          const px = (p: { time: Time; value: number }): Pt | null => {
+            const ax = c.timeScale().timeToCoordinate(p.time as UTCTimestamp);
+            const ay = s.priceToCoordinate(p.value);
+            return ax == null || ay == null ? null : { x: ax as number, y: ay as number };
+          };
+          const pts = forkPts.current;
+          if (pts.length === 2) {
+            /* TWO DOWN: preview the WHOLE fork, with the cursor as the third
+             * point. A single rubber band would show one line and then produce
+             * four — the preview has to be the drawing, which is why this calls
+             * the same forkSegments the committed one does. */
+            const a = px(pts[0]), b = px(pts[1]);
+            const W = wrapRef.current?.clientWidth ?? 0;
+            const H = wrapRef.current?.clientHeight ?? 0;
+            setGhost(a && b
+              ? forkSegments(a, b, { x, y }, 'ghost',
+                  { color: DRAW_COLOR, width: 2, dash: '' }, W, H)
+              : []);
+            if (bandRef.current) { bandRef.current = null; setBand(null); }
+          } else if (pts.length === 1) {
+            // One down: the base is all that exists yet, so show just that.
+            if (ghostRef.current.length) setGhost([]);
+            const a = px(pts[0]);
+            const next = a ? { x1: a.x, y1: a.y, x2: x, y2: y, flat: false } : null;
+            bandRef.current = next;
+            setBand(next);
+          } else {
+            if (ghostRef.current.length) setGhost([]);
+            if (bandRef.current) { bandRef.current = null; setBand(null); }
+          }
+        } else if (twoClick && st) {
           const ax = c.timeScale().timeToCoordinate(st.time as UTCTimestamp);
           const ay = s.priceToCoordinate(st.value);
           const next = ax != null && ay != null
@@ -1315,10 +1676,28 @@ export function MarketChart({
         shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
         syncLabels();
       } else {
+        /* EVERY anchor the drawing has, not the first two.
+         *
+         * This moved v1/v2 and t1/t2 only, which is the whole of a trend line
+         * and two thirds of a pitchfork — dragging one warped it, because its
+         * third point stayed behind while the other two moved out from under
+         * it. Moving a drawing must not reshape it. */
         const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
-        if (pNow != null && pLast != null) { const dv = pNow - pLast; d.v1 += dv; d.v2 += dv; }
+        if (pNow != null && pLast != null) {
+          const dv = pNow - pLast;
+          // A vertical line has no price to move — it marks a moment, and
+          // dragging it up and down must not invent a height for it.
+          if (d.kind !== 'vline') d.v1 += dv;
+          if (d.kind === 'trend' || d.kind === 'pitchfork') d.v2 += dv;
+          if (d.kind === 'pitchfork') d.v3 += dv;
+        }
         const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
-        if (tNow != null && tLast != null) { const dt = (tNow as number) - (tLast as number); d.t1 += dt; d.t2 += dt; }
+        if (tNow != null && tLast != null) {
+          const dt = (tNow as number) - (tLast as number);
+          d.t1 += dt;
+          if (d.kind === 'trend' || d.kind === 'pitchfork') d.t2 += dt;
+          if (d.kind === 'pitchfork') d.t3 += dt;
+        }
         // The overlay owns diagonals now, so moving one is just re-measuring.
         syncLabels();
       }
@@ -1354,7 +1733,7 @@ export function MarketChart({
     setLoading(true);
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    trendStart.current = null; fibPts.current = [];
+    trendStart.current = null; fibPts.current = []; forkPts.current = [];
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -1561,7 +1940,7 @@ export function MarketChart({
 
         {/* Diagonals and their handles. Clipped by the SVG viewport, which is
             how a ray reaches the edge without existing beyond it. */}
-        {!drawingsHidden && (segs.length > 0 || handles.length > 0) && (
+        {!drawingsHidden && (segs.length > 0 || handles.length > 0 || ghost.length > 0) && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
             {segs.map((g) => (
               <line
@@ -1571,6 +1950,19 @@ export function MarketChart({
                 strokeWidth={g.width}
                 strokeDasharray={g.dash || undefined}
                 strokeLinecap="round"
+              />
+            ))}
+            {/* The fork still being placed. Half-opacity so it reads as a
+                proposal rather than as something already drawn. */}
+            {ghost.map((g) => (
+              <line
+                key={g.id}
+                x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
+                stroke={g.color}
+                strokeWidth={g.width}
+                strokeDasharray={g.dash || undefined}
+                strokeLinecap="round"
+                opacity={0.55}
               />
             ))}
             {handles.map((h) => (
@@ -1846,10 +2238,11 @@ export function MarketChart({
                 onClick={() => {
                   setTool(lastLine);
                   trendStart.current = null;
+                  forkPts.current = [];
                   setDrawPending(false);
                   clearPreview();
                 }}
-                title={`${[...LINE_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
+                title={`${[...LINE_TOOLS, ...PITCHFORK_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
                   + (tool === 'cursor' ? ' — click to arm' : ' — armed')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
                   tool !== 'cursor' ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
@@ -1906,6 +2299,7 @@ export function MarketChart({
                               setLastLine(t.tool);
                               setDrawOpen(false);
                               trendStart.current = null;
+                              forkPts.current = [];
                               setDrawPending(false);
                               clearPreview();
                             }}
@@ -2185,10 +2579,19 @@ export function MarketChart({
               <span className="font-semibold text-brand">{armed?.label ?? tool}</span>
               <span className="text-fg-muted">
                 {drawPending
-                  ? (fibStep === 2 ? 'click the third point (projection anchor)' : 'click the second point')
-                  : armed?.clicks === 2 || armed?.clicks === 3
-                    ? 'click the first point'
-                    : 'click a price on the chart'}
+                  // A three-click tool has to say WHICH point it is waiting
+                  // for: "click the second point" through two of them is the
+                  // same hint twice, and reads as a click that did not land.
+                  ? tool === 'fibe'
+                    ? (fibStep === 2 ? 'click the third point (projection anchor)' : 'click the second point')
+                    : armed?.clicks === 3
+                      ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
+                      : 'click the second point'
+                  : armed?.clicks === 3
+                    ? 'click the pivot'
+                    : armed?.clicks === 2
+                      ? 'click the first point'
+                      : 'click a price on the chart'}
               </span>
               <span className="text-fg-subtle">· Esc to cancel</span>
             </span>
