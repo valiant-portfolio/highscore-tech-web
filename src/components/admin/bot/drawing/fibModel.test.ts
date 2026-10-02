@@ -8,7 +8,7 @@ import type { FibDrawing } from './fibModel.ts';
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
 test('every spec has one prompt per click, a unique tool id and a round-trip variant', () => {
-  assert.equal(FIB_SPEC_LIST.length, 13);
+  assert.equal(FIB_SPEC_LIST.length, 12);
   const ids = new Set(FIB_SPEC_LIST.map((s) => s.toolId));
   assert.equal(ids.size, FIB_SPEC_LIST.length);
   for (const s of FIB_SPEC_LIST) {

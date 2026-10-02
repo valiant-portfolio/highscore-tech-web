@@ -175,28 +175,6 @@ export const buildSrfan: FibBuilder = (pts, d, ctx) => {
   return { lines: [...grid, ...lines], texts };
 };
 
-/** Pitchfan: rays from the pivot through the median and through points
- *  spread along the P2-P3 handle. */
-export const buildPitchfan: FibBuilder = (pts, d, ctx) => {
-  const [p1, p2, p3] = pts;
-  const m: Pt = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
-  const h: Pt = { x: p3.x - m.x, y: p3.y - m.y };
-  const lines: FibGeometry['lines'] = [];
-  const texts: FibGeometry['texts'] = [];
-  const med = rayEnd(p1, m, ctx);
-  lines.push({ x1: p1.x, y1: p1.y, x2: med.x, y2: med.y, color: d.color ?? GRID_COLOR });
-  for (const r of fibRatios(d)) {
-    const color = ratioColor(d, r);
-    for (const sign of [1, -1]) {
-      const q: Pt = { x: m.x + sign * r * h.x, y: m.y + sign * r * h.y };
-      const e = rayEnd(p1, q, ctx);
-      lines.push({ x1: p1.x, y1: p1.y, x2: e.x, y2: e.y, color });
-      texts.push({ x: q.x + 4, y: q.y - 3, text: String(r), color, anchor: 'start' });
-    }
-  }
-  // Only the P2-P3 handle: the base's P1-P2 connector would overprint the r=1 ray.
-  return { lines, texts, connectors: [{ x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y }] };
-};
 // --- curves ----------------------------------------------------------------
 // Drawn in the "normalised box" frame: the A-B pixel box is the unit square,
 // projected per render. Circles are round only while both axes are at the
@@ -328,7 +306,6 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   channel: buildChannel,
   fan: buildFan,
   srfan: buildSrfan,
-  pitchfan: buildPitchfan,
   circles: buildCircles,
   arcs: buildArcs,
   wedge: buildWedge,

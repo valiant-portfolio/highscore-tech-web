@@ -174,24 +174,6 @@ test('srfan: time labels sit outside the box, whichever way B lies', () => {
   assert.equal(geo(makeFibDrawing('srfan', [B, A], 's')).texts.at(-1)!.y, 912); // B below A
 });
 
-// --- pitchfan ---------------------------------------------------------------
-
-test('pitchfan: median plus a ray each side per level', () => {
-  const g = geo(makeFibDrawing('pitchfan', [A, { t: 12000, p: 300 }, { t: 12000, p: 100 }], 'p'));
-  assert.equal(g.lines.length, 1 + 2 * 9);
-  assert.ok(through(g.lines[0], 200, 800)); // median to M
-  assert.deepEqual(g.connectors, [{ x1: 200, y1: 700, x2: 200, y2: 900 }]);
-  // ratio .25: lines[1], [2] through (200, 800 +/- 25*... ) h = (0,100) -> (200,825) and (200,775)
-  assert.ok(through(g.lines[1], 200, 825) && through(g.lines[2], 200, 775));
-});
-test('pitchfan: r=1 rays pass through P2 and P3', () => {
-  const P2 = { t: 12000, p: 300 }; // (200,700)
-  const P3 = { t: 12000, p: 100 }; // (200,900)
-  const g = geo(makeFibDrawing('pitchfan', [A, P2, P3], 'p'));
-  const ratios = [0.25, 0.382, 0.5, 0.618, 0.75, 1, 1.5, 1.75, 2];
-  const i = 1 + 2 * ratios.indexOf(1);
-  assert.ok(through(g.lines[i], 200, 900) && through(g.lines[i + 1], 200, 700));
-});
 // --- circles ----------------------------------------------------------------
 
 const P300 = { t: 18000, p: 300 }; // (300, 700)
@@ -319,7 +301,7 @@ test('a spec is ready exactly when it has a builder', () => {
 });
 
 test('ready set is what Batches 0, A, B and C ship', () => {
-  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'fan', 'timezones', 'channel', 'srfan', 'trendtime', 'circles', 'arcs', 'wedge', 'spiral', 'pitchfan']);
+  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'fan', 'timezones', 'channel', 'srfan', 'trendtime', 'circles', 'arcs', 'wedge', 'spiral']);
 });
 
 for (const s of ready) {

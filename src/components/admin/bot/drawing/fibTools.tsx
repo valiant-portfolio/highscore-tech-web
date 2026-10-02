@@ -1,6 +1,6 @@
 import {
   Rows3, Rows4, AlignVerticalDistributeCenter, TriangleRight, Columns3, Scaling, Fan,
-  Timer, Target, Rainbow, Cone, Shell, Antenna,
+  Timer, Target, Rainbow, Cone, Shell,
   type LucideIcon,
 } from 'lucide-react';
 import type { FibToolId } from './fibModel.ts';
@@ -19,5 +19,4 @@ export const FIB_TOOL_ICONS: Record<FibToolId, LucideIcon> = {
   fiba: Rainbow,
   fibw: Cone,
   fibs: Shell,
-  fibpf: Antenna,
 };

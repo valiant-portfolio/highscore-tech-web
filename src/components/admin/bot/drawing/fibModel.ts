@@ -5,10 +5,10 @@
 
 export type FibVariant =
   | 'retracement' | 'extension' | 'extension2' | 'fan' | 'timezones' | 'channel' | 'srfan'
-  | 'trendtime' | 'circles' | 'arcs' | 'wedge' | 'spiral' | 'pitchfan';
+  | 'trendtime' | 'circles' | 'arcs' | 'wedge' | 'spiral';
 export type FibToolId =
   | 'fibr' | 'fibe' | 'fibx' | 'fibf' | 'fibtz' | 'fibc' | 'fibsr'
-  | 'fibtt' | 'fibo' | 'fiba' | 'fibw' | 'fibs' | 'fibpf';
+  | 'fibtt' | 'fibo' | 'fiba' | 'fibw' | 'fibs';
 
 export interface FibPoint { t: number; p: number }
 
@@ -66,7 +66,7 @@ export const DEFAULT_EXTENSION2_LEVELS = [0, 1, 1.272, 1.618, 2, 2.618, 3.618, 4
 export const FIB_LEVEL_COLORS: Record<string, string> = {
   '0': '#787B86', '0.236': '#F23645', '0.25': '#FF9800', '0.382': '#FF9800', '0.5': '#4CAF50',
   '0.618': '#089981', '0.75': '#00BCD4', '0.786': '#00BCD4', '1': '#787B86', '1.272': '#9C27B0',
-  '1.382': '#9C27B0', '1.5': '#089981', '1.618': '#2962FF', '1.75': '#00BCD4', '2': '#E91E63',
+  '1.382': '#9C27B0', '1.618': '#2962FF', '2': '#E91E63',
   '2.618': '#F23645', '3.618': '#E91E63', '4.236': '#F23645',
 };
 export const FIB_FALLBACK_COLOR = '#2962FF';
@@ -152,12 +152,6 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     prompts: ['click the centre', 'click where the spiral starts'],
     fillDefault: false,
     toggles: [{ key: 'ccw', on: 'Counter-clockwise', off: 'Clockwise', default: false }], ready: true,
-  },
-  {
-    variant: 'pitchfan', toolId: 'fibpf', label: 'Pitchfan', clicks: 3, glyph: '⋔',
-    levels: [0.25, 0.382, 0.5, 0.618, 0.75, 1, 1.5, 1.75, 2],
-    prompts: ['click the pivot', 'click the second point', 'click the third point'],
-    fillDefault: false, toggles: [], ready: true,
   },
 ];
 
