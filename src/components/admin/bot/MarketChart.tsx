@@ -1114,7 +1114,9 @@ export function MarketChart({
   const clearOverlay = () => {
     setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = [];
   };
-  /** Committed drawings, plus the one being placed. */
+  /** Committed drawings, plus the one being placed. For GEOMETRY only —
+   *  anything that creates objects, hit-tests or persists must use
+   *  drawings.current, or it acts on a drawing that does not exist yet. */
   const drawDraft = (): Drawing[] => (
     previewRef.current ? [...drawings.current, previewRef.current] : drawings.current
   );
@@ -1773,7 +1775,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
    *  disposed series) must not take the other nine off the chart with it. */
   const renderDrawings = () => {
     removeDrawingObjects();
-    for (const d of drawDraft()) {
+    // drawings.current, NOT the draft: this creates chart objects, and the
+    // thing still following the cursor is not something to build one for.
+    for (const d of drawings.current) {
       try { addDrawingObject(d); } catch { /* skip this one, keep the rest */ }
     }
     syncLabels();
@@ -2226,15 +2230,18 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
+    /* Only PLACED drawings. The draft shares this geometry but has no entry
+     * in drawings.current, so returning its id left every lookup after it
+     * undefined — selection cleared, and a drag that grabbed nothing. */
     const hitTest = (x: number, y: number): { id: string; kind: Drawing['kind'] } | null => {
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return null;
-      for (const d of drawDraft()) {
+      for (const d of drawings.current) {
         if (d.kind !== 'hline') continue;
         const cy = s.priceToCoordinate(d.price);
         if (cy != null && Math.abs(cy - y) <= HIT) return { id: d.id, kind: 'hline' };
       }
-      for (const d of drawDraft()) {
+      for (const d of drawings.current) {
         if (d.kind !== 'trend') continue;
         const [kA, kB] = d.pts;
         if (!kA || !kB) continue;
@@ -2250,7 +2257,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * — the segments syncLabels already computed — rather than re-deriving
        * the geometry here, so the thing you can see and the thing you can grab
        * cannot disagree. */
-      for (const d of drawDraft()) {
+      for (const d of drawings.current) {
         if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
           && d.kind !== 'channel') continue;
         const mine = segsRef.current.filter(
