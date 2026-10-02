@@ -1463,9 +1463,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const my = (Math.max(0, Math.min(H, g.y1)) + Math.max(0, Math.min(H, g.y2))) / 2;
       labels.push({
         id: d.id,
-        x: at ? at.x : mx,
-        // Info's plate clears the line instead of straddling it — a box drawn
-        // over the thing it is measuring hides the part you are looking at.
+        // Theirs: rect at (mx + 8, my - 30), text from mx + 14.
+        x: at ? at.x : (readout ? mx + 14 : mx),
         y: at ? at.y : (readout ? my - 16 : my),
         text,
         color: g.color,
@@ -1494,7 +1493,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
      * placed — a handle there would invite you to drag a thing that is not a
      * handle. So: the clicked points only. */
     const hs: { id: string; x: number; y: number }[] = [];
-    const selForHandles = selectedRef.current?.id ?? hoverRef.current;
+    /* Theirs: {(sel === d.id || preview) && P.map(...)} — the SELECTION, and
+     * the thing being placed. Hovering does not reveal them there, so it does
+     * not here either. */
+    const selForHandles = selectedRef.current?.id ?? null;
     for (const d of drawings.current) {
       if (d.kind !== 'trend' || d.id !== selForHandles) continue;
       const reach = d.reach ?? 'segment';
@@ -1534,22 +1536,17 @@ ${bars} bars · ${degI.toFixed(1)}°`;
      * so there is no third point to offer. */
     for (const d of drawings.current) {
       if (d.kind !== 'channel' || d.id !== selForHandles) continue;
-      /* The first two always; disjoint's second line has two ends of its own,
-       * so it shows all four. Parallel and flat get a mid grip instead, below. */
-      const shown = d.variant === 'disjoint' ? d.pts : d.pts.slice(0, 2);
-      shown.forEach((q, i) => {
+      /* EVERY clicked point, as theirs does: {P.map((q, k) => <circle ...)}.
+       * Ours showed the first two and put a derived grip at the middle of the
+       * second boundary - so the third point you actually clicked had no
+       * handle on it, and the one you could grab was somewhere you never
+       * pressed. Theirs puts a grip exactly where you clicked. */
+      d.pts.forEach((q, i) => {
         const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
-      /* PARALLEL and FLAT put ONE grip at the MIDDLE of the second boundary.
-       * That line has no independent ends — it only moves across — so a handle
-       * at each end would offer to tilt something that cannot tilt. Taken from
-       * the drawn segment rather than recomputed, so grip and line agree. */
-      if (d.variant === 'parallel' || d.variant === 'flat') {
-        const g = out.find((o) => o.id === `${d.id}#b`);
-        if (g) hs.push({ id: `${d.id}:2`, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 });
-      }
+
     }
 
     /* VERTICAL and CROSS get a handle too.
@@ -2868,7 +2865,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 key={h.id}
                 cx={h.x}
                 cy={h.y}
-                r={4.5}
+                r={5}
                 fill="#0b0f0d"
                 stroke={DRAW_COLOR}
                 strokeWidth={2}
@@ -2891,7 +2888,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               l.bare
                 ? 'font-mono'                       // the angle: no plate at all
                 : l.readout
-                  ? '-translate-x-1/2 border bg-bg-elevated/95 px-1.5 py-0.5 font-mono'
+                  // Left-aligned, as theirs anchors its text at mx + 14.
+                  ? 'border bg-bg-elevated/95 px-1.5 py-0.5 font-mono'
                   : '-translate-x-1/2 px-1.5 py-0.5 text-white'
             }`}
             style={l.bare || l.readout
@@ -2929,9 +2927,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
                 stroke={g.color}
                 strokeWidth={g.width}
-                strokeDasharray={g.dash || undefined}
+                /* Theirs: strokeDasharray = preview ? "4 4" : DASH[...].
+                 * A preview reads as provisional because it is DASHED, not
+                 * because it is faint. */
+                strokeDasharray="4 4"
                 strokeLinecap="round"
-                opacity={0.75}
               />
             ))}
           </svg>
