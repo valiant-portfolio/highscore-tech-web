@@ -46,7 +46,15 @@ type Tool =
   | 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray'
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
   | 'cross' | 'vline' | 'info' | 'angle'
+  | 'chpar' | 'chdis' | 'chflat' | 'chlin'
   | FibToolId;
+
+/** Which channel a tool draws. All but the regression take three clicks and
+ *  differ only in what the third one means — see channelSegments. */
+type ChannelVariant = 'parallel' | 'disjoint' | 'flat' | 'linreg';
+const CHANNEL_VARIANT: Partial<Record<Tool, ChannelVariant>> = {
+  chpar: 'parallel', chdis: 'disjoint', chflat: 'flat', chlin: 'linreg',
+};
 
 /** Which fork a tool draws. All four take the same three clicks and differ
  *  only in where the median STARTS — see forkOrigin. */
@@ -73,11 +81,14 @@ const LINE_TOOLS: DrawItem[] = [
   { tool: 'angle', label: 'Trend Angle', clicks: 2, glyph: '∠' },
 ];
 const CHANNEL_TOOLS: DrawItem[] = [
-  { label: 'Parallel Channel', glyph: '⫽', soon: true },
-  { label: 'Disjoint Channel', glyph: '≻', soon: true },
-  { label: 'Flat Top/Bottom', glyph: '⊐', soon: true },
-  { label: 'Linear Regression', glyph: '≋', soon: true },
+  { tool: 'chpar', label: 'Parallel Channel', clicks: 3, glyph: '⫽' },
+  { tool: 'chdis', label: 'Disjoint Channel', clicks: 3, glyph: '≻' },
+  { tool: 'chflat', label: 'Flat Top/Bottom', clicks: 3, glyph: '⊐' },
+  // Two clicks: it needs a RANGE of candles, not a third point — the channel
+  // is computed from the closes inside it rather than placed by hand.
+  { tool: 'chlin', label: 'Linear Regression', clicks: 2, glyph: '≋' },
 ];
+const isChannelTool = (t: Tool): boolean => t in CHANNEL_VARIANT;
 const PITCHFORK_TOOLS: DrawItem[] = [
   { tool: 'pitchfork', label: 'Pitchfork', clicks: 3, glyph: '⊢E' },
   { tool: 'schiff', label: 'Schiff Pitchfork', clicks: 3, glyph: '⊢E' },
@@ -256,6 +267,24 @@ type Drawing =
       /** Absent means Andrews — every fork saved before the variants existed. */
       variant?: ForkVariant;
     }
+  /* CHANNELS. Three clicks for the first three variants: p1-p2 is the line you
+   * drew, p3 says where the second one goes. Linear Regression takes two,
+   * because its lines are CALCULATED from the candles between them rather than
+   * placed — which is why it alone re-derives when the bars move. */
+  | {
+      id: string; kind: 'channel'; variant: ChannelVariant;
+      t1: number; v1: number; t2: number; v2: number;
+      /** Absent on a regression, which has no third anchor. */
+      t3?: number; v3?: number;
+      /** Disjoint only: the far end of the SECOND line, which is free of the
+       *  first. Seeded alongside p3 so the channel starts parallel and then
+       *  stops being so the moment either end is dragged. */
+      t4?: number; v4?: number;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
+      label?: string;
+      /** The tint between the boundaries. On by default; the ⋮ menu hides it. */
+      fill?: boolean;
+    }
   | FibDrawing;
 
 /** The palette the style toolbar offers. */
@@ -352,6 +381,76 @@ function TimeframeRing({ value, live, onPick, onClose }: {
   );
 }
 
+/* THE CHANNELS.
+ *
+ * p1-p2 is the line you drew. What follows differs by variant:
+ *
+ *   parallel  the second boundary is p1-p2 moved VERTICALLY to p3 — same span
+ *             of time, same slope, a price offset. Not a perpendicular shift:
+ *             that slides the boundary along the time axis too, so the two
+ *             lines covered different stretches of chart and the channel came
+ *             out as a leaning parallelogram rather than a corridor over the
+ *             bars it describes.
+ *   disjoint  a second line with its own two ends, p3 and p4. It starts
+ *             parallel and stops being so as soon as either end moves, which
+ *             is the point of it — this one can converge.
+ *   flat      horizontal at p3's price, across the same span. Horizontal is the
+ *             whole claim of the tool, so it is enforced here.
+ *
+ * Pixels, like the pitchfork: price and time carry different units, so a slope
+ * matched in price space would not look matched on screen.
+ */
+function channelSegments(
+  p1: Pt, p2: Pt, p3: Pt | null, p4: Pt | null,
+  variant: ChannelVariant, id: string,
+  style: { color: string; width: number; dash: string },
+): { segs: Seg[]; quad: Pt[] | null } {
+  const { color, width, dash } = style;
+  const seg = (segId: string, a: Pt, b: Pt): Seg =>
+    ({ id: segId, x1: a.x, y1: a.y, x2: b.x, y2: b.y, color, width, dash });
+  if (!p3) return { segs: [seg(id, p1, p2)], quad: null };
+
+  let q1: Pt, q2: Pt;
+  if (variant === 'flat') {
+    q1 = { x: p1.x, y: p3.y };
+    q2 = { x: p2.x, y: p3.y };
+  } else if (variant === 'disjoint' && p4) {
+    q1 = p3;
+    q2 = p4;
+  } else {
+    // Vertical offset: how far p3 sits above or below the line at its own x.
+    const dx = p2.x - p1.x;
+    const tAt = dx === 0 ? 0 : (p3.x - p1.x) / dx;
+    const yOn = p1.y + (p2.y - p1.y) * tAt;
+    const off = p3.y - yOn;
+    q1 = { x: p1.x, y: p1.y + off };
+    q2 = { x: p2.x, y: p2.y + off };
+  }
+  return { segs: [seg(id, p1, p2), seg(`${id}#b`, q1, q2)], quad: [p1, p2, q2, q1] };
+}
+
+/* LINEAR REGRESSION, from the candles themselves.
+ *
+ * Least squares over the closes between the two clicks, with the bands at one
+ * standard deviation of the residuals. Computed from the DATA, not drawn by
+ * hand, which is the whole claim the tool makes — so it is recomputed whenever
+ * the range or the bars change, and says nothing when there is too little to
+ * fit a line to.
+ */
+function regressionFit(closes: number[]): { a: number; b: number; sd: number } | null {
+  const n = closes.length;
+  if (n < 3) return null;                            // two points are not a trend
+  let sx = 0, sy = 0, sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sx += i; sy += closes[i]; sxy += i * closes[i]; sxx += i * i; }
+  const den = n * sxx - sx * sx;
+  if (den === 0) return null;
+  const b = (n * sxy - sx * sy) / den;               // slope, per bar
+  const a = (sy - b * sx) / n;                       // intercept
+  let ss = 0;
+  for (let i = 0; i < n; i++) { const r = closes[i] - (a + b * i); ss += r * r; }
+  return { a, b, sd: Math.sqrt(ss / n) };
+}
+
 /* HOW TALL A FLYOUT MAY BE.
  *
  * Position is left to CSS: `absolute left-[calc(100%+6px)] top-0` pins the menu
@@ -359,15 +458,18 @@ function TimeframeRing({ value, live, onPick, onClose }: {
  * could — a mis-measured rect put the menu in the middle of the chart, nowhere
  * near the control that opened it.
  *
- * Only the HEIGHT needs the viewport, because that is the one thing CSS cannot
- * work out here: the menu starts partway down the rail, so `70vh` of it ran off
- * the bottom of the window and the items past the edge were unreachable however
- * the inner list scrolled. This caps it to the room actually below the button.
+ * The floor is the CHART's bottom edge, not the window's. Measured against the
+ * window, the list ran on underneath the status strip — "Trading on 9 markets"
+ * sits below the chart and drew over the tail of it, so the last few tools were
+ * behind the furniture rather than off the screen. The chart is the room this
+ * menu is allowed to use.
  */
-function flyoutMaxH(el: HTMLElement | null): number {
-  const fallback = Math.round(window.innerHeight * 0.7);
+function flyoutMaxH(el: HTMLElement | null, within: HTMLElement | null): number {
+  const fallback = Math.round(window.innerHeight * 0.6);
   if (!el) return fallback;
-  return Math.max(200, window.innerHeight - el.getBoundingClientRect().top - 8);
+  const top = el.getBoundingClientRect().top;
+  const floor = within ? within.getBoundingClientRect().bottom : window.innerHeight;
+  return Math.max(200, floor - top - 8);
 }
 
 /** A line of the overlay, in pane pixels. */
@@ -727,7 +829,7 @@ export function MarketChart({
   const [drawMaxH, setDrawMaxH] = useState<number | null>(null);
   useLayoutEffect(() => {
     if (!drawOpen) { setDrawMaxH(null); return; }
-    const place = () => setDrawMaxH(flyoutMaxH(drawBtnRef.current));
+    const place = () => setDrawMaxH(flyoutMaxH(drawBtnRef.current, wrapRef.current));
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -750,7 +852,7 @@ export function MarketChart({
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
   useLayoutEffect(() => {
     if (!fibOpen) { setFibMaxH(null); return; }
-    const place = () => setFibMaxH(flyoutMaxH(fibBtnRef.current));
+    const place = () => setFibMaxH(flyoutMaxH(fibBtnRef.current, wrapRef.current));
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -938,6 +1040,9 @@ export function MarketChart({
    *  on this overlay that is not a straight line is the thing that makes an
    *  angle readable as an angle. */
   const [arcs, setArcs] = useState<{ id: string; d: string; color: string }[]>([]);
+  /** The tint between a channel's boundaries. A polygon, so it cannot be a
+   *  seg — and separate state so hiding fills never disturbs the lines. */
+  const [fills, setFills] = useState<{ id: string; pts: Pt[]; color: string }[]>([]);
 
   /** Info/Angle's reading while the line is still being drawn. */
   const [bandLabel, setBandLabelState] = useState<string | null>(null);
@@ -976,6 +1081,7 @@ export function MarketChart({
      * ways. Because this is pixels, "the edge" is literally the edge — it
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
+    const quads: { id: string; pts: Pt[]; color: string }[] = [];
     for (const d of drawings.current) {
       if (d.kind !== 'trend') continue;
       const ax = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
@@ -1034,6 +1140,64 @@ export function MarketChart({
         width: d.width ?? 2,
         dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
       }, W, H, d.variant ?? 'andrews'));
+    }
+
+    /* CHANNELS: the two boundaries, and the quad between them for the tint. */
+    for (const d of drawings.current) {
+      if (d.kind !== 'channel') continue;
+      const pt = (t: number, v: number): Pt | null => {
+        const cx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const cy0 = s.priceToCoordinate(v);
+        return cx0 == null || cy0 == null ? null : { x: cx0 as number, y: cy0 as number };
+      };
+      const pa = pt(d.t1, d.v1), pb = pt(d.t2, d.v2);
+      if (!pa || !pb) continue;
+      const style = {
+        color: d.color ?? DRAW_COLOR,
+        width: d.width ?? 2,
+        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+      };
+
+      if (d.variant === 'linreg') {
+        /* CALCULATED, not placed. The closes between the two clicks are fitted
+         * and the bands sit one standard deviation either side. Nothing is
+         * drawn when the range is too short to fit a line to — a regression
+         * through two points is just the two points. */
+        const lo = Math.min(d.t1, d.t2), hi = Math.max(d.t1, d.t2);
+        const rows = barsRef.current.filter(
+          (bar) => (bar.time as number) >= lo && (bar.time as number) <= hi,
+        );
+        const fit = regressionFit(rows.map((bar) => bar.close));
+        if (!fit) continue;
+        const last = rows.length - 1;
+        const ends = (off: number) => {
+          const e0 = pt(rows[0].time as number, fit.a + off);
+          const e1 = pt(rows[last].time as number, fit.a + fit.b * last + off);
+          return e0 && e1 ? [e0, e1] as const : null;
+        };
+        const mid = ends(0), up = ends(fit.sd), dn = ends(-fit.sd);
+        if (!mid) continue;
+        out.push({ id: d.id, x1: mid[0].x, y1: mid[0].y, x2: mid[1].x, y2: mid[1].y, ...style });
+        for (const [key, e] of [['u', up], ['d', dn]] as const) {
+          if (!e) continue;
+          out.push({
+            id: `${d.id}#${key}`, x1: e[0].x, y1: e[0].y, x2: e[1].x, y2: e[1].y,
+            color: style.color, width: Math.max(1, style.width - 1), dash: '5 4',
+          });
+        }
+        if (d.fill !== false && up && dn) {
+          quads.push({ id: `${d.id}#fill`, pts: [up[0], up[1], dn[1], dn[0]], color: style.color });
+        }
+        continue;
+      }
+
+      const pc = d.t3 != null && d.v3 != null ? pt(d.t3, d.v3) : null;
+      const pd = d.t4 != null && d.v4 != null ? pt(d.t4, d.v4) : null;
+      const r = channelSegments(pa, pb, pc, pd, d.variant, d.id, style);
+      out.push(...r.segs);
+      if (r.quad && d.fill !== false) {
+        quads.push({ id: `${d.id}#fill`, pts: r.quad, color: style.color });
+      }
     }
 
     /* VERTICAL LINE and CROSS LINE.
@@ -1123,6 +1287,7 @@ export function MarketChart({
       }
     }
 
+    setFills(quads);
     segsRef.current = out;
     setSegs(out);
 
@@ -1222,6 +1387,31 @@ export function MarketChart({
         if (x != null && y != null) hs.push({ id: `${d.id}:${key}`, x: x as number, y: y as number });
       }
     }
+    /* A CHANNEL's anchors. The regression has two — its lines are computed,
+     * so there is no third point to offer. */
+    for (const d of drawings.current) {
+      if (d.kind !== 'channel') continue;
+      const pts: [number, number, string][] = [[d.t1, d.v1, 'a'], [d.t2, d.v2, 'b']];
+      // Disjoint's second line has two ends of its own, so both get a grip.
+      if (d.variant === 'disjoint') {
+        if (d.t3 != null && d.v3 != null) pts.push([d.t3, d.v3, 'c']);
+        if (d.t4 != null && d.v4 != null) pts.push([d.t4, d.v4, 'd']);
+      }
+      for (const [t, v, key] of pts) {
+        const hx = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const hy = s.priceToCoordinate(v);
+        if (hx != null && hy != null) hs.push({ id: `${d.id}:${key}`, x: hx as number, y: hy as number });
+      }
+      /* PARALLEL and FLAT put ONE grip at the MIDDLE of the second boundary.
+       * That line has no independent ends — it only moves across — so a handle
+       * at each end would offer to tilt something that cannot tilt. Taken from
+       * the drawn segment rather than recomputed, so grip and line agree. */
+      if (d.variant === 'parallel' || d.variant === 'flat') {
+        const g = out.find((o) => o.id === `${d.id}#b`);
+        if (g) hs.push({ id: `${d.id}:c`, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 });
+      }
+    }
+
     /* VERTICAL and CROSS get a handle too.
      *
      * Neither had one, so neither could be grabbed by a point — the only way
@@ -1313,8 +1503,9 @@ export function MarketChart({
     // A fib was already offset by duplicateFib above.
     else if (copy.kind !== 'fib') {
       copy.v1 *= 1.0005;
-      if (copy.kind === 'trend' || copy.kind === 'pitchfork') copy.v2 *= 1.0005;
+      if (copy.kind === 'trend' || copy.kind === 'pitchfork' || copy.kind === 'channel') copy.v2 *= 1.0005;
       if (copy.kind === 'pitchfork') copy.v3 *= 1.0005;
+      if (copy.kind === 'channel' && copy.v3 != null) copy.v3 *= 1.0005;
     }
     drawings.current.push(copy);
     if (!drawingsHidden) renderDrawings(); else syncLabels();
@@ -1381,7 +1572,7 @@ export function MarketChart({
    *  `kind` is the full union so a fib can be dragged like anything else. */
   const drag = useRef<{
     id: string; kind: Drawing['kind']; lastX: number; lastY: number;
-    anchor?: 'a' | 'b' | 'c';
+    anchor?: 'a' | 'b' | 'c' | 'd';
   } | null>(null);
   // Indicators.
   const barsRef = useRef<Candle[]>([]);
@@ -1812,6 +2003,35 @@ export function MarketChart({
         setDrawPending(false);
         clearPreview();
         syncLabels();           // see the pitchfork branch — the overlay needs measuring
+      } else if (CHANNEL_VARIANT[t]) {
+        /* Two or three clicks. A regression stops at two — it needs a RANGE,
+         * and a third click would be asking where to put a line it is going to
+         * calculate for you. */
+        const variant = CHANNEL_VARIANT[t]!;
+        const need = variant === 'linreg' ? 2 : 3;
+        forkPts.current.push({ time: time as Time, value: price });
+        if (forkPts.current.length < need) { setDrawPending(true); return; }
+        const [ca, cb, cc] = forkPts.current;
+        const d: Drawing = {
+          id: newDrawId(), kind: 'channel', variant,
+          t1: ca.time as number, v1: ca.value,
+          t2: cb.time as number, v2: cb.value,
+          ...(cc ? { t3: cc.time as number, v3: cc.value } : {}),
+          // Disjoint starts parallel: its far end is p3 carried along by the
+          // same run and rise as p1->p2. From there both ends are free.
+          ...(cc && variant === 'disjoint'
+            ? {
+              t4: (cc.time as number) + ((cb.time as number) - (ca.time as number)),
+              v4: cc.value + (cb.value - ca.value),
+            }
+            : {}),
+          fill: true,
+        };
+        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+        forkPts.current = [];
+        setDrawPending(false);
+        clearPreview();
+        syncLabels();
       } else if (FORK_VARIANT[t]) {
         // Three clicks: pivot, then the two ends of the swing off it. The first
         // two are only remembered — nothing is drawn until the third, because
@@ -1903,7 +2123,8 @@ export function MarketChart({
        * the geometry here, so the thing you can see and the thing you can grab
        * cannot disagree. */
       for (const d of drawings.current) {
-        if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross') continue;
+        if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
+          && d.kind !== 'channel') continue;
         const mine = segsRef.current.filter(
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
@@ -1941,7 +2162,7 @@ export function MarketChart({
         e.preventDefault();
         setSelected(d);
         drag.current = {
-          id, kind: 'trend', lastX: x, lastY: y, anchor: key as 'a' | 'b' | 'c',
+          id, kind: 'trend', lastX: x, lastY: y, anchor: key as 'a' | 'b' | 'c' | 'd',
         };
         chart.applyOptions({ handleScroll: false, handleScale: false });
         try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -1998,6 +2219,34 @@ export function MarketChart({
           if (t === 'cross') g.push({ id: 'ghost-h', x1: 0, y1: y, x2: W0, y2: y, ...style });
           setGhost(g);
           if (bandRef.current) { bandRef.current = null; setBand(null); }
+        } else if (CHANNEL_VARIANT[t]) {
+          /* One click down: the line you are drawing. Two: the whole channel,
+           * with the cursor as the offset — through the same channelSegments
+           * the committed one uses, so the preview cannot promise a shape the
+           * click will not produce. */
+          const cpx = (q: { time: Time; value: number }): Pt | null => {
+            const qx = c.timeScale().timeToCoordinate(q.time as UTCTimestamp);
+            const qy = s.priceToCoordinate(q.value);
+            return qx == null || qy == null ? null : { x: qx as number, y: qy as number };
+          };
+          const pts = forkPts.current;
+          const pa = pts[0] ? cpx(pts[0]) : null;
+          if (pts.length === 2 && pa) {
+            const pb = cpx(pts[1]);
+            setGhost(pb
+              ? channelSegments(pa, pb, { x, y }, null, CHANNEL_VARIANT[t]!, 'ghost',
+                  { color: DRAW_COLOR, width: 2, dash: '' }).segs
+              : []);
+            if (bandRef.current) { bandRef.current = null; setBand(null); }
+          } else if (pts.length === 1 && pa) {
+            if (ghostRef.current.length) setGhost([]);
+            const next = { x1: pa.x, y1: pa.y, x2: x, y2: y, flat: false };
+            bandRef.current = next;
+            setBand(next);
+          } else {
+            if (ghostRef.current.length) setGhost([]);
+            if (bandRef.current) { bandRef.current = null; setBand(null); }
+          }
         } else if (FORK_VARIANT[t]) {
           const px = (p: { time: Time; value: number }): Pt | null => {
             const ax = c.timeScale().timeToCoordinate(p.time as UTCTimestamp);
@@ -2112,10 +2361,13 @@ export function MarketChart({
         const tt = timeAtXRef.current?.(x) ?? null;
         if (p != null && tt != null) {
           if (dg.anchor === 'a') { d.t1 = tt; if (d.kind !== 'vline') d.v1 = p as number; }
-          else if (dg.anchor === 'b' && (d.kind === 'trend' || d.kind === 'pitchfork')) {
+          else if (dg.anchor === 'b'
+            && (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel')) {
             d.t2 = tt; d.v2 = p as number;
-          } else if (dg.anchor === 'c' && d.kind === 'pitchfork') {
+          } else if (dg.anchor === 'c' && (d.kind === 'pitchfork' || d.kind === 'channel')) {
             d.t3 = tt; d.v3 = p as number;
+          } else if (dg.anchor === 'd' && d.kind === 'channel') {
+            d.t4 = tt; d.v4 = p as number;
           }
           syncLabels();
         }
@@ -2132,15 +2384,19 @@ export function MarketChart({
           // A vertical line has no price to move — it marks a moment, and
           // dragging it up and down must not invent a height for it.
           if (d.kind !== 'vline') d.v1 += dv;
-          if (d.kind === 'trend' || d.kind === 'pitchfork') d.v2 += dv;
+          if (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel') d.v2 += dv;
           if (d.kind === 'pitchfork') d.v3 += dv;
+          if (d.kind === 'channel' && d.v3 != null) d.v3 += dv;
+          if (d.kind === 'channel' && d.v4 != null) d.v4 += dv;
         }
         const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
         if (tNow != null && tLast != null) {
           const dt = (tNow as number) - (tLast as number);
           d.t1 += dt;
-          if (d.kind === 'trend' || d.kind === 'pitchfork') d.t2 += dt;
+          if (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel') d.t2 += dt;
           if (d.kind === 'pitchfork') d.t3 += dt;
+          if (d.kind === 'channel' && d.t3 != null) d.t3 += dt;
+          if (d.kind === 'channel' && d.t4 != null) d.t4 += dt;
         }
         // The overlay owns diagonals now, so moving one is just re-measuring.
         syncLabels();
@@ -2386,8 +2642,19 @@ export function MarketChart({
         {/* Diagonals and their handles. Clipped by the SVG viewport, which is
             how a ray reaches the edge without existing beyond it. */}
         {!drawingsHidden
-          && (segs.length > 0 || handles.length > 0 || ghost.length > 0 || arcs.length > 0) && (
+          && (segs.length > 0 || handles.length > 0 || ghost.length > 0
+            || arcs.length > 0 || fills.length > 0) && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
+            {/* Tints first, so a boundary is never drawn under its own fill. */}
+            {fills.map((f) => (
+              <polygon
+                key={f.id}
+                points={f.pts.map((q) => `${q.x},${q.y}`).join(' ')}
+                fill={f.color}
+                fillOpacity={0.12}
+                stroke="none"
+              />
+            ))}
             {segs.map((g) => (
               <line
                 key={g.id}
@@ -2763,7 +3030,7 @@ export function MarketChart({
                   />
                   <div
                     style={drawMaxH ? { maxHeight: drawMaxH } : undefined}
-                    className="absolute left-[calc(100%+6px)] top-0 z-50 w-64 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] w-64 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
@@ -2868,7 +3135,7 @@ export function MarketChart({
                   />
                   <div
                     style={fibMaxH ? { maxHeight: fibMaxH } : undefined}
-                    className="absolute left-[calc(100%+6px)] top-0 z-50 w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Fibonacci', FIB_TOOLS],
