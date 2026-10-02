@@ -23,7 +23,7 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Circle,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -927,6 +927,20 @@ export function MarketChart({
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /* MAGNET. Off, weak, strong — the three the spec asks for.
+   *
+   * Weak only takes hold when you are already near a candle's open, high, low
+   * or close; strong always takes the nearest one on the nearest bar. Weak is
+   * the default-on behaviour people expect from a magnet: it helps when you
+   * are aiming at a level and stays out of the way when you are not.
+   *
+   * A snapped point takes the candle's OWN time and price, not the cursor's
+   * rounded to look like it — that is the difference between a line that sits
+   * on the high and one that sits very near it. */
+  const [magnet, setMagnet] = useState<'off' | 'weak' | 'strong'>('off');
+  const magnetRef = useRef<'off' | 'weak' | 'strong'>('off');
+  useEffect(() => { magnetRef.current = magnet; }, [magnet]);
+
   const [tfRingOpen, setTfRingOpen] = useState(false);
   const [tool, setTool] = useState<Tool>('cursor');
   /** The armed tool's menu entry — its name and how many clicks it wants.
@@ -1068,6 +1082,7 @@ export function MarketChart({
   const setBandLabel = (v: string | null) => { bandLabelRef.current = v; setBandLabelState(v); };
   /** timeAtX lives inside the chart effect; the pointer handler needs it too. */
   const timeAtXRef = useRef<((x: number) => number | null) | null>(null);
+  const snapRef = useRef<((t: number, v: number, y: number) => { t: number; v: number }) | null>(null);
 
   /** The fork being placed, previewed in full. Separate from the rubber band:
    *  that is one line, and a fork is four. */
@@ -2064,6 +2079,32 @@ export function MarketChart({
     };
     timeAtXRef.current = timeAtX;
 
+    /** The nearest candle level to a click, when the magnet is on. */
+    const snapPoint = (t: number, v: number, y: number): { t: number; v: number } => {
+      const mode = magnetRef.current;
+      const bars = barsRef.current;
+      if (mode === 'off' || bars.length === 0) return { t, v };
+      // Nearest bar in time.
+      let best = bars[0];
+      for (const bar of bars) {
+        if (Math.abs((bar.time as number) - t) < Math.abs((best.time as number) - t)) best = bar;
+      }
+      // Nearest of its four levels, measured in PIXELS — price distance means
+      // different things on different markets, pixels mean the same everywhere.
+      const levels = [best.open, best.high, best.low, best.close];
+      let pick = levels[0], bestPx = Infinity;
+      for (const lv of levels) {
+        const ly = series.priceToCoordinate(lv);
+        if (ly == null) continue;
+        const dpx = Math.abs((ly as number) - y);
+        if (dpx < bestPx) { bestPx = dpx; pick = lv; }
+      }
+      // Weak holds only when you are already close; strong always takes it.
+      if (mode === 'weak' && bestPx > 14) return { t, v };
+      return { t: best.time as number, v: pick };
+    };
+    snapRef.current = snapPoint;
+
     const onClick = (param: MouseEventParams) => {
       const t = toolRef.current;
       // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
@@ -2093,8 +2134,14 @@ export function MarketChart({
       if (!param.point) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price == null) return;
-      const time = (param.time as number | undefined) ?? timeAtX(param.point.x);
-      if (time == null) return;
+      const rawTime = (param.time as number | undefined) ?? timeAtX(param.point.x);
+      if (rawTime == null) return;
+      // The magnet applies at the moment a point is placed, so what is STORED
+      // is the candle's own time and price — not the cursor's, nudged to look
+      // like it.
+      const snapped = snapPoint(rawTime, price as number, param.point.y);
+      const time = snapped.t;
+      const sPrice = snapped.v as typeof price;
       if (t === 'hline') {
         const d: Drawing = { id: newDrawId(), kind: 'hline', price };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
@@ -2106,7 +2153,7 @@ export function MarketChart({
         // was not there before an event.
         const d: Drawing = {
           id: newDrawId(), kind: 'trend', reach: 'hray',
-          pts: [{ t: time, v: price }, { t: time, v: price }],
+          pts: [{ t: time, v: sPrice }, { t: time, v: sPrice }],
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         syncLabels();           // a horizontal ray is a diagonal too — same overlay
@@ -2114,8 +2161,8 @@ export function MarketChart({
         // One click each. A vertical line marks WHEN and takes no price; a
         // cross marks when AND what, so it keeps both.
         const d: Drawing = t === 'vline'
-          ? { id: newDrawId(), kind: 'vline', pts: [{ t: time, v: price }] }
-          : { id: newDrawId(), kind: 'cross', pts: [{ t: time, v: price }] };
+          ? { id: newDrawId(), kind: 'vline', pts: [{ t: time, v: sPrice }] }
+          : { id: newDrawId(), kind: 'cross', pts: [{ t: time, v: sPrice }] };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         clearPreview();
         syncLabels();
@@ -2123,7 +2170,7 @@ export function MarketChart({
         || t === 'angle' || t === 'arrow') {
         // Two clicks. The first is remembered; the second completes it.
         if (!trendStart.current) {
-          trendStart.current = { time: time as Time, value: price };
+          trendStart.current = { time: time as Time, value: sPrice };
           setDrawPending(true);
           return;
         }
@@ -2136,7 +2183,7 @@ export function MarketChart({
           ...(t === 'arrow' ? { arrow: true as const } : {}),
           pts: [
             { t: trendStart.current.time as number, v: trendStart.current.value },
-            { t: time, v: price },
+            { t: time, v: sPrice },
           ],
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
@@ -2150,7 +2197,7 @@ export function MarketChart({
          * calculate for you. */
         const variant = CHANNEL_VARIANT[t]!;
         const need = variant === 'linreg' ? 2 : variant === 'disjoint' ? 4 : 3;
-        forkPts.current.push({ time: time as Time, value: price });
+        forkPts.current.push({ time: time as Time, value: sPrice });
         if (forkPts.current.length < need) { setDrawPending(true); return; }
         const d: Drawing = {
           id: newDrawId(), kind: 'channel', variant,
@@ -2169,7 +2216,7 @@ export function MarketChart({
         // two are only remembered — nothing is drawn until the third, because
         // two points do not yet describe a fork. All four variants take the
         // same three; only the stored variant differs.
-        forkPts.current.push({ time: time as Time, value: price });
+        forkPts.current.push({ time: time as Time, value: sPrice });
         if (forkPts.current.length < 3) { setDrawPending(true); return; }
         const d: Drawing = {
           id: newDrawId(), kind: 'pitchfork',
@@ -2190,7 +2237,7 @@ export function MarketChart({
         // label would just be a plain line the text tool pretended to name.
         const label = window.prompt('Label for this level');
         if (label == null || !label.trim()) return;
-        const d: Drawing = { id: newDrawId(), kind: 'hline', price, label: label.trim() };
+        const d: Drawing = { id: newDrawId(), kind: 'hline', price: sPrice, label: label.trim() };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
       }
     };
@@ -2502,12 +2549,16 @@ export function MarketChart({
          * recomputed, so a fork's median and tines swing, an extended line
          * pivots about its other end, and a channel's boundary follows. */
         const pr = s.coordinateToPrice(y);
-        const tt = timeAtXRef.current?.(x) ?? null;
+        const rawT = timeAtXRef.current?.(x) ?? null;
         const q = d.pts[dg.anchor];
-        if (pr != null && tt != null && q) {
+        if (pr != null && rawT != null && q) {
+          // Same magnet when REshaping as when placing: an anchor that snapped
+          // on the way down and not on the way back would not stay put.
+          const sn = snapRef.current?.(rawT, pr as number, y) ?? { t: rawT, v: pr as number };
+          const tt = sn.t;
           q.t = tt;
           // A vertical line has no height to move; only its moment changes.
-          if (d.kind !== 'vline') q.v = pr as number;
+          if (d.kind !== 'vline') q.v = sn.v;
           syncLabels();
         }
       } else {
@@ -3322,6 +3373,20 @@ export function MarketChart({
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
                 everything being selected at once. One tool, one lit control. */}
+            {/* MAGNET: off -> weak -> strong -> off.
+                One button rather than three, because they are states of one
+                setting; the icon says which by how loud it is. */}
+            <RailBtn
+              active={magnet !== 'off'}
+              onClick={() => setMagnet((m) => (m === 'off' ? 'weak' : m === 'weak' ? 'strong' : 'off'))}
+              title={
+                magnet === 'off' ? 'Magnet off — click to snap near candle levels'
+                  : magnet === 'weak' ? 'Magnet weak — snaps when close to a candle O/H/L/C'
+                    : 'Magnet strong — always snaps to the nearest candle level'
+              }
+            >
+              <Magnet className={`h-4 w-4 ${magnet === 'strong' ? 'fill-current' : ''}`} />
+            </RailBtn>
             <RailBtn active={gridOn} onClick={() => setGridOn((v) => !v)} title={gridOn ? 'Hide grid' : 'Show grid'}>
               <Grid3x3 className="h-4 w-4" />
             </RailBtn>
