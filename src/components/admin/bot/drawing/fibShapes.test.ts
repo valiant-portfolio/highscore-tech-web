@@ -95,7 +95,7 @@ test('channel: vertical base line uses a horizontal offset, finite', () => {
 test('channel: hit on the ratio-1 line', () => {
   const g = geo(makeFibDrawing('channel', [A, B, CC], 'c'));
   assert.equal(fibHitTest([g], 150, 900, 7), 'c');
-  assert.equal(fibHitTest([g], 150, 600, 7), null);
+  assert.equal(fibHitTest([g], 150, 700, 7), null);
 });
 
 // --- extension2 -------------------------------------------------------------
@@ -351,10 +351,8 @@ test('gann fan: 9 rays through Q_r, labels, colours', () => {
   assert.equal(g.lines.length, 9);
   assert.equal(g.texts.length, 9);
   assert.equal(g.connectors.length, 0);
-  const qy: Record<number, number> = { 1: 800, 4: 500 };
   const q = (i: number, y: number) => near(distToSeg(200, y, g.lines[i].x1, g.lines[i].y1, g.lines[i].x2, g.lines[i].y2), 0, 1e-6);
   q(4, 800); q(3, 850); q(8, 100); q(0, 887.5);
-  void qy;
   near(g.lines[4].x2, 1726.35, 0.01);
   near(g.lines[4].y2, -726.35, 0.01);
   assert.equal(g.texts[4].text, '1/1');
