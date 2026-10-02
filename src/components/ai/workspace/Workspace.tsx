@@ -645,66 +645,6 @@ export function Workspace({
               old while the bot is running perfectly — which is exactly how it
               misled us. lastUpdate is the newest bot_market_state write, and
               that happens every cycle. */}
-          {/* LAYOUT. Four counts, drawn as the shape they make, so the choice
-              reads at a glance rather than as a number you have to picture. */}
-          <span className="ml-auto flex shrink-0 items-center gap-1">
-            {([1, 2, 4, 6] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setPanes(n)}
-                title={n === 1 ? 'One chart' : `${n} charts`}
-                aria-pressed={panes === n}
-                className={`grid h-7 w-7 place-items-center rounded-sm border transition-colors ${
-                  panes === n
-                    ? 'border-brand/50 bg-brand/15 text-brand'
-                    : 'border-transparent text-fg-subtle hover:bg-brand/10 hover:text-brand'
-                }`}
-              >
-                <span className={`grid gap-px ${
-                  n === 1 ? 'grid-cols-1 grid-rows-1'
-                    : n === 2 ? 'grid-cols-2 grid-rows-1'
-                      : n === 4 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2'
-                }`}
-                >
-                  {Array.from({ length: n }, (_, i) => (
-                    <span key={i} className="h-1.5 w-1.5 bg-current" />
-                  ))}
-                </span>
-              </button>
-            ))}
-          </span>
-          {/* SYNC, beside the layout it applies to. Hidden on a single pane:
-              there is nothing to synchronise with. */}
-          {panes > 1 && (
-            <span className="flex shrink-0 items-center gap-2 border-l border-border pl-2">
-              {([
-                ['symbol', 'Symbol'], ['interval', 'Interval'], ['crosshair', 'Crosshair'],
-              ] as const).map(([k, label]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setSync((v) => ({ ...v, [k]: !v[k] }))}
-                  aria-pressed={sync[k]}
-                  title={`Sync ${label.toLowerCase()} across panes`}
-                  className={`flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-[11px] transition-colors ${
-                    sync[k] ? 'text-brand' : 'text-fg-subtle hover:text-fg'
-                  }`}
-                >
-                  <span className={`h-3 w-5 rounded-full transition-colors ${
-                    sync[k] ? 'bg-brand/40' : 'bg-surface-hover'
-                  }`}
-                  >
-                    <span className={`block h-3 w-3 rounded-full transition-transform ${
-                      sync[k] ? 'translate-x-2 bg-brand' : 'bg-fg-subtle'
-                    }`}
-                    />
-                  </span>
-                  {label}
-                </button>
-              ))}
-            </span>
-          )}
           <span className="shrink-0 text-[11px]">
             {lastUpdate
               ? <BotPulse iso={lastUpdate} />
@@ -731,6 +671,87 @@ export function Workspace({
             {Array.from({ length: panes }, (_, i) => (
               <div key={i} className="relative min-h-0 min-w-0 bg-bg">
               <MarketChart
+                layoutMenu={i !== 0 ? null : (
+                  <div className="flex gap-5 px-2 py-1">
+                    <div>
+                      <p className="pb-2 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">
+                        Layout
+                      </p>
+                      {/* Each option drawn as the shape it makes — the choice
+                          reads at a glance instead of as a number you picture. */}
+                      <div className="flex flex-col gap-1.5">
+                        {([1, 2, 4, 6] as const).map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setPanes(n)}
+                            aria-pressed={panes === n}
+                            title={n === 1 ? 'One chart' : `${n} charts`}
+                            className={`grid h-8 w-10 place-items-center rounded-sm border transition-colors ${
+                              panes === n
+                                ? 'border-brand/50 bg-brand/15 text-brand'
+                                : 'border-border text-fg-subtle hover:border-brand/40 hover:text-brand'
+                            }`}
+                          >
+                            <span className={`grid gap-px ${
+                              n === 1 ? 'grid-cols-1'
+                                : n === 2 ? 'grid-cols-2'
+                                  : n === 4 ? 'grid-cols-2' : 'grid-cols-3'
+                            }`}
+                            >
+                              {Array.from({ length: n }, (_, k) => (
+                                <span key={k} className="h-1.5 w-2 bg-current" />
+                              ))}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="min-w-[8.5rem]">
+                      <p className="pb-2 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">
+                        Sync
+                      </p>
+                      {([
+                        ['symbol', 'Symbol', true], ['interval', 'Interval', true],
+                        ['crosshair', 'Crosshair', true],
+                        // The panes draw one series type, so there is no second
+                        // style to agree on. Shown and inert, like every other
+                        // control here for something not built.
+                        ['style', 'Style', false],
+                      ] as const).map(([k, label, live]) => {
+                        const on = live && sync[k as 'symbol' | 'interval' | 'crosshair'];
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            disabled={!live || panes === 1}
+                            title={!live ? 'Not built yet — one series type'
+                              : panes === 1 ? 'Nothing to sync with one chart' : undefined}
+                            onClick={() => setSync((v) => ({
+                              ...v, [k]: !v[k as 'symbol' | 'interval' | 'crosshair'],
+                            }))}
+                            className={`flex w-full items-center justify-between gap-3 rounded-sm px-1 py-1.5 text-[13px] transition-colors ${
+                              !live || panes === 1
+                                ? 'cursor-not-allowed text-fg-subtle/50'
+                                : 'text-fg hover:text-brand'
+                            }`}
+                          >
+                            {label}
+                            <span className={`flex h-4 w-7 items-center rounded-full px-0.5 transition-colors ${
+                              on ? 'bg-brand/40' : 'bg-surface-hover'
+                            }`}
+                            >
+                              <span className={`h-3 w-3 rounded-full transition-transform ${
+                                on ? 'translate-x-3 bg-brand' : 'bg-fg-subtle'
+                              }`}
+                              />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 chrome="workspace"
               paneId={panes === 1 ? '' : `p${i}`}
                 syncSymbol={sync.symbol ? syncedSymbol : null}

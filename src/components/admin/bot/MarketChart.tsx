@@ -836,6 +836,7 @@ export function MarketChart({
   markets, openTrades = [], showGrid = true, palette = DESK_PALETTE, focusSymbol = null,
   chrome = 'desk', paneId = '',
   syncSymbol = null, syncTf = null, onSymbolChange, onTfChange, syncCrosshair = false,
+  layoutMenu = null,
 }: {
   markets: { symbol: string; alias: string }[];
   openTrades?: { symbol: string; side: string }[];
@@ -860,6 +861,9 @@ export function MarketChart({
   onTfChange?: (t: string) => void;
   /** Post and follow the crosshair across panes. */
   syncCrosshair?: boolean;
+  /** What the Layout menu holds. The page owns the pane count, so the page
+   *  supplies the control for it. */
+  layoutMenu?: React.ReactNode;
   /** Distinguishes one pane from another in a grid. Blank for a lone chart,
    *  which keeps the key it has always used so existing selections survive. */
   paneId?: string;
@@ -3275,25 +3279,20 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             ))}
           </TopMenu>
 
-          {/* Layout: what the chart shows, as opposed to what it plots. */}
+          {/* LAYOUT: how many charts, and what they share.
+              The view actions that used to live here - fit to data, jump to
+              latest, hide grid, hide overlays - are not layout; they are things
+              you do to one chart, and the rail already holds the grid toggle.
+              Supplied by the page, which owns the pane count. */}
           <TopMenu label="Layout">
-            {(close) => (
-              <>
-                <MenuItem onClick={() => { chartRef.current?.timeScale().fitContent(); close(); }}>
-                  Fit to data
-                </MenuItem>
-                <MenuItem onClick={() => { chartRef.current?.timeScale().scrollToRealTime(); close(); }}>
-                  Jump to latest
-                </MenuItem>
-                {/* Not `active`: these are actions, and a green "Hide grid"
-                    reads as "the grid is hidden" — the opposite of the truth. */}
-                <MenuItem onClick={() => { setGridOn((v) => !v); close(); }}>
-                  {gridOn ? 'Hide grid' : 'Show grid'}
-                </MenuItem>
-                <MenuItem onClick={() => { toggleOverlays(); close(); }}>
-                  {overlaysOn ? 'Hide trade overlays' : 'Show trade overlays'}
-                </MenuItem>
-              </>
+            {() => (
+              <div className="min-w-[13rem] p-1">
+                {layoutMenu ?? (
+                  <p className="px-3 py-2 text-[13px] text-fg-subtle">
+                    One chart. The grid is set on the desk.
+                  </p>
+                )}
+              </div>
             )}
           </TopMenu>
 
