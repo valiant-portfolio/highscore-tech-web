@@ -121,6 +121,11 @@ const PATTERN_TOOLS = specItems(PATTERN_SPEC_LIST);
 const ELLIOTT_TOOLS = specItems(ELLIOTT_SPEC_LIST);
 const HARMONIC_TOOLS = specItems(HARMONIC_SPEC_LIST);
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
+/** Patterns, Elliott waves and harmonics share the fib draft and registry but
+ *  have their own rail button, so the Fibonacci button must not light for them. */
+const PATTERN_FAMILY_LISTS = [PATTERN_TOOLS, ELLIOTT_TOOLS, HARMONIC_TOOLS];
+const isPatternTool = (t: Tool): boolean =>
+  PATTERN_FAMILY_LISTS.some((l) => l.some((i) => i.tool === t));
 
 /** Every drawing tool in one list. The armed-tool banner and the rail's
  *  tooltip both need to turn a Tool back into its menu entry, and each kept
@@ -886,6 +891,22 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [fibOpen]);
+  /* The pattern button (Patterns / Elliott Waves / Harmonics) is the same
+   * split button again: its own open state, flyout fit and "last used". */
+  const [patOpen, setPatOpen] = useState(false);
+  const patBtnRef = useRef<HTMLDivElement | null>(null);
+  const [patMaxH, setPatMaxH] = useState<number | null>(null);
+  const [patMaxW, setPatMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!patOpen) return;   // place() below overwrites any stale fit on every open
+    const place = () => {
+      setPatMaxH(flyoutMaxH(patBtnRef.current, wrapRef.current));
+      setPatMaxW(flyoutMaxW(patBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [patOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not a ref: a ref changing does
@@ -922,6 +943,7 @@ export function MarketChart({
    * chevron under it opens the list to change which one that is. */
   const [lastLine, setLastLine] = useState<Tool>('hline');
   const [lastFib, setLastFib] = useState<Tool>('fibr');
+  const [lastPat, setLastPat] = useState<Tool>('xabcd');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
     { open: number; high: number; low: number; close: number } | null
@@ -3181,7 +3203,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             <div
               ref={fibBtnRef}
               className={`group relative flex h-9 items-center rounded-sm transition-colors ${
-                isFibTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+                (isFibTool(tool) && !isPatternTool(tool)) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
               }`}
             >
               <button
@@ -3193,9 +3215,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   clearPreview();
                 }}
                 title={`${FIB_TOOLS.find((t) => t.tool === lastFib)?.label ?? 'Fibonacci'}`
-                  + (isFibTool(tool) ? ' — armed' : ' — click to arm')}
+                  + (isFibTool(tool) && !isPatternTool(tool) ? ' — armed' : ' — click to arm')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
-                  isFibTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                  isFibTool(tool) && !isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
                 {(() => {
@@ -3267,6 +3289,106 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
                         )}
                       </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* PATTERNS, ELLIOTT WAVES, HARMONICS: one rail button, three
+                headings (Vela's 'patterns-waves-harmonics'). Same split-button
+                shape as Fibonacci, with its own `lastPat` so the icon is the
+                pattern you last used and the default tooltip is "XABCD Pattern". */}
+            <div
+              ref={patBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isPatternTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastPat);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${FIB_TOOLS.find((t) => t.tool === lastPat)?.label ?? 'XABCD Pattern'}`
+                  + (isPatternTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastPat] ?? FIB_TOOL_ICONS.xabcd;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPatOpen((v) => !v)}
+                title="Choose a pattern tool"
+                aria-label="Choose a pattern tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  patOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {patOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss pattern tools"
+                    onClick={() => setPatOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(patMaxH ? { maxHeight: patMaxH } : {}),
+                      ...(patMaxW ? { width: patMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Patterns', PATTERN_TOOLS],
+                      ['Elliott Waves', ELLIOTT_TOOLS],
+                      ['Harmonics', HARMONIC_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                          <button
+                            key={t.label}
+                            type="button"
+                            disabled={t.soon}
+                            title={t.soon ? 'Not built yet' : undefined}
+                            onClick={() => {
+                              if (!t.tool) return;
+                              setTool(t.tool);
+                              setLastPat(t.tool);
+                              setPatOpen(false);
+                              forkPts.current = []; setDraftLen(0);
+                              setDrawPending(false);
+                              clearPreview();
+                            }}
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                              tool === t.tool && !t.soon
+                                ? 'bg-brand/15 font-semibold text-brand'
+                                : t.soon
+                                  ? 'cursor-not-allowed text-fg-subtle/50'
+                                  : 'text-fg hover:bg-brand/10 hover:text-brand'
+                            }`}
+                          >
+                            <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                            <span className="truncate">{t.label}</span>
+                            {tool === t.tool && !t.soon && (
+                              <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                            )}
+                          </button>
                         ))}
                       </div>
                     ))}
