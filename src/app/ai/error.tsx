@@ -35,8 +35,29 @@ export default function DeskError({ error, reset }: {
           Nothing was sent to the broker and no position changed — this is the
           screen failing to draw, not the bot failing to trade.
         </p>
+        {/* SAY WHAT BROKE.
+            This showed a digest and nothing else, and a digest only exists for
+            a SERVER error — so a client-side crash gave a screen that said
+            something failed and refused to say what. Diagnosing it then needs
+            DevTools, which is a lot to ask of someone just reporting a bug.
+            The message is shown as well, and the stack behind a disclosure. */}
+        {error.message && (
+          <p className="mt-2 break-words font-mono text-[11px] leading-relaxed text-warning">
+            {error.message}
+          </p>
+        )}
         {error.digest && (
-          <p className="mt-2 font-mono text-[11px] text-fg-subtle">ref {error.digest}</p>
+          <p className="mt-1 font-mono text-[11px] text-fg-subtle">ref {error.digest}</p>
+        )}
+        {error.stack && (
+          <details className="mt-2">
+            <summary className="cursor-pointer font-mono text-[11px] text-fg-subtle">
+              stack
+            </summary>
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-fg-subtle">
+              {error.stack}
+            </pre>
+          </details>
         )}
         <button
           type="button"
