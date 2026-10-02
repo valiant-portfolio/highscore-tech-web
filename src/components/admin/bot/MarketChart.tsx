@@ -426,15 +426,16 @@ function channelSegments(
     q1 = p3;
     q2 = p4;
   } else {
-    // Vertical offset: how far p3 sits above or below the line at its own x.
-    const dx = p2.x - p1.x;
-    const tAt = dx === 0 ? 0 : (p3.x - p1.x) / dx;
-    const yOn = p1.y + (p2.y - p1.y) * tAt;
-    const off = p3.y - yOn;
+    // Theirs, verbatim:
+    //   off = c.y - (a.y + ((b.y - a.y) * (c.x - a.x)) / ((b.x - a.x) || 1))
+    const off = p3.y - (p1.y + ((p2.y - p1.y) * (p3.x - p1.x)) / ((p2.x - p1.x) || 1));
     q1 = { x: p1.x, y: p1.y + off };
     q2 = { x: p2.x, y: p2.y + off };
   }
-  return { segs: [seg(id, p1, p2), seg(`${id}#b`, q1, q2)], quad: [p1, p2, q2, q1] };
+  /* Theirs orders the disjoint fill a,b,c,d and the parallel fill
+   * a,b,(b+off),(a+off). Kept as they have it. */
+  const quad = variant === 'disjoint' ? [p1, p2, q1, q2] : [p1, p2, q2, q1];
+  return { segs: [seg(id, p1, p2), seg(`${id}#b`, q1, q2)], quad };
 }
 
 /* LINEAR REGRESSION, from the candles themselves.
@@ -1281,12 +1282,15 @@ export function MarketChart({
        * its centre as much as its edges — price crossing the middle is the
        * signal the two outer lines only bracket. Dashed and faint: it is
        * derived, not a line anyone placed. */
-      if (r.quad && (d.variant === 'parallel' || d.variant === 'flat')) {
-        const [ma, mb, mc, md] = r.quad;
+      /* Theirs: <line x1={a.x} y1={a.y + off/2} x2={b.x} y2={b.y + off/2} ...
+       * — half the offset off the FIRST line, dashed. */
+      if (pc && (d.variant === 'parallel' || d.variant === 'flat')) {
+        const offM = d.variant === 'flat'
+          ? pc.y - pa.y
+          : pc.y - (pa.y + ((pb.y - pa.y) * (pc.x - pa.x)) / ((pb.x - pa.x) || 1));
         out.push({
           id: `${d.id}#mid`,
-          x1: (ma.x + md.x) / 2, y1: (ma.y + md.y) / 2,
-          x2: (mb.x + mc.x) / 2, y2: (mb.y + mc.y) / 2,
+          x1: pa.x, y1: pa.y + offM / 2, x2: pb.x, y2: pb.y + offM / 2,
           color: style.color, width: Math.max(1, style.width - 1), dash: '4 4',
         });
       }
@@ -1357,7 +1361,7 @@ export function MarketChart({
       const dxA = x2 - x1, dyA = y2 - y1;
       const lenA = Math.hypot(dxA, dyA);
       if (lenA < 1) continue;
-      const r = Math.max(18, Math.min(52, lenA * 0.45));
+      const r = 30;                                   // theirs, fixed
       /* The reference leg runs the WIDTH of the line it measures, not a short
        * stub beside the arc. An angle is between two lines, and the one it is
        * measured from should be as present as the one you drew. */
@@ -1370,18 +1374,19 @@ export function MarketChart({
         id: `${d.id}#base`, x1, y1, x2: x1 + legLen, y2: y1,
         color, width: 1, dash: '4 4',
       });
-      const a1 = Math.atan2(dyA, dxA);                 // screen angle, y grows down
-      const ex = x1 + r * Math.cos(a1), ey = y1 + r * Math.sin(a1);
-      // Sweep follows the line: up on screen sweeps anticlockwise, down clockwise.
+      // Theirs: the angle measured up from horizontal, the arc swept to match.
+      const degA = (Math.atan2(y1 - y2, x2 - x1) * 180) / Math.PI;
+      const rad = (-degA * Math.PI) / 180;
       arcOut.push({
         id: `${d.id}#arc`, color,
-        d: `M ${x1 + r} ${y1} A ${r} ${r} 0 0 ${a1 > 0 ? 1 : 0} ${ex} ${ey}`,
+        d: `M ${x1 + r} ${y1} A ${r} ${r} 0 0 ${degA > 0 ? 0 : 1} `
+          + `${x1 + r * Math.cos(rad)} ${y1 + r * Math.sin(rad)}`,
       });
       /* The degrees sit along the REFERENCE leg, just past the arc — not on
        * the arc's bisector. Measuring from horizontal is what the number
        * means, so it is written against the horizontal, and the arc is left
        * clear to show the sweep rather than carrying text across itself. */
-      angleAt.set(d.id, { x: x1 + r * 1.45, y: y1 - 8 });
+      angleAt.set(d.id, { x: x1 + r + 6, y: y1 + (degA > 0 ? -6 : 14) });
     }
     setArcs(arcOut);
 
@@ -1433,12 +1438,12 @@ export function MarketChart({
         } else {
           const step = barStepSecs();
           const bars = step > 0 ? Math.abs(Math.round((rB.t - rA.t) / step)) : 0;
-          // The ANGLE belongs here too: move, percentage, bars AND slope is the
-          // whole reading, and it is the one number you cannot get by eye.
-          const degI = -Math.atan2(g.y2 - g.y1, g.x2 - g.x1) * (180 / Math.PI);
-          text = `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
-            + (bars ? `  ${bars} bar${bars === 1 ? '' : 's'}` : '')
-            + `  ${degI >= 0 ? '+' : ''}${degI.toFixed(1)}°`;
+          /* Their two rows, their wording: the move and the percentage above,
+           * the bar count and the slope below. */
+          const degI = (Math.atan2(g.y1 - g.y2, g.x2 - g.x1) * 180) / Math.PI;
+          text = `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct.toFixed(2)}%)`
+            + `
+${bars} bars · ${degI.toFixed(1)}°`;
         }
         if (d.label) text = `${d.label} · ${text}`;
       }
@@ -2886,7 +2891,9 @@ export function MarketChart({
               ? { left: l.x, top: l.y, color: l.color, ...(l.bare ? {} : { borderColor: l.color }) }
               : { left: l.x, top: l.y, backgroundColor: l.color }}
           >
-            {l.text}
+            {l.text.split(String.fromCharCode(10)).map((row, i) => (
+              <span key={row + i} className="block">{row}</span>
+            ))}
           </span>
         ))}
 
