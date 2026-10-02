@@ -45,7 +45,7 @@ import {
 type Tool =
   | 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray'
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
-  | 'cross' | 'vline' | 'info' | 'angle'
+  | 'cross' | 'vline' | 'info' | 'angle' | 'arrow'
   | 'chpar' | 'chdis' | 'chflat' | 'chlin'
   | FibToolId;
 
@@ -79,6 +79,9 @@ const LINE_TOOLS: DrawItem[] = [
   { tool: 'cross', label: 'Cross Line', clicks: 1, glyph: '+' },
   { tool: 'info', label: 'Info Line', clicks: 2, glyph: '⟋' },
   { tool: 'angle', label: 'Trend Angle', clicks: 2, glyph: '∠' },
+  // A trend line that says which way it points. Two clicks like the others;
+  // the head sits on the second, so the line reads as aimed rather than drawn.
+  { tool: 'arrow', label: 'Arrow', clicks: 2, glyph: '↗' },
 ];
 const CHANNEL_TOOLS: DrawItem[] = [
   { tool: 'chpar', label: 'Parallel Channel', clicks: 3, glyph: '⫽' },
@@ -157,6 +160,7 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   vline: Minus,
   info: Slash,
   angle: Slash,
+  arrow: MoveUpRight,
   ...FIB_TOOL_ICONS,
 };
 
@@ -255,6 +259,11 @@ type Drawing =
        *  this kind with a readout rather than kinds of their own. Computed at
        *  render: a stored string would describe where the line used to be. */
       readout?: 'info' | 'angle';
+      /** Draws a head on the second point. */
+      arrow?: true;
+      /** Per drawing, not per chart: one line can be pinned while the rest
+       *  stay editable, which a single global lock cannot express. */
+      locked?: boolean;
     }
   /** A moment, marked. Its point carries a price nothing reads — a vertical
    *  line is about WHEN, and has no height to move. */
@@ -515,9 +524,13 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'extended': return { id, kind: 'trend', reach: 'extended', pts };
     case 'info': return { id, kind: 'trend', reach: 'segment', readout: 'info', pts };
     case 'angle': return { id, kind: 'trend', reach: 'segment', readout: 'angle', pts };
+    case 'arrow': return { id, kind: 'trend', reach: 'segment', arrow: true, pts };
     default: return null;
   }
 }
+
+/** How far a ray is walked before the SVG clips it. Theirs. */
+const FAR = 6000;
 
 /** One click, stored as the chart stores it: a time and a price, never a
  *  pixel — pixels are what a zoom changes. */
@@ -1047,7 +1060,7 @@ export function MarketChart({
   const [arcs, setArcs] = useState<{ id: string; d: string; color: string }[]>([]);
   /** The tint between a channel's boundaries. A polygon, so it cannot be a
    *  seg — and separate state so hiding fills never disturbs the lines. */
-  const [fills, setFills] = useState<{ id: string; pts: Pt[]; color: string }[]>([]);
+  const [fills, setFills] = useState<{ id: string; pts: Pt[]; color: string; solid?: boolean }[]>([]);
 
   /** Info/Angle's reading while the line is still being drawn. */
   const [bandLabel, setBandLabelState] = useState<string | null>(null);
@@ -1086,7 +1099,7 @@ export function MarketChart({
      * ways. Because this is pixels, "the edge" is literally the edge — it
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
-    const quads: { id: string; pts: Pt[]; color: string }[] = [];
+    const quads: { id: string; pts: Pt[]; color: string; solid?: boolean }[] = [];
     const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean }[] = [];
     for (const d of drawings.current) {
       if (d.kind !== 'trend') continue;
@@ -1101,19 +1114,42 @@ export function MarketChart({
       let x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
       const reach = d.reach ?? 'segment';
       if (reach === 'hray') {
-        // Flat, from the click to the right-hand edge.
+        // Flat, from the click to the right-hand edge, with its price tagged.
         x2 = W; y2 = y1;
+        extraLabels.push({
+          id: `${d.id}#tag`,
+          x: W - 2, y: y1,
+          text: fmt(tA.v, digitsRef.current),
+          color: d.color ?? DRAW_COLOR,
+          readout: true,
+        });
       } else if (reach !== 'segment') {
-        const dx = x2 - x1, dy = y2 - y1;
-        if (dx !== 0 || dy !== 0) {
-          // Walk far enough that the end is always off-screen, then let the
-          // SVG clip it. Simpler and steadier than solving for each edge.
-          const far = (W + H) * 2;
-          const len = Math.hypot(dx, dy) || 1;
-          const ux = dx / len, uy = dy / len;
-          x2 = x1 + ux * far; y2 = y1 + uy * far;
-          if (reach === 'extended') { x1 -= ux * far; y1 -= uy * far; }
-        }
+        /* The reference's ext(): scale the first-to-second vector out to FAR
+         * and let the SVG clip it. A ray keeps its first click as the origin
+         * and runs on through the second; an extended line runs both ways. */
+        const k = FAR / (Math.hypot(x2 - x1, y2 - y1) || 1);
+        const vx = (x2 - x1) * k, vy = (y2 - y1) * k;
+        if (reach === 'extended') { x1 -= vx; y1 -= vy; }
+        x2 = x1 + vx * (reach === 'extended' ? 2 : 1);
+        y2 = y1 + vy * (reach === 'extended' ? 2 : 1);
+      }
+      /* THE HEAD, on the second click.
+       * Built from the line's own angle so it stays pointing along the line
+       * however the end is dragged — a head drawn at a fixed rotation would
+       * come adrift the moment the line was aimed somewhere else. */
+      if (d.arrow) {
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        const hl = 10 + (d.width ?? 2) * 2;
+        quads.push({
+          id: `${d.id}#head`,
+          pts: [
+            { x: x2, y: y2 },
+            { x: x2 - hl * Math.cos(ang - 0.4), y: y2 - hl * Math.sin(ang - 0.4) },
+            { x: x2 - hl * Math.cos(ang + 0.4), y: y2 - hl * Math.sin(ang + 0.4) },
+          ],
+          color: d.color ?? DRAW_COLOR,
+          solid: true,
+        });
       }
       out.push({
         id: d.id, x1, y1, x2, y2,
@@ -1252,6 +1288,9 @@ export function MarketChart({
      * marks a moment, and a moment has no height. */
     for (const d of drawings.current) {
       if (d.kind !== 'vline' && d.kind !== 'cross') continue;
+      /* A cross marks a PRICE as well as a moment, so it earns an axis tag —
+       * the same badge a horizontal line gets. Without it the horizontal arm
+       * is a line at a price you then have to read off the scale by eye. */
       const vp = d.pts[0];
       if (!vp) continue;
       const cx = c.timeScale().timeToCoordinate(vp.t as UTCTimestamp);
@@ -1267,6 +1306,13 @@ export function MarketChart({
           out.push({
             id: `${d.id}#h`, x1: 0, y1: cy as number, x2: W, y2: cy as number,
             color, width, dash,
+          });
+          extraLabels.push({
+            id: `${d.id}#tag`,
+            x: W - 2, y: cy as number,
+            text: fmt(vp.v, digitsRef.current),
+            color,
+            readout: true,
           });
         }
       }
@@ -2073,7 +2119,8 @@ export function MarketChart({
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         clearPreview();
         syncLabels();
-      } else if (t === 'trend' || t === 'ray' || t === 'extended' || t === 'info' || t === 'angle') {
+      } else if (t === 'trend' || t === 'ray' || t === 'extended' || t === 'info'
+        || t === 'angle' || t === 'arrow') {
         // Two clicks. The first is remembered; the second completes it.
         if (!trendStart.current) {
           trendStart.current = { time: time as Time, value: price };
@@ -2086,6 +2133,7 @@ export function MarketChart({
           // running on past it would be reporting on something you did not mark.
           reach: t === 'ray' || t === 'extended' ? t : 'segment',
           ...(t === 'info' || t === 'angle' ? { readout: t } : {}),
+          ...(t === 'arrow' ? { arrow: true as const } : {}),
           pts: [
             { t: trendStart.current.time as number, v: trendStart.current.value },
             { t: time, v: price },
@@ -2286,7 +2334,7 @@ export function MarketChart({
       } else {
         const st = trendStart.current;
         const twoClick = t === 'trend' || t === 'ray' || t === 'extended'
-          || t === 'info' || t === 'angle';
+          || t === 'info' || t === 'angle' || t === 'arrow';
         const W0 = wrapRef.current?.clientWidth ?? 0;
         const H0 = wrapRef.current?.clientHeight ?? 0;
         /* A FORK IN PROGRESS previews from its last click to the cursor.
@@ -2729,7 +2777,7 @@ export function MarketChart({
                 key={f.id}
                 points={f.pts.map((q) => `${q.x},${q.y}`).join(' ')}
                 fill={f.color}
-                fillOpacity={0.12}
+                fillOpacity={f.solid ? 1 : 0.12}
                 stroke="none"
               />
             ))}
