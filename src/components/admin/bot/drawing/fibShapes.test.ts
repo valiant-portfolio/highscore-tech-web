@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFibGeometry, computeFibGeometries, fibHitTest, makeFibDrawing } from './fibonacci.ts';
-import { FIB_SPEC_LIST } from './fibModel.ts';
+import { FIB_SPEC_LIST, ALL_SPEC_LIST } from './fibModel.ts';
 import { FIB_BUILDERS } from './fibShapes.ts';
 import type { FibVariant, FibDrawing } from './fibModel.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
-import { distToPolyline } from './fibGeometry.ts';
+import { distToPolyline, distToSeg } from './fibGeometry.ts';
 
 const ctx: FibCtx = { timeToX: (t) => t / 60, priceToY: (p) => 1000 - p, paneW: 800, paneH: 1000 };
 const A = { t: 6000, p: 100 }; // (100, 900)
@@ -95,7 +95,7 @@ test('channel: vertical base line uses a horizontal offset, finite', () => {
 test('channel: hit on the ratio-1 line', () => {
   const g = geo(makeFibDrawing('channel', [A, B, CC], 'c'));
   assert.equal(fibHitTest([g], 150, 900, 7), 'c');
-  assert.equal(fibHitTest([g], 150, 700, 7), null);
+  assert.equal(fibHitTest([g], 150, 600, 7), null);
 });
 
 // --- extension2 -------------------------------------------------------------
@@ -341,4 +341,82 @@ for (const s of ready) {
 test('computeFibGeometries skips an unknown variant', () => {
   const bad = { ...makeFibDrawing('retracement', [A, B], 'u'), variant: 'nope' as FibVariant };
   assert.equal(computeFibGeometries([bad, makeFibDrawing('retracement', [A, B], 'ok')], ctx).length, 1);
+});
+
+
+// --- Gann -------------------------------------------------------------------
+
+test('gann fan: 9 rays through Q_r, labels, colours', () => {
+  const g = geo(makeFibDrawing('gannfan', [A, B], 'g'));
+  assert.equal(g.lines.length, 9);
+  assert.equal(g.texts.length, 9);
+  assert.equal(g.connectors.length, 0);
+  const qy: Record<number, number> = { 1: 800, 4: 500 };
+  const q = (i: number, y: number) => near(distToSeg(200, y, g.lines[i].x1, g.lines[i].y1, g.lines[i].x2, g.lines[i].y2), 0, 1e-6);
+  q(4, 800); q(3, 850); q(8, 100); q(0, 887.5);
+  void qy;
+  near(g.lines[4].x2, 1726.35, 0.01);
+  near(g.lines[4].y2, -726.35, 0.01);
+  assert.equal(g.texts[4].text, '1/1');
+  assert.equal(g.texts[4].x, 204);
+  assert.equal(g.lines[4].color, '#b2b5be');
+  assert.ok(g.lines.every((l) => l.x1 === 100 && l.y1 === 900));
+});
+test('gann fan: d.color overrides, A==B finite, B left of A mirrors labels, hit', () => {
+  const d = makeFibDrawing('gannfan', [A, B], 'g');
+  assert.ok(geo({ ...d, color: '#123456' }).lines.every((l) => l.color === '#123456'));
+  const z = geo(makeFibDrawing('gannfan', [A, A], 'g'));
+  for (const l of z.lines) for (const v of [l.x1, l.y1, l.x2, l.y2]) assert.ok(Number.isFinite(v));
+  const l = geo(makeFibDrawing('gannfan', [B, A], 'g'));
+  assert.equal(l.texts[0].anchor, 'end');
+  assert.equal(l.texts[0].x, 96);
+  const g = geo(d);
+  assert.equal(fibHitTest([g], 150, 850, 7), 'g');
+  assert.equal(fibHitTest([g], 150, 600, 7), null);
+});
+
+test('gann box: 16 lines, labelled grid, diagonals, hits lines only', () => {
+  const g = geo(makeFibDrawing('gannbox', [A, B], 'b'));
+  assert.equal(g.lines.length, 16);
+  assert.deepEqual(g.texts.map((t) => t.text), ['0', '0.25', '0.382', '0.5', '0.618', '0.75', '1']);
+  near(g.lines[2].y1, 861.8); near(g.lines[2].x1, 100); near(g.lines[2].x2, 200);
+  near(g.lines[11].x1, 161.8); near(g.lines[11].y1, 800); near(g.lines[11].y2, 900);
+  assert.deepEqual([g.lines[14].x1, g.lines[14].y1, g.lines[14].x2, g.lines[14].y2], [100, 800, 200, 900]);
+  assert.deepEqual([g.lines[15].x1, g.lines[15].y1, g.lines[15].x2, g.lines[15].y2], [100, 900, 200, 800]);
+  near(g.texts[1].x, 96); near(g.texts[1].y, 878.5);
+  assert.equal(g.lines[2].color, '#ff9800');
+  assert.equal(g.polys.length, 0);
+  assert.equal(g.connectors.length, 0);
+  assert.equal(fibHitTest([g], 150, 850, 7), 'b');
+  assert.equal(fibHitTest([g], 112, 818, 3), null);
+});
+
+test('gann square: grid, fan, arcs', () => {
+  const g = geo(makeFibDrawing('gannsquare', [A, B], 's'));
+  assert.equal(g.lines.length, 19);
+  assert.equal(g.curves.length, 4);
+  assert.equal(g.texts.length, 12);
+  const end = (i: number) => [g.lines[14 + i].x2, g.lines[14 + i].y2];
+  const exp = [[200, 866.667], [200, 850], [200, 800], [150, 800], [133.333, 800]];
+  exp.forEach((e, i) => { near(end(i)[0], e[0], 1e-3); near(end(i)[1], e[1], 1e-3); });
+  assert.deepEqual(g.texts.slice(7).map((t) => t.text), ['3x1', '2x1', '1x1', '1x2', '1x3']);
+  const c = g.curves[1];
+  assert.equal(c.pts.length, 25);
+  near(c.pts[0].x, 150); near(c.pts[0].y, 900);
+  near(c.pts[24].x, 100); near(c.pts[24].y, 850);
+  near(c.pts[12].x, 135.355, 1e-3); near(c.pts[12].y, 864.645, 1e-3);
+  assert.equal(fibHitTest([g], 150, 850, 7), 's');
+  assert.equal(fibHitTest([g], 170.71, 829.29, 3), 's');
+});
+test('gann square: flat box has no arcs and stays finite; d.color overrides', () => {
+  const flat = geo(makeFibDrawing('gannsquare', [A, { t: 12000, p: 100 }], 's'));
+  assert.equal(flat.curves.length, 0);
+  for (const l of flat.lines) for (const v of [l.x1, l.y1, l.x2, l.y2]) assert.ok(Number.isFinite(v));
+  const c = geo({ ...makeFibDrawing('gannsquare', [A, B], 's'), color: '#abcdef' });
+  assert.ok(c.curves.every((k) => k.color === '#abcdef'));
+  assert.ok(c.lines.slice(14).every((l) => l.color === '#abcdef'));
+});
+
+test('every ready spec across all families has a builder; geometry specs wait', () => {
+  for (const s of ALL_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });

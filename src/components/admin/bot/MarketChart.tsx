@@ -28,8 +28,8 @@ import {
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT,
-  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
@@ -83,10 +83,14 @@ const EXTRA_TOOLS: DrawItem[] = [
 ];
 /** The Fibonacci family, derived from the registry in drawing/fibModel.ts.
  *  Specs whose builder has not landed show greyed. No keyboard shortcut. */
-const FIB_TOOLS: DrawItem[] = FIB_SPEC_LIST.map((s) => ({
+const specItems = (list: readonly FibSpec[]): DrawItem[] => list.map((s) => ({
   tool: s.toolId, label: s.label, clicks: s.clicks, glyph: s.glyph,
   ...(s.ready ? {} : { soon: true as const }),
 }));
+const FIB_TOOLS = specItems(ALL_SPEC_LIST);      // armed/title lookups keep working
+const FIB_MENU = specItems(FIB_SPEC_LIST);
+const GANN_TOOLS = specItems(GANN_SPEC_LIST);
+const GEOMETRY_TOOLS = specItems(GEOMETRY_SPEC_LIST);
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
@@ -2285,7 +2289,9 @@ export function MarketChart({
                   <div className="scrollbar-none absolute left-[calc(100%+6px)] top-0 z-50 max-h-[70vh] w-64 overflow-y-auto rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
-                      ['Fibonacci', FIB_TOOLS],
+                      ['Fibonacci', FIB_MENU],
+                      ['Gann', GANN_TOOLS],
+                      ['Geometry', GEOMETRY_TOOLS],
                       ['Channels', CHANNEL_TOOLS],
                       ['Pitchforks', PITCHFORK_TOOLS],
                     ] as const).map(([group, items]) => (

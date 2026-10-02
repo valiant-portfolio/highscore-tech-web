@@ -1,6 +1,7 @@
 import {
   Rows3, Rows4, AlignVerticalDistributeCenter, TriangleRight, Columns3, Scaling, Fan,
   Timer, Target, Rainbow, Cone, Shell,
+  Radar, Grid2x2, Aperture, Bubbles, Radio, Plane, Disc3, Rocket,
   type LucideIcon,
 } from 'lucide-react';
 import type { FibToolId } from './fibModel.ts';
@@ -19,4 +20,12 @@ export const FIB_TOOL_ICONS: Record<FibToolId, LucideIcon> = {
   fiba: Rainbow,
   fibw: Cone,
   fibs: Shell,
+  gannf: Radar,
+  gannb: Grid2x2,
+  ganns: Aperture,
+  dedek: Bubbles,
+  sonic: Radio,
+  ssonic: Plane,
+  gsonic: Disc3,
+  gssonic: Rocket,
 };
