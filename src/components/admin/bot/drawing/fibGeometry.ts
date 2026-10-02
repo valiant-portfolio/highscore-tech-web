@@ -13,7 +13,7 @@ export interface FibCtx {
 export interface FibLine { x1: number; y1: number; x2: number; y2: number; color: string; dash?: string }
 export interface FibCurve { pts: Pt[]; color: string; closed?: boolean }
 export interface FibPoly { pts: Pt[]; color: string }
-export interface FibText { x: number; y: number; text: string; color: string; anchor: 'start' | 'middle' | 'end' }
+export interface FibText { x: number; y: number; text: string; color: string; anchor: 'start' | 'middle' | 'end'; size?: number; bold?: boolean }
 
 export interface FibGeometry {
   id: string;
@@ -98,4 +98,23 @@ export function ellipsePoints(cx: number, cy: number, rx: number, ry: number, th
 
 export function paneIntersects(box: { x1: number; y1: number; x2: number; y2: number }, ctx: FibCtx): boolean {
   return box.x2 >= 0 && box.x1 <= ctx.paneW && box.y2 >= 0 && box.y1 <= ctx.paneH;
+}
+
+/** Where the segment a-b crosses the infinite line l1-l2, or null when they are
+ *  parallel or the crossing is off the segment.
+ *  Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+ *  src/core/drawings/hittest.ts. */
+export function lineSegmentIntersection(
+  lx1: number, ly1: number, lx2: number, ly2: number,
+  ax: number, ay: number, bx: number, by: number,
+): Pt | null {
+  const dx = lx2 - lx1;
+  const dy = ly2 - ly1;
+  const ex = bx - ax;
+  const ey = by - ay;
+  const denom = ex * dy - ey * dx;
+  if (Math.abs(denom) < 1e-9) return null;
+  const s = ((ay - ly1) * dx - (ax - lx1) * dy) / denom;
+  if (s < 0 || s > 1) return null;
+  return { x: ax + s * ex, y: ay + s * ey };
 }

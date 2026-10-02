@@ -101,7 +101,8 @@ export function FibOverlay({
                   key={`tx${i}`}
                   x={t.x} y={t.y}
                   textAnchor={t.anchor}
-                  fontSize={10}
+                  fontSize={t.size ?? 10}
+                  fontWeight={t.bold ? 700 : undefined}
                   fontFamily="monospace"
                   fill={t.color}
                   paintOrder="stroke"

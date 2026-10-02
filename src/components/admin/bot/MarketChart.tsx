@@ -23,12 +23,12 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Circle,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
   type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
@@ -67,7 +67,10 @@ const FORK_VARIANT: Partial<Record<Tool, ForkVariant>> = {
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
  *  hides what it cannot do sends you hunting for a tool that is not there. */
 type DrawItem = {
-  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2 | 3 | 4; glyph: string; soon?: true;
+  // `number`, not a union of 1..4: a harmonic takes five points and an Elliott
+  // impulse six, and a type that has to be widened per tool is a type that
+  // will be forgotten.
+  tool?: Tool; label: string; keys?: string; clicks?: number; glyph: string; soon?: true;
 };
 const LINE_TOOLS: DrawItem[] = [
   { tool: 'trend', label: 'Trend Line', keys: 'Alt+T', clicks: 2, glyph: '/' },
@@ -117,7 +120,15 @@ const FIB_TOOLS = specItems(ALL_SPEC_LIST);      // armed/title lookups keep wor
 const FIB_MENU = specItems(FIB_SPEC_LIST);
 const GANN_TOOLS = specItems(GANN_SPEC_LIST);
 const GEOMETRY_TOOLS = specItems(GEOMETRY_SPEC_LIST);
+const PATTERN_TOOLS = specItems(PATTERN_SPEC_LIST);
+const ELLIOTT_TOOLS = specItems(ELLIOTT_SPEC_LIST);
+const HARMONIC_TOOLS = specItems(HARMONIC_SPEC_LIST);
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
+/** Patterns, Elliott waves and harmonics — the families on the second button. */
+const PAT_TOOL_IDS = new Set(
+  [...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST].map((x) => x.toolId as string),
+);
+const isPatTool = (t: Tool): boolean => PAT_TOOL_IDS.has(t as string);
 
 /** Every drawing tool in one list. The armed-tool banner and the rail's
  *  tooltip both need to turn a Tool back into its menu entry, and each kept
@@ -860,6 +871,10 @@ export function MarketChart({
    *  own "last used" — arming a fib must not change what the LINE button
    *  arms, or the two controls would fight over one memory. */
   const [fibOpen, setFibOpen] = useState(false);
+  /** Patterns, Elliott waves and harmonics share a button, as the design has
+   *  them — and its own lastPat, so arming a harmonic does not change what the
+   *  Fibonacci button arms. */
+  const [patOpen, setPatOpen] = useState(false);
   /* WHERE A FLYOUT CAN ACTUALLY FIT.
    *
    * The menus hang off their rail button at top-0 and were allowed 70vh. The
@@ -871,6 +886,7 @@ export function MarketChart({
    * Measured against the viewport on open: pinned beside the button, slid up
    * only as far as it must to fit, and never taller than the window. */
   const fibBtnRef = useRef<HTMLDivElement | null>(null);
+  const patBtnRef = useRef<HTMLDivElement | null>(null);
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
   const [fibMaxW, setFibMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -883,6 +899,18 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [fibOpen]);
+  const [patMaxH, setPatMaxH] = useState<number | null>(null);
+  const [patMaxW, setPatMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!patOpen) { setPatMaxH(null); return; }
+    const place = () => {
+      setPatMaxH(flyoutMaxH(patBtnRef.current, wrapRef.current));
+      setPatMaxW(flyoutMaxW(patBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [patOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not a ref: a ref changing does
@@ -919,6 +947,7 @@ export function MarketChart({
    * chevron under it opens the list to change which one that is. */
   const [lastLine, setLastLine] = useState<Tool>('hline');
   const [lastFib, setLastFib] = useState<Tool>('fibr');
+  const [lastPat, setLastPat] = useState<Tool>(PATTERN_SPEC_LIST[0].toolId as Tool);
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
     { open: number; high: number; low: number; close: number } | null
@@ -3246,6 +3275,109 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           setTool(t.tool);
                           setLastFib(t.tool);
                           setFibOpen(false);
+                          forkPts.current = []; setDraftLen(0);
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* PATTERNS, ELLIOTT WAVES and HARMONICS, on their own control.
+                It was a section inside the line menu, which buried eleven
+                tools two levels down under an icon that draws lines — and a
+                fib is not a line type. Same split-button shape as the one
+                above: the icon arms the fib you last used, the chevron opens
+                the list. Its own `lastPat`, so arming a fib does not change
+                what the line button arms. */}
+            <div
+              ref={patBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isPatTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastPat);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastPat)?.label ?? 'Patterns'}`
+                  + (isPatTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isPatTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastPat] ?? Waves;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPatOpen((v) => !v)}
+                title="Choose a pattern tool"
+                aria-label="Choose a pattern tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  patOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {patOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss pattern tools"
+                    onClick={() => setPatOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(patMaxH ? { maxHeight: patMaxH } : {}),
+                      ...(patMaxW ? { width: patMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Patterns', PATTERN_TOOLS],
+                      ['Elliott Waves', ELLIOTT_TOOLS],
+                      ['Harmonics', HARMONIC_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastPat(t.tool);
+                          setPatOpen(false);
                           forkPts.current = []; setDraftLen(0);
                                   setDrawPending(false);
                           clearPreview();

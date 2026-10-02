@@ -4,6 +4,9 @@ import {
   FIB_SPECS, FIB_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT, formatRatio, fibClicksNeeded, fibPrompt, fibExtension2Price, fibLevels,
 } from './fibModel.ts';
 import type { FibDrawing } from './fibModel.ts';
+import { PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST } from './fibModel.ts';
+import { PATTERN_DEFS } from './fibPatterns.ts';
+import type { PatternVariant } from './fibPatterns.ts';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
@@ -49,11 +52,11 @@ test('a fill toggle defaults to the spec fillDefault', () => {
   }
 });
 
-test('ALL_SPEC_LIST: 20 specs in three families, unique ids, round-trips', () => {
-  assert.equal(ALL_SPEC_LIST.length, 20);
+test('ALL_SPEC_LIST: 31 specs in four families, unique ids, round-trips', () => {
+  assert.equal(ALL_SPEC_LIST.length, 31);
   const count = (f: string) => ALL_SPEC_LIST.filter((s) => s.family === f).length;
-  assert.deepEqual([count('fib'), count('gann'), count('geometry')], [12, 3, 5]);
-  assert.equal(new Set(ALL_SPEC_LIST.map((s) => s.toolId)).size, 20);
+  assert.deepEqual([count('fib'), count('gann'), count('geometry'), count('pattern')], [12, 3, 5, 11]);
+  assert.equal(new Set(ALL_SPEC_LIST.map((s) => s.toolId)).size, 31);
   for (const s of ALL_SPEC_LIST) {
     assert.equal(s.prompts.length, s.clicks, s.variant);
     assert.equal(FIB_TOOL_VARIANT[s.toolId], s.variant);
@@ -68,4 +71,20 @@ test('formatRatio: up to three decimals, no trailing zeros', () => {
   assert.equal(formatRatio(0.3333333), '0.333');
   assert.equal(formatRatio(11.09), '11.09');
   assert.equal(formatRatio(0), '0');
+});
+test('pattern specs: partial, one prompt and one label per click, all ready', () => {
+  assert.equal(PATTERN_SPEC_LIST.length, 3);
+  assert.equal(ELLIOTT_SPEC_LIST.length, 2);
+  assert.equal(HARMONIC_SPEC_LIST.length, 6);
+  const specs = [...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST];
+  for (const s of specs) {
+    assert.equal(s.partial, true, s.variant);
+    assert.equal(s.prompts.length, s.clicks, s.variant);
+    assert.equal(PATTERN_DEFS[s.variant as PatternVariant].labels.length, s.clicks, s.variant);
+    assert.deepEqual(s.toggles, [], s.variant);
+  }
+  assert.deepEqual(specs.map((s) => s.clicks), [5, 4, 7, 5, 3, 5, 5, 5, 5, 5, 5]);
+  assert.ok(specs.every((s) => s.ready));
+  assert.equal(fibPrompt('headshoulders', 3), 'click the head');
+  assert.equal(fibClicksNeeded('headshoulders'), 7);
 });
