@@ -4,7 +4,7 @@ import { computeFibGeometry, fibHitTest, makeFibDrawing } from './fibonacci.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
 import { lineSegmentIntersection } from './fibGeometry.ts';
 import type { FibDrawing, FibPoint } from './fibModel.ts';
-import { patternRatioAt, harmonicLeg, buildPattern } from './fibPatterns.ts';
+import { patternRatioAt, harmonicLeg, patternValid, buildPattern } from './fibPatterns.ts';
 
 const ctx: FibCtx = { timeToX: (t) => t / 60, priceToY: (p) => 1000 - p, paneW: 800, paneH: 1000 };
 const X: FibPoint = { t: 6000, p: 100 };
@@ -101,7 +101,7 @@ test('elliott impulse and correction through the registry', () => {
   assert.equal(computeFibGeometry(mk('elliottcorrection', [X]), ctx), null);
 });
 
-test('harmonic shapes build when called directly', () => {
+test('harmonic shapes build when called directly (legacy)', () => {
   const pts = [X, A, B, C, D];
   const px = pts.map((p) => ({ x: p.t / 60, y: 1000 - p.p }));
   const gar = buildPattern(px, mk('gartley', pts), ctx);
@@ -122,4 +122,53 @@ test('lineSegmentIntersection', () => {
   assert.equal(lineSegmentIntersection(0, 0, 10, 0, 0, 5, 10, 5), null);
   assert.equal(lineSegmentIntersection(0, 0, 10, 0, 20, 2, 20, 5), null);
   assert.deepEqual(lineSegmentIntersection(0, 0, 10, 10, 10, 0, 0, 10), { x: 5, y: 5 });
+});
+
+const green = '#0ecb81';
+const red = '#f6465d';
+const B2: FibPoint = { t: 18000, p: 150 };
+const C2: FibPoint = { t: 24000, p: 230 };
+const D2: FibPoint = { t: 30000, p: 127.82 };
+
+test('gartley valid: green badge, ratios and fills', () => {
+  const g = geo(mk('gartley', [X, A, B, C, D]));
+  assert.equal(g.texts.length, 9);
+  const badge = g.texts[8];
+  assert.equal(badge.text, 'Gartley \u2713');
+  near(badge.x, 500); near(badge.y, 909.6, 1e-6);
+  assert.equal(badge.color, green); assert.equal(badge.size, 12); assert.equal(badge.bold, true);
+  assert.ok(g.texts.slice(5, 8).every((t) => t.color === green));
+  assert.ok(g.polys.length === 2 && g.polys.every((p) => p.color === green));
+});
+
+test('bat: per-ratio colours, invalid badge, red fill', () => {
+  const g = geo(mk('bat', [X, A, B, C, D]));
+  assert.deepEqual(g.texts.slice(5, 8).map((t) => t.color), [red, green, red]);
+  assert.equal(g.texts[8].text, 'Bat \u2717');
+  assert.equal(g.texts[8].color, red);
+  assert.ok(g.polys.every((p) => p.color === red));
+});
+
+test('butterfly, crab and shark are invalid on the fixture', () => {
+  for (const [v, name] of [['butterfly', 'Butterfly'], ['crab', 'Crab'], ['shark', 'Shark']] as const) {
+    const g = geo(mk(v, [X, A, B, C, D]));
+    assert.equal(g.texts[8].text, `${name} \u2717`, v);
+    assert.ok(g.polys.every((p) => p.color === red), v);
+  }
+});
+
+test('cypher valid with its own rule', () => {
+  const g = geo(mk('cypher', [X, A, B2, C2, D2]));
+  assert.equal(g.texts[8].text, 'Cypher \u2713');
+  assert.equal(g.texts[8].color, green);
+  assert.deepEqual(g.texts.slice(5, 8).map((t) => t.color), [green, 'var(--fg)', 'var(--fg)']);
+  assert.ok(g.polys.every((p) => p.color === green));
+});
+
+test('gartley with four points: no badge, unknown validity, line-coloured fill', () => {
+  const d = mk('gartley', [X, A, B, C]);
+  assert.equal(patternValid(d), null);
+  const g = geo(d);
+  assert.ok(g.texts.every((t) => !t.text.startsWith('Gartley')));
+  assert.equal(g.polys[0].color, '#38c0fd');
 });

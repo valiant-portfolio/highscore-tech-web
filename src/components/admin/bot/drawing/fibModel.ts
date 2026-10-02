@@ -275,12 +275,12 @@ export const ELLIOTT_SPEC_LIST: FibSpec[] = [
 ];
 
 export const HARMONIC_SPEC_LIST: FibSpec[] = [
-  pat('gartley', 'gartley', 'Gartley', 'G', XABCD_PROMPTS, true, false),
-  pat('bat', 'bat', 'Bat', 'B', XABCD_PROMPTS, true, false),
-  pat('butterfly', 'bfly', 'Butterfly', 'F', XABCD_PROMPTS, true, false),
-  pat('crab', 'crab', 'Crab', 'C', XABCD_PROMPTS, true, false),
-  pat('shark', 'shark', 'Shark', 'S', XABCD_PROMPTS, true, false),
-  pat('cypher', 'cypher', 'Cypher', 'Y', XABCD_PROMPTS, true, false),
+  pat('gartley', 'gartley', 'Gartley', 'G', XABCD_PROMPTS, true, true),
+  pat('bat', 'bat', 'Bat', 'B', XABCD_PROMPTS, true, true),
+  pat('butterfly', 'bfly', 'Butterfly', 'F', XABCD_PROMPTS, true, true),
+  pat('crab', 'crab', 'Crab', 'C', XABCD_PROMPTS, true, true),
+  pat('shark', 'shark', 'Shark', 'S', XABCD_PROMPTS, true, true),
+  pat('cypher', 'cypher', 'Cypher', 'Y', XABCD_PROMPTS, true, true),
 ];
 export const ALL_SPEC_LIST: FibSpec[] = [...FIB_SPEC_LIST, ...GANN_SPEC_LIST, ...GEOMETRY_SPEC_LIST, ...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST];
 export const FIB_SPECS = Object.fromEntries(ALL_SPEC_LIST.map((s) => [s.variant, s])) as Record<FibVariant, FibSpec>;
