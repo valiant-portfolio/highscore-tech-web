@@ -180,7 +180,7 @@ export function Workspace({
   useEffect(() => {
     try {
       const n = Number(localStorage.getItem('ai-desk-panes'));
-      if ([1, 2, 4, 6].includes(n)) setPanes(n);
+      if (n >= 1 && n <= 6) setPanes(n);
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
@@ -665,7 +665,8 @@ export function Workspace({
           <div className={`grid h-full w-full gap-px bg-border ${
             panes === 1 ? 'grid-cols-1 grid-rows-1'
               : panes === 2 ? 'grid-cols-1 grid-rows-2 md:grid-cols-2 md:grid-rows-1'
-                : panes === 4 ? 'grid-cols-1 grid-rows-4 md:grid-cols-2 md:grid-rows-2'
+                : panes === 3 ? 'grid-cols-1 grid-rows-3 md:grid-cols-3 md:grid-rows-1'
+              : panes === 4 ? 'grid-cols-1 grid-rows-4 md:grid-cols-2 md:grid-rows-2'
                   : 'grid-cols-1 grid-rows-6 md:grid-cols-3 md:grid-rows-2'
           }`}>
             {Array.from({ length: panes }, (_, i) => (
@@ -677,34 +678,45 @@ export function Workspace({
                       <p className="pb-2 text-[10px] uppercase tracking-[0.18em] text-fg-subtle">
                         Layout
                       </p>
-                      {/* Each option drawn as the shape it makes — the choice
-                          reads at a glance instead of as a number you picture. */}
-                      <div className="flex flex-col gap-1.5">
-                        {([1, 2, 4, 6] as const).map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setPanes(n)}
-                            aria-pressed={panes === n}
-                            title={n === 1 ? 'One chart' : `${n} charts`}
-                            className={`grid h-8 w-10 place-items-center rounded-sm border transition-colors ${
-                              panes === n
-                                ? 'border-brand/50 bg-brand/15 text-brand'
-                                : 'border-border text-fg-subtle hover:border-brand/40 hover:text-brand'
-                            }`}
-                          >
-                            <span className={`grid gap-px ${
-                              n === 1 ? 'grid-cols-1'
-                                : n === 2 ? 'grid-cols-2'
-                                  : n === 4 ? 'grid-cols-2' : 'grid-cols-3'
-                            }`}
-                            >
-                              {Array.from({ length: n }, (_, k) => (
-                                <span key={k} className="h-1.5 w-2 bg-current" />
-                              ))}
-                            </span>
-                          </button>
-                        ))}
+                      {/* A 4x4 of cells: point at the bottom-right of the
+                          arrangement you want and that is the grid you get -
+                          two across and three down is the cell at row 3,
+                          column 2. Reading the shape off the cells beats
+                          picking a number and imagining it.
+
+                          Capped at six panes. Each one is its own subscription
+                          and its own poll against the bot's database, so the
+                          full sixteen would be sixteen times the load for a
+                          chart you could not read anyway. Past the cap the
+                          cells are drawn and inert, with the reason on them -
+                          the same way an unbuilt tool is shown greyed rather
+                          than hidden. */}
+                      <div className="grid grid-cols-4 gap-1">
+                        {Array.from({ length: 16 }, (_, k) => {
+                          const row = Math.floor(k / 4) + 1;
+                          const col = (k % 4) + 1;
+                          const n = row * col;
+                          const allowed = n <= 6;
+                          const on = panes === n;
+                          return (
+                            <button
+                              key={k}
+                              type="button"
+                              disabled={!allowed}
+                              aria-pressed={on}
+                              title={allowed
+                                ? `${col} across, ${row} down — ${n} chart${n === 1 ? '' : 's'}`
+                                : 'More than six panes is more load than it is worth'}
+                              onClick={() => setPanes(n)}
+                              className={`h-6 w-6 rounded-sm border transition-colors ${
+                                on ? 'border-brand bg-brand/80'
+                                  : allowed
+                                    ? 'border-border bg-surface-hover hover:border-brand/50 hover:bg-brand/20'
+                                    : 'cursor-not-allowed border-transparent bg-surface-hover/30'
+                              }`}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                     <div className="min-w-[8.5rem]">
