@@ -422,7 +422,14 @@ function channelSegments(
   if (variant === 'flat') {
     q1 = { x: p1.x, y: p3.y };
     q2 = { x: p2.x, y: p3.y };
-  } else if (variant === 'disjoint' && p4) {
+  } else if (variant === 'disjoint') {
+    /* Theirs:
+     *   if (c && q4) { segs.push([c,q4]); area = a,b,c,q4 }
+     *   else if (c)  { area = a,b,c }
+     * With only three down - which is what the preview has - there is no second
+     * line yet, just the triangle the three points make. Falling through to the
+     * parallel branch here would preview a corridor and then draw a wedge. */
+    if (!p4) return { segs: [seg(id, p1, p2)], quad: [p1, p2, p3] };
     q1 = p3;
     q2 = p4;
   } else {
