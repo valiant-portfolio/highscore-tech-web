@@ -657,6 +657,8 @@ export function MarketChart({
   const fibPts = useRef<FibPoint[]>([]);
   const [fibStep, setFibStep] = useState(0);
   const [fibGeoms, setFibGeoms] = useState<FibGeometry[]>([]);
+  /** What syncLabels last computed, so hitTest need not recompute every move. */
+  const fibGeomsRef = useRef<FibGeometry[]>([]);
   const [fibPreview, setFibPreview] = useState<FibGeometry | null>(null);
   const fibCtx = () => makeFibCtx(chartRef.current, seriesRef.current, barsRef.current);
   const clearPreview = () => {
@@ -717,7 +719,7 @@ export function MarketChart({
 
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
-    if (!s || !c) { setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); return; }
+    if (!s || !c) { setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = []; return; }
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -896,7 +898,8 @@ export function MarketChart({
     setHandles(hs);
 
     const fc = fibCtx();
-    setFibGeoms(fc ? computeFibGeometries(drawings.current, fc) : []);
+    fibGeomsRef.current = fc ? computeFibGeometries(drawings.current, fc) : [];
+    setFibGeoms(fibGeomsRef.current);
   };
 
   /** Patch one drawing, redraw it, and save. Redrawn rather than mutated in
@@ -1517,11 +1520,8 @@ export function MarketChart({
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
         if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
       }
-      const fc = fibCtx();
-      if (fc) {
-        const id = fibHitTest(computeFibGeometries(drawings.current, fc), x, y, HIT);
-        if (id) return { id, kind: 'fib' };
-      }
+      const fibId = fibHitTest(fibGeomsRef.current, x, y, HIT);
+      if (fibId) return { id: fibId, kind: 'fib' };
       /* A fork is grabbed by any of its lines. Tested against what is ON SCREEN
        * — the segments syncLabels already computed — rather than re-deriving
        * the geometry here, so the thing you can see and the thing you can grab

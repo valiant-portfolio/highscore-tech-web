@@ -9,7 +9,7 @@
 import type { FibDrawing } from './fibModel.ts';
 import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibTimeRatios, fibLevelColor, formatFibPct, FIB_SPECS } from './fibModel.ts';
 import type { FibCtx, FibGeometry, Pt } from './fibGeometry.ts';
-import { rayEnd } from './fibGeometry.ts';
+import { rayEnd, ellipsePoints, ellipseSamples, paneIntersects } from './fibGeometry.ts';
 
 export type FibBuilder = (pts: Pt[], d: FibDrawing, ctx: FibCtx) => Partial<FibGeometry>;
 
@@ -197,6 +197,125 @@ export const buildPitchfan: FibBuilder = (pts, d, ctx) => {
   // Only the P2-P3 handle: the base's P1-P2 connector would overprint the r=1 ray.
   return { lines, texts, connectors: [{ x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y }] };
 };
+// --- curves ----------------------------------------------------------------
+// Drawn in the "normalised box" frame: the A-B pixel box is the unit square,
+// projected per render. Circles are round only while both axes are at the
+// same scale; zooming one axis stretches them into ellipses, as in TradingView.
+// Nothing about the viewport is stored.
+
+const TAU = Math.PI * 2;
+const PHI = (1 + Math.sqrt(5)) / 2;
+const boxSize = (a: Pt, b: Pt): { W: number; H: number } => ({
+  W: Math.max(Math.abs(b.x - a.x), 1),
+  H: Math.max(Math.abs(b.y - a.y), 1),
+});
+
+/** A full ellipse as a closed polyline, without repeating the first point. */
+function closedEllipse(cx: number, cy: number, rx: number, ry: number): Pt[] {
+  const n = ellipseSamples(rx, ry);
+  return ellipsePoints(cx, cy, rx, ry, 0, (TAU * (n - 1)) / n, n - 1);
+}
+
+const ellipseBox = (cx: number, cy: number, rx: number, ry: number) =>
+  ({ x1: cx - rx, y1: cy - ry, x2: cx + rx, y2: cy + ry });
+
+export const buildCircles: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const { W, H } = boxSize(a, b);
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2;
+  const curves: FibGeometry['curves'] = [];
+  const texts: FibGeometry['texts'] = [];
+  for (const r of fibRatios(d)) {
+    const rx = r * (Math.SQRT2 / 2) * W;
+    const ry = r * (Math.SQRT2 / 2) * H;
+    if (!paneIntersects(ellipseBox(cx, cy, rx, ry), ctx)) continue;
+    const color = ratioColor(d, r);
+    curves.push({ pts: closedEllipse(cx, cy, rx, ry), color, closed: true });
+    texts.push({ x: cx, y: cy - ry - 3, text: formatFibPct(r), color, anchor: 'middle' });
+  }
+  return { curves, texts };
+};
+
+export const buildArcs: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const { W, H } = boxSize(a, b);
+  const down = a.y >= b.y; // A below B on screen: the arcs bulge downwards
+  const curves: FibGeometry['curves'] = [];
+  const texts: FibGeometry['texts'] = [];
+  for (const r of fibRatios(d)) {
+    const rx = r * Math.SQRT2 * W;
+    const ry = r * Math.SQRT2 * H;
+    if (!paneIntersects(ellipseBox(b.x, b.y, rx, ry), ctx)) continue;
+    const color = ratioColor(d, r);
+    if (d.fullCircle) {
+      curves.push({ pts: closedEllipse(b.x, b.y, rx, ry), color, closed: true });
+    } else {
+      const th0 = down ? 0 : Math.PI;
+      curves.push({ pts: ellipsePoints(b.x, b.y, rx, ry, th0, th0 + Math.PI, ellipseSamples(rx, ry)), color });
+    }
+    texts.push({
+      x: b.x, y: down || d.fullCircle ? b.y + ry + 10 : b.y - ry - 3,
+      text: formatFibPct(r), color, anchor: 'middle',
+    });
+  }
+  return { curves, texts };
+};
+
+export const buildWedge: FibBuilder = (pts, d) => {
+  const [a, b, c] = pts;
+  const { W, H } = boxSize(a, b);
+  const thB = Math.atan2((b.y - a.y) / H, (b.x - a.x) / W);
+  const thC = Math.atan2((c.y - a.y) / H, (c.x - a.x) / W);
+  let delta = thC - thB;
+  while (delta > Math.PI) delta -= TAU;
+  while (delta <= -Math.PI) delta += TAU;
+  const edge = d.color ?? '#787B86';
+  const lines: FibGeometry['lines'] = [
+    { x1: a.x, y1: a.y, x2: b.x, y2: b.y, color: edge },
+    { x1: a.x, y1: a.y, x2: c.x, y2: c.y, color: edge },
+  ];
+  const arcs: { pts: Pt[]; r: number }[] = [];
+  const texts: FibGeometry['texts'] = [];
+  const curves: FibGeometry['curves'] = [];
+  for (const r of fibRatios(d)) {
+    const rx = r * Math.SQRT2 * W;
+    const ry = r * Math.SQRT2 * H;
+    const arc = ellipsePoints(a.x, a.y, rx, ry, thB, thB + delta, ellipseSamples(rx, ry));
+    const color = ratioColor(d, r);
+    arcs.push({ pts: arc, r });
+    curves.push({ pts: arc, color });
+    texts.push({ x: arc[0].x + 4, y: arc[0].y - 3, text: formatFibPct(r), color, anchor: 'start' });
+  }
+  const polys: FibGeometry['polys'] = [];
+  if (fillOn(d)) {
+    for (let i = 0; i < arcs.length; i++) {
+      polys.push({
+        pts: i === 0 ? [{ ...a }, ...arcs[0].pts] : [...arcs[i - 1].pts, ...[...arcs[i].pts].reverse()],
+        color: ratioColor(d, arcs[i].r),
+      });
+    }
+  }
+  // The edges are lines already; the base's B-C connector means nothing here.
+  return { lines, curves, texts, polys, connectors: [] };
+};
+
+export const buildSpiral: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const { W, H } = boxSize(a, b);
+  const thB = Math.atan2((b.y - a.y) / H, (b.x - a.x) / W);
+  const s = d.ccw ? -1 : 1;
+  const limit = 4 * (ctx.paneW + ctx.paneH);
+  const out: Pt[] = [];
+  const step = TAU / 48;
+  for (let t = -8 * Math.PI; t <= 4 * Math.PI + 1e-9; t += step) {
+    const rho = Math.SQRT2 * Math.pow(PHI, t / (Math.PI / 2));
+    if (rho * Math.max(W, H) > limit) break;
+    const th = thB + s * t;
+    out.push({ x: a.x + rho * W * Math.cos(th), y: a.y + rho * H * Math.sin(th) });
+  }
+  return { curves: [{ pts: out, color: d.color ?? FIB_FALLBACK_COLOR }] };
+};
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {
   retracement: buildLevels,
@@ -208,4 +327,8 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   fan: buildFan,
   srfan: buildSrfan,
   pitchfan: buildPitchfan,
+  circles: buildCircles,
+  arcs: buildArcs,
+  wedge: buildWedge,
+  spiral: buildSpiral,
 };

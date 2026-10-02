@@ -5,6 +5,7 @@ import { FIB_SPEC_LIST } from './fibModel.ts';
 import { FIB_BUILDERS } from './fibShapes.ts';
 import type { FibVariant, FibDrawing } from './fibModel.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
+import { distToPolyline } from './fibGeometry.ts';
 
 const ctx: FibCtx = { timeToX: (t) => t / 60, priceToY: (p) => 1000 - p, paneW: 800, paneH: 1000 };
 const A = { t: 6000, p: 100 }; // (100, 900)
@@ -191,6 +192,116 @@ test('pitchfan: r=1 rays pass through P2 and P3', () => {
   const i = 1 + 2 * ratios.indexOf(1);
   assert.ok(through(g.lines[i], 200, 900) && through(g.lines[i + 1], 200, 700));
 });
+// --- circles ----------------------------------------------------------------
+
+const P300 = { t: 18000, p: 300 }; // (300, 700)
+
+test('circles: r=1 passes through A and B; r=.5 apex; closed; no duplicate closing point', () => {
+  const g = geo(makeFibDrawing('circles', [A, P300], 'o'));
+  assert.equal(g.curves.length, 10);
+  const c1 = g.curves[5]; // ratio 1
+  assert.equal(c1.closed, true);
+  assert.ok(distToPolyline(100, 900, c1.pts, true) < 1);
+  assert.ok(distToPolyline(300, 700, c1.pts, true) < 1);
+  near(c1.pts[0].x, 200 + 141.4213562, 1e-4);
+  const last = c1.pts.at(-1)!;
+  assert.ok(Math.hypot(last.x - c1.pts[0].x, last.y - c1.pts[0].y) > 1e-3);
+  const t = g.texts[2]; // ratio .5, label 3px above the apex
+  assert.equal(t.anchor, 'middle');
+  near(t.x, 200); near(t.y, 800 - 70.7106781 - 3, 1e-4);
+});
+test('circles: an ellipse that misses the pane is omitted; Connector A-B stays', () => {
+  const far0 = geo(makeFibDrawing('circles', [{ t: 6000 * 20, p: 100 }, { t: 6000 * 20 + 600, p: 110 }], 'o'));
+  assert.ok(far0.curves.length < 10);
+  assert.equal(far0.texts.length, far0.curves.length);
+  assert.equal(geo(makeFibDrawing('circles', [A, P300], 'o')).connectors.length, 1);
+});
+test('circles: hit on a ring', () => {
+  const g = geo(makeFibDrawing('circles', [A, P300], 'o'));
+  assert.equal(fibHitTest([g], 200 + 141.42, 800, 4), 'o');
+});
+
+// --- arcs -------------------------------------------------------------------
+
+test('arcs: centre B with A below keeps every point at or below B; passes through A', () => {
+  const g = geo(makeFibDrawing('arcs', [A, P300], 'a'));
+  assert.equal(g.curves.length, 6);
+  for (const c of g.curves) assert.ok(c.pts.every((p) => p.y >= 700 - 1e-9));
+  const r1 = g.curves[5];
+  assert.ok(distToPolyline(100, 900, r1.pts) < 1);
+  assert.ok(!r1.closed);
+  assert.equal(g.texts.length, 6);
+  near(g.texts[5].x, 300); near(g.texts[5].y, 700 + 200 * Math.SQRT2 + 10, 1e-6);
+});
+test('arcs: A above B bulges upwards; fullCircle goes round and closes', () => {
+  const up = geo(makeFibDrawing('arcs', [{ t: 6000, p: 300 }, { t: 18000, p: 100 }], 'a')); // A (100,700), B (300,900)
+  for (const c of up.curves) assert.ok(c.pts.every((p) => p.y <= 900 + 1e-9));
+  const d = makeFibDrawing('arcs', [A, P300], 'a');
+  d.fullCircle = true;
+  const full = geo(d);
+  assert.ok(full.curves[5].pts.some((p) => p.y < 700));
+  assert.equal(full.curves[5].closed, true);
+});
+
+// --- wedge ------------------------------------------------------------------
+
+const P3 = { t: 18000, p: 100 }; // (300, 900)
+
+test('wedge: arcs from the B edge to the C edge, two edge lines, sectors', () => {
+  const g = geo(makeFibDrawing('wedge', [A, P300, P3], 'w'));
+  assert.equal(g.curves.length, 6);
+  assert.equal(g.lines.length, 2);
+  assert.equal(g.polys.length, 6);
+  assert.deepEqual(g.connectors, []);
+  const r1 = g.curves[5].pts;
+  assert.ok(distToPolyline(300, 700, r1) < 1e-6);
+  assert.ok(distToPolyline(382.84271, 900, r1) < 1e-3);
+  // sweep from -pi/4 to 0: a quarter of pi at most
+  const ang = (p: { x: number; y: number }) => Math.atan2((p.y - 900) / 200, (p.x - 100) / 200);
+  near(ang(r1[0]), -Math.PI / 4, 1e-9);
+  near(ang(r1.at(-1)!), 0, 1e-9);
+});
+test('wedge: C at the B edge (zero sweep) is finite; fill false drops sectors', () => {
+  const g = geo(makeFibDrawing('wedge', [A, P300, P300], 'w'));
+  assert.ok(g.curves.every((c) => c.pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))));
+  const d = makeFibDrawing('wedge', [A, P300, P3], 'w');
+  d.fill = false;
+  assert.equal(geo(d).polys.length, 0);
+});
+test('wedge: the wrap picks the short way round', () => {
+  // B at angle -3pi/4 -ish, C at +3pi/4: the short sweep crosses pi, not zero
+  const g = geo(makeFibDrawing('wedge', [{ t: 18000, p: 100 }, { t: 12000, p: 200 }, { t: 12000, p: 0 }], 'w'));
+  const arc = g.curves[0].pts;
+  const sweepEnds = Math.hypot(arc[0].x - arc.at(-1)!.x, arc[0].y - arc.at(-1)!.y);
+  assert.ok(Number.isFinite(sweepEnds));
+  assert.ok(arc.every((p) => p.x <= 300 + 1e-6)); // stays left of the apex
+});
+
+// --- spiral -----------------------------------------------------------------
+
+test('spiral: passes through B at t=0, grows, under 2000 points', () => {
+  const g = geo(makeFibDrawing('spiral', [A, B], 'sp'));
+  const pts = g.curves[0].pts;
+  assert.ok(pts.length < 2000 && pts.length > 100);
+  assert.ok(distToPolyline(200, 800, pts) < 1);
+  const rad = (p: { x: number; y: number }) => Math.hypot(p.x - 100, p.y - 900);
+  assert.ok(rad(pts.at(-1)!) > rad(pts[0]));
+  assert.equal(g.connectors.length, 1);
+});
+test('spiral: ccw turns the other way and still passes through B', () => {
+  const d = makeFibDrawing('spiral', [A, B], 'sp');
+  const cw = geo(d).curves[0].pts;
+  d.ccw = true;
+  const ccw = geo(d).curves[0].pts;
+  assert.ok(distToPolyline(200, 800, ccw) < 1);
+  const turn = (pts: { x: number; y: number }[]) => {
+    const i = 193; // just past t=0
+    const v1 = { x: pts[i].x - 100, y: pts[i].y - 900 };
+    const v2 = { x: pts[i + 1].x - pts[i].x, y: pts[i + 1].y - pts[i].y };
+    return Math.sign(v1.x * v2.y - v1.y * v2.x);
+  };
+  assert.equal(turn(cw), -turn(ccw));
+});
 // --- all ready variants ------------------------------------------------------
 
 const ready = FIB_SPEC_LIST.filter((s) => s.ready);
@@ -200,8 +311,8 @@ test('a spec is ready exactly when it has a builder', () => {
   for (const s of FIB_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });
 
-test('ready set is what Batches 0, A and B ship', () => {
-  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'fan', 'timezones', 'channel', 'srfan', 'trendtime', 'pitchfan']);
+test('ready set is what Batches 0, A, B and C ship', () => {
+  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'fan', 'timezones', 'channel', 'srfan', 'trendtime', 'circles', 'arcs', 'wedge', 'spiral', 'pitchfan']);
 });
 
 for (const s of ready) {
