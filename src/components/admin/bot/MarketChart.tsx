@@ -89,6 +89,7 @@ const CHANNEL_TOOLS: DrawItem[] = [
   { tool: 'chlin', label: 'Linear Regression', clicks: 2, glyph: '≋' },
 ];
 const isChannelTool = (t: Tool): boolean => t in CHANNEL_VARIANT;
+
 const PITCHFORK_TOOLS: DrawItem[] = [
   { tool: 'pitchfork', label: 'Pitchfork', clicks: 3, glyph: '⊢E' },
   { tool: 'schiff', label: 'Schiff Pitchfork', clicks: 3, glyph: '⊢E' },
@@ -124,6 +125,15 @@ const GEOMETRY_TOOLS: DrawItem[] = [
 ];
 
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
+
+/** Every drawing tool in one list. The armed-tool banner and the rail's
+ *  tooltip both need to turn a Tool back into its menu entry, and each kept
+ *  its own hand-written spread — so Channels, added last, was missing from
+ *  both and a channel announced itself as "chdis". */
+const ALL_DRAW_TOOLS: DrawItem[] = [
+  ...LINE_TOOLS, ...EXTRA_TOOLS, ...CHANNEL_TOOLS, ...PITCHFORK_TOOLS,
+  ...FIB_TOOLS, ...GANN_TOOLS, ...GEOMETRY_TOOLS,
+];
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
  *  tells you what a click will draw without a tooltip or an open menu — theirs
@@ -587,62 +597,6 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
 const fmt = (n: number | null | undefined, digits: number) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits);
 
-/**
- * The two points a line is actually drawn between, once its reach is applied.
- *
- * lightweight-charts has no concept of an infinite line — a LineSeries is the
- * points you give it. So a ray is a segment recomputed to the edge of the data,
- * following the same slope. Bounded by the loaded candles (plus a fifth of the
- * range, so it visibly runs off the edge rather than stopping at the last bar):
- * extending to infinity would stretch the time scale until the candles were a
- * sliver.
- *
- * Re-derived on every render, which is what makes a ray keep reaching the edge
- * as new bars arrive instead of ending where it did when it was drawn.
- */
-function extendLine(
-  d: { t1: number; v1: number; t2: number; v2: number; reach?: string },
-  bars: { time: UTCTimestamp }[],
-  /** The times at the edges of what is on screen, when the caller knows them.
-   *  A ray has to reach the edge of the PANE, not of the data — otherwise it
-   *  visibly stops in mid-air as soon as you pan past its end. */
-  view?: { from: number; to: number } | null,
-): { time: UTCTimestamp; value: number }[] {
-  const reach = d.reach ?? 'segment';
-  const pts = [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: d.t2 as UTCTimestamp, value: d.v2 }];
-  if (reach === 'segment' || bars.length < 2) {
-    return pts.sort((a, b) => (a.time as number) - (b.time as number));
-  }
-
-  const first = Math.min(bars[0].time as number, view?.from ?? Infinity);
-  const last = Math.max(bars[bars.length - 1].time as number, view?.to ?? -Infinity);
-  const pad = Math.max((last - first) * 0.25, 1);
-  const lo = first - pad;
-  const hi = last + pad;
-
-  // Flat, from the click onward. One point, so no slope to follow.
-  if (reach === 'hray') {
-    return [{ time: d.t1 as UTCTimestamp, value: d.v1 }, { time: hi as UTCTimestamp, value: d.v1 }];
-  }
-
-  // Price per second along the line. A vertical pair has no slope to extend.
-  const dt = d.t2 - d.t1;
-  if (dt === 0) return pts;
-  const m = (d.v2 - d.v1) / dt;
-  const at = (t: number) => d.v1 + m * (t - d.t1);
-
-  if (reach === 'extended') {
-    return [{ time: lo as UTCTimestamp, value: at(lo) }, { time: hi as UTCTimestamp, value: at(hi) }];
-  }
-
-  // Ray: starts at the first click, runs through the second and onward — so
-  // which edge it reaches depends on which way it was drawn.
-  const end = dt > 0 ? hi : lo;
-  return [
-    { time: d.t1 as UTCTimestamp, value: d.v1 },
-    { time: end as UTCTimestamp, value: at(end) },
-  ].sort((a, b) => (a.time as number) - (b.time as number));
-}
 
 /* ── Symbol search ────────────────────────────────────────────────────────
  * Grouping and long names are derived from the symbol itself. Nothing in the
@@ -925,7 +879,7 @@ export function MarketChart({
    *  Declared here, below `tool`: it was above, which is a temporal dead zone
    *  and took the whole page down with "Cannot access 'tool' before
    *  initialization". */
-  const armed = [...LINE_TOOLS, ...PITCHFORK_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === tool);
+  const armed = ALL_DRAW_TOOLS.find((t) => t.tool === tool);
   const [fs, setFs] = useState(false);
   const [inds, setInds] = useState<Set<IndId>>(() => {
     if (typeof window !== 'undefined') {
@@ -1346,13 +1300,26 @@ export function MarketChart({
     }
     setLineLabels(labels);
 
-    /* HANDLES. Drawn as an overlay rather than with the series' own point
-     * markers, because a ray's far end is a computed edge point, not
-     * something you placed — a handle there would invite you to drag a thing
-     * that is not a handle. So: the clicked points only. */
+    /* HANDLES, FOR THE SELECTED DRAWING ONLY.
+     *
+     * Every drawing used to show its grips at once. Four channels is sixteen
+     * circles sitting on top of each other's lines, and they stop reading as
+     * "the ends of THIS drawing" — the chart becomes a field of dots and the
+     * shapes underneath mix into one another. Worse, they all compete for the
+     * same grab radius, so a drag catches whichever happens to be nearest
+     * rather than the one you meant.
+     *
+     * Grips belong to the thing you are editing. Select a drawing and it shows
+     * its own; everything else stays a clean line.
+     *
+     * Drawn as an overlay rather than with the series' own point markers,
+     * because a ray's far end is a computed edge point, not something you
+     * placed — a handle there would invite you to drag a thing that is not a
+     * handle. So: the clicked points only. */
     const hs: { id: string; x: number; y: number }[] = [];
+    const selForHandles = selectedRef.current?.id ?? null;
     for (const d of drawings.current) {
-      if (d.kind !== 'trend') continue;
+      if (d.kind !== 'trend' || d.id !== selForHandles) continue;
       const reach = d.reach ?? 'segment';
       const x1 = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
       const y1 = s.priceToCoordinate(d.v1);
@@ -1377,7 +1344,7 @@ export function MarketChart({
     /* All three of a fork's points are real clicks, so all three get a handle —
      * unlike a ray, whose far end is a computed edge. */
     for (const d of drawings.current) {
-      if (d.kind !== 'pitchfork') continue;
+      if (d.kind !== 'pitchfork' || d.id !== selForHandles) continue;
       const pts: [number, number, string][] = [
         [d.t1, d.v1, 'a'], [d.t2, d.v2, 'b'], [d.t3, d.v3, 'c'],
       ];
@@ -1390,7 +1357,7 @@ export function MarketChart({
     /* A CHANNEL's anchors. The regression has two — its lines are computed,
      * so there is no third point to offer. */
     for (const d of drawings.current) {
-      if (d.kind !== 'channel') continue;
+      if (d.kind !== 'channel' || d.id !== selForHandles) continue;
       const pts: [number, number, string][] = [[d.t1, d.v1, 'a'], [d.t2, d.v2, 'b']];
       // Disjoint's second line has two ends of its own, so both get a grip.
       if (d.variant === 'disjoint') {
@@ -1424,7 +1391,7 @@ export function MarketChart({
      * price scale does. The cross puts its handle where the two lines meet,
      * which IS its anchor. */
     for (const d of drawings.current) {
-      if (d.kind !== 'vline' && d.kind !== 'cross') continue;
+      if ((d.kind !== 'vline' && d.kind !== 'cross') || d.id !== selForHandles) continue;
       const hx = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
       if (hx == null) continue;
       const hy = d.kind === 'cross' ? s.priceToCoordinate(d.v1) : H / 2;
@@ -2642,7 +2609,7 @@ export function MarketChart({
         {/* Diagonals and their handles. Clipped by the SVG viewport, which is
             how a ray reaches the edge without existing beyond it. */}
         {!drawingsHidden
-          && (segs.length > 0 || handles.length > 0 || ghost.length > 0
+          && (segs.length > 0 || handles.length > 0
             || arcs.length > 0 || fills.length > 0) && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
             {/* Tints first, so a boundary is never drawn under its own fill. */}
@@ -2672,19 +2639,6 @@ export function MarketChart({
                 fill="none"
                 stroke={a.color}
                 strokeWidth={1.5}
-              />
-            ))}
-            {/* The fork still being placed. Half-opacity so it reads as a
-                proposal rather than as something already drawn. */}
-            {ghost.map((g) => (
-              <line
-                key={g.id}
-                x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
-                stroke={g.color}
-                strokeWidth={g.width}
-                strokeDasharray={g.dash || undefined}
-                strokeLinecap="round"
-                opacity={0.55}
               />
             ))}
             {handles.map((h) => (
@@ -2737,6 +2691,28 @@ export function MarketChart({
 
         {/* The rubber band. pointer-events-none so it never eats the click that
             is about to commit the line it is previewing. */}
+        {/* WHAT YOU ARE DRAWING RIGHT NOW.
+            Outside the drawings overlay on purpose: that one is gated by the
+            hide-drawings eye, and hiding what is already saved must not hide
+            the thing still following your cursor. It is also never clipped by
+            the saved-drawings layer, so it is always the clearest line on the
+            chart - which is the one you are aiming. */}
+        {ghost.length > 0 && (
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
+            {ghost.map((g) => (
+              <line
+                key={g.id}
+                x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
+                stroke={g.color}
+                strokeWidth={g.width}
+                strokeDasharray={g.dash || undefined}
+                strokeLinecap="round"
+                opacity={0.75}
+              />
+            ))}
+          </svg>
+        )}
+
         {band && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full">
             <line
@@ -2996,7 +2972,7 @@ export function MarketChart({
                   setDrawPending(false);
                   clearPreview();
                 }}
-                title={`${[...LINE_TOOLS, ...PITCHFORK_TOOLS, ...EXTRA_TOOLS, ...FIB_TOOLS].find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
                   + (tool === 'cursor' ? ' — click to arm' : ' — armed')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
                   tool !== 'cursor' ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
@@ -3442,7 +3418,10 @@ export function MarketChart({
                     ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
                     : 'click the second point'
                   : armed?.clicks === 3
-                      ? 'click the pivot'
+                      // "Pivot" is the pitchfork's word for its first click and
+                      // means nothing on a channel, which has no pivot - it has
+                      // a line and an offset.
+                      ? (FORK_VARIANT[tool] ? 'click the pivot' : 'click the first point')
                       : armed?.clicks === 2
                         ? 'click the first point'
                         : 'click a price on the chart'}
