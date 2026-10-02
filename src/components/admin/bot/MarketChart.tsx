@@ -22,14 +22,16 @@ import {
   Crosshair, Search, Trash2, X, ChevronDown, LineChart, Grid3x3, BarChart3,
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
-  ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, Rows3, Rows4, GitFork,
+  ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, type FibDrawing, type FibGeometry, type FibPoint,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT,
+  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
+import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
 import { inferBarSecs } from './drawing/barTime.ts';
 import { FibOverlay } from './drawing/FibOverlay.tsx';
@@ -44,7 +46,7 @@ type Tool =
   | 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray'
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
   | 'cross' | 'vline' | 'info' | 'angle'
-  | 'fibr' | 'fibe';
+  | FibToolId;
 
 /** Which fork a tool draws. All four take the same three clicks and differ
  *  only in where the median STARTS — see forkOrigin. */
@@ -87,26 +89,16 @@ const PITCHFORK_TOOLS: DrawItem[] = [
 const EXTRA_TOOLS: DrawItem[] = [
   { tool: 'text', label: 'Labelled Level', keys: 'Alt+L', clicks: 1, glyph: 'T' },
 ];
-/** Fibonacci: levels drawn from two points (retracement) or three (trend-based
- *  extension). No keyboard shortcut. */
-const FIB_TOOLS: DrawItem[] = [
-  { tool: 'fibr', label: 'Fib Retracement', clicks: 2, glyph: '⌗' },
-  { label: 'Fib Extension', glyph: '⌸', soon: true },
-  { tool: 'fibe', label: 'Trend-Based Fib Extension', clicks: 3, glyph: '⇶' },
-  { label: 'Fib Fan', glyph: '◺', soon: true },
-  { label: 'Fib Time Zones', glyph: '⦀', soon: true },
-  { label: 'Fib Channel', glyph: '⫽', soon: true },
-  { label: 'Fib Speed Resistance Fan', glyph: '◸', soon: true },
-  { label: 'Trend-Based Fib Time', glyph: '⫿', soon: true },
-  { label: 'Fib Circles', glyph: '◎', soon: true },
-  { label: 'Fib Speed Resistance Arcs', glyph: '◠', soon: true },
-  { label: 'Fib Wedge', glyph: '◿', soon: true },
-  { label: 'Fib Spiral', glyph: '◉', soon: true },
-];
+/** The Fibonacci family, derived from the registry in drawing/fibModel.ts.
+ *  Specs whose builder has not landed show greyed. No keyboard shortcut. */
+const FIB_TOOLS: DrawItem[] = FIB_SPEC_LIST.map((s) => ({
+  tool: s.toolId, label: s.label, clicks: s.clicks, glyph: s.glyph,
+  ...(s.ready ? {} : { soon: true as const }),
+}));
 /** Gann and Geometry share the Fibonacci button in the design, so they are
- *  listed under it rather than invented a button of their own. None are built;
- *  they are shown greyed for the same reason the rest are — a tool that is
- *  missing from the menu reads as one you misremembered. */
+ *  listed under it rather than given a button of their own. None are built;
+ *  they are shown greyed for the same reason a missing fib spec is — a tool
+ *  absent from the menu reads as one you misremembered. */
 const GANN_TOOLS: DrawItem[] = [
   { label: 'Gann Fan', glyph: '◤', soon: true },
   { label: 'Gann Box', glyph: '▦', soon: true },
@@ -120,7 +112,7 @@ const GEOMETRY_TOOLS: DrawItem[] = [
   { label: 'Golden Supersonic', glyph: '◐', soon: true },
 ];
 
-const isFibTool = (t: Tool): t is 'fibr' | 'fibe' => t === 'fibr' || t === 'fibe';
+const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
  *  tells you what a click will draw without a tooltip or an open menu — theirs
@@ -141,8 +133,7 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   vline: Minus,
   info: Slash,
   angle: Slash,
-  fibr: Rows3,
-  fibe: Rows4,
+  ...FIB_TOOL_ICONS,
 };
 
 // One browser Supabase client for the module, pointed at the BOT project — the
@@ -799,6 +790,7 @@ export function MarketChart({
   const setGridOn = (next: boolean | ((v: boolean) => boolean)) =>
     setGridOverride((prev) => (typeof next === 'function' ? next(prev ?? showGrid) : next));
   const [drawingsHidden, setDrawingsHidden] = useState(false);
+  const drawingsHiddenRef = useRef(false);
   const [drawingsLocked, setDrawingsLocked] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [indFavs, setIndFavs] = useState<string[]>([]);
@@ -876,6 +868,8 @@ export function MarketChart({
   const fibPts = useRef<FibPoint[]>([]);
   const [fibStep, setFibStep] = useState(0);
   const [fibGeoms, setFibGeoms] = useState<FibGeometry[]>([]);
+  /** What syncLabels last computed, so hitTest need not recompute every move. */
+  const fibGeomsRef = useRef<FibGeometry[]>([]);
   const [fibPreview, setFibPreview] = useState<FibGeometry | null>(null);
   const fibCtx = () => makeFibCtx(chartRef.current, seriesRef.current, barsRef.current);
   const clearPreview = () => {
@@ -964,9 +958,13 @@ export function MarketChart({
     return r ? { from: r.from as number, to: r.to as number } : null;
   };
 
+  /** Empties everything syncLabels draws, without projecting anything. */
+  const clearOverlay = () => {
+    setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = [];
+  };
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
-    if (!s || !c) { setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); return; }
+    if (!s || !c) { clearOverlay(); return; }
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -1248,7 +1246,8 @@ export function MarketChart({
     setHandles(hs);
 
     const fc = fibCtx();
-    setFibGeoms(fc ? computeFibGeometries(drawings.current, fc) : []);
+    fibGeomsRef.current = fc ? computeFibGeometries(drawings.current, fc) : [];
+    setFibGeoms(fibGeomsRef.current);
   };
 
   /** Patch one drawing, redraw it, and save. Redrawn rather than mutated in
@@ -1296,7 +1295,7 @@ export function MarketChart({
   const deleteDrawing = (id: string) => {
     drawings.current = drawings.current.filter((d) => d.id !== id);
     setSelected(null);
-    if (!drawingsHidden) renderDrawings();
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
     persistDrawings();
   };
   const duplicateDrawing = (id: string) => {
@@ -1318,7 +1317,7 @@ export function MarketChart({
       if (copy.kind === 'pitchfork') copy.v3 *= 1.0005;
     }
     drawings.current.push(copy);
-    if (!drawingsHidden) renderDrawings();
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
     persistDrawings();
     setSelected(copy);
   };
@@ -1462,7 +1461,7 @@ export function MarketChart({
   // edits and nobody expects ⟲ to scroll them back. Redo is dropped the moment
   // a new line is drawn, which is what every editor does.
   const redoStack = useRef<Drawing[]>([]);
-  const repaint = () => { if (!drawingsHidden) renderDrawings(); persistDrawings(); };
+  const repaint = () => { if (!drawingsHidden) renderDrawings(); else syncLabels(); persistDrawings(); };
   const undoDrawing = () => {
     const d = drawings.current.pop();
     if (!d) return;
@@ -1668,6 +1667,7 @@ export function MarketChart({
   // chart, the list in `drawings` (and localStorage) is untouched, so showing
   // them again brings back exactly what was there. Deleting is the trash.
   useEffect(() => {
+    drawingsHiddenRef.current = drawingsHidden;
     if (!chartRef.current || !seriesRef.current) return;
     if (drawingsHidden) removeDrawingObjects();
     else renderDrawings();
@@ -1747,7 +1747,7 @@ export function MarketChart({
         if (!param.point) return;
         const pt = clickToFibPoint(chartRef.current, seriesRef.current, param.point, barsRef.current);
         if (!pt) return;
-        const variant = t === 'fibe' ? 'extension' : 'retracement';
+        const variant = FIB_TOOL_VARIANT[t];
         fibPts.current.push(pt);
         const n = fibPts.current.length;
         if (n < fibClicksNeeded(variant)) {
@@ -1896,11 +1896,8 @@ export function MarketChart({
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
         if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
       }
-      const fc = fibCtx();
-      if (fc) {
-        const id = fibHitTest(computeFibGeometries(drawings.current, fc), x, y, HIT);
-        if (id) return { id, kind: 'fib' };
-      }
+      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, HIT);
+      if (fibId) return { id: fibId, kind: 'fib' };
       /* A fork is grabbed by any of its lines. Tested against what is ON SCREEN
        * — the segments syncLabels already computed — rather than re-deriving
        * the geometry here, so the thing you can see and the thing you can grab
@@ -2074,7 +2071,7 @@ export function MarketChart({
             bandRef.current = null;
             setBand(null);
             const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
-            const variant = t === 'fibe' ? 'extension' : 'retracement';
+            const variant = FIB_TOOL_VARIANT[t];
             const g = fc && pt
               ? computeFibGeometry(makeFibDrawing(variant, [...fibPts.current, pt], 'preview'), fc)
               : null;
@@ -2187,6 +2184,7 @@ export function MarketChart({
     removeDrawingObjects();
     drawKeyRef.current = DRAW_KEY(symbol, tf);
     drawings.current = loadDrawings(symbol, tf);
+    clearOverlay(); // the old market's overlay must not linger, or stay hit-testable
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
@@ -2845,7 +2843,7 @@ export function MarketChart({
                 }`}
               >
                 {(() => {
-                  const Icon = TOOL_ICON[lastFib] ?? Rows3;
+                  const Icon = TOOL_ICON[lastFib] ?? FIB_TOOL_ICONS.fibr;
                   return <Icon className="h-4 w-4" />;
                 })()}
               </button>
@@ -3103,26 +3101,21 @@ export function MarketChart({
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Reset settings
                     </button>
-                    {selected.kind === 'fib' && (
-                      <>
+                    {selected.kind === 'fib' && FIB_SPECS[selected.variant]?.toggles.map((tg) => {
+                      const isOn = selected[tg.key] ?? tg.default;
+                      const TgIcon = { extendRight: ArrowRightToLine, extendLeft: ArrowLeftToLine, fill: Layers, grid: Grid3x3, fullCircle: Circle, ccw: RotateCcw }[tg.key];
+                      return (
                         <button
+                          key={tg.key}
                           type="button"
-                          onClick={() => { patchDrawing(selected.id, { extendRight: !selected.extendRight }); close(); }}
+                          onClick={() => { patchDrawing(selected.id, { [tg.key]: !isOn } as Pick<FibDrawing, FibToggle['key']>); close(); }}
                           className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
                         >
-                          <ArrowRightToLine className="h-3.5 w-3.5" />
-                          {selected.extendRight ? 'Stop extending right' : 'Extend lines right'}
+                          <TgIcon className="h-3.5 w-3.5" />
+                          {isOn ? tg.off : tg.on}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => { patchDrawing(selected.id, { fill: selected.fill === false }); close(); }}
-                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                          {selected.fill === false ? 'Fill between levels' : 'Hide fill'}
-                        </button>
-                      </>
-                    )}
+                      );
+                    })}
                     {/* Bring to front / send to back are in the design and not
                         here: this library draws each drawing as its own series
                         and gives no z-order control over them. Listing them as
@@ -3171,18 +3164,17 @@ export function MarketChart({
               <PenLine className="h-3.5 w-3.5 text-brand" />
               <span className="font-semibold text-brand">{armed?.label ?? tool}</span>
               <span className="text-fg-muted">
-                {drawPending
+                {isFibTool(tool)
+                  // Each fib tool words its own prompt (see fibModel.ts).
+                  ? fibPrompt(FIB_TOOL_VARIANT[tool], drawPending ? fibStep : 0)
+                  : drawPending
                   // A three-click tool has to say WHICH point it is waiting
                   // for: "click the second point" through two of them is the
                   // same hint twice, and reads as a click that did not land.
-                  ? tool === 'fibe'
-                    ? (fibStep === 2 ? 'click the third point (projection anchor)' : 'click the second point')
-                    : armed?.clicks === 3
-                      ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
-                      : 'click the second point'
-                  : tool === 'fibe'
-                    ? 'click the first point'
-                    : armed?.clicks === 3
+                  ? armed?.clicks === 3
+                    ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
+                    : 'click the second point'
+                  : armed?.clicks === 3
                       ? 'click the pivot'
                       : armed?.clicks === 2
                         ? 'click the first point'

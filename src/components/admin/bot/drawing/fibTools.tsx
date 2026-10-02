@@ -1,0 +1,22 @@
+import {
+  Rows3, Rows4, AlignVerticalDistributeCenter, TriangleRight, Columns3, Scaling, Fan,
+  Timer, Target, Rainbow, Cone, Shell,
+  type LucideIcon,
+} from 'lucide-react';
+import type { FibToolId } from './fibModel.ts';
+
+/** Rail and menu icon for each Fibonacci tool. */
+export const FIB_TOOL_ICONS: Record<FibToolId, LucideIcon> = {
+  fibr: Rows3,
+  fibe: Rows4,
+  fibx: AlignVerticalDistributeCenter,
+  fibf: TriangleRight,
+  fibtz: Columns3,
+  fibc: Scaling,
+  fibsr: Fan,
+  fibtt: Timer,
+  fibo: Target,
+  fiba: Rainbow,
+  fibw: Cone,
+  fibs: Shell,
+};
