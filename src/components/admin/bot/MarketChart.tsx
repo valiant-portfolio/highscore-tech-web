@@ -2587,11 +2587,13 @@ export function MarketChart({
                     : armed?.clicks === 3
                       ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
                       : 'click the second point'
-                  : armed?.clicks === 3
-                    ? 'click the pivot'
-                    : armed?.clicks === 2
-                      ? 'click the first point'
-                      : 'click a price on the chart'}
+                  : tool === 'fibe'
+                    ? 'click the first point'
+                    : armed?.clicks === 3
+                      ? 'click the pivot'
+                      : armed?.clicks === 2
+                        ? 'click the first point'
+                        : 'click a price on the chart'}
               </span>
               <span className="text-fg-subtle">· Esc to cancel</span>
             </span>
