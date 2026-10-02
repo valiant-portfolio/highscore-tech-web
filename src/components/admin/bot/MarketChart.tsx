@@ -318,7 +318,11 @@ function TimeframeRing({ value, live, onPick, onClose }: {
   onPick: (v: string) => void;
   onClose: () => void;
 }) {
-  const R = 118;                       // label circle radius, px
+  /* Sized to the screen: 312px across is wider than a small phone, and a dial
+   * that overflows cannot be aimed at. */
+  const R = typeof window !== 'undefined'
+    ? Math.max(76, Math.min(118, (Math.min(window.innerWidth, window.innerHeight) - 110) / 2))
+    : 118;
   const n = ALL_TIMEFRAMES.length;
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
@@ -476,6 +480,13 @@ function regressionFit(closes: number[]): { a: number; b: number; sd: number; r2
  * behind the furniture rather than off the screen. The chart is the room this
  * menu is allowed to use.
  */
+function flyoutMaxW(el: HTMLElement | null, want: number): number {
+  const M = 8;
+  if (typeof window === 'undefined') return want;
+  const left = el ? el.getBoundingClientRect().right + 6 : 54;
+  return Math.max(176, Math.min(want, window.innerWidth - left - M));
+}
+
 function flyoutMaxH(el: HTMLElement | null, within: HTMLElement | null): number {
   const fallback = Math.round(window.innerHeight * 0.6);
   if (!el) return fallback;
@@ -834,9 +845,13 @@ export function MarketChart({
    *  longer of the two and overflowed the window first. */
   const drawBtnRef = useRef<HTMLDivElement | null>(null);
   const [drawMaxH, setDrawMaxH] = useState<number | null>(null);
+  const [drawMaxW, setDrawMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
     if (!drawOpen) { setDrawMaxH(null); return; }
-    const place = () => setDrawMaxH(flyoutMaxH(drawBtnRef.current, wrapRef.current));
+    const place = () => {
+      setDrawMaxH(flyoutMaxH(drawBtnRef.current, wrapRef.current));
+      setDrawMaxW(flyoutMaxW(drawBtnRef.current, 256));
+    };
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -857,9 +872,13 @@ export function MarketChart({
    * only as far as it must to fit, and never taller than the window. */
   const fibBtnRef = useRef<HTMLDivElement | null>(null);
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
+  const [fibMaxW, setFibMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
     if (!fibOpen) { setFibMaxH(null); return; }
-    const place = () => setFibMaxH(flyoutMaxH(fibBtnRef.current, wrapRef.current));
+    const place = () => {
+      setFibMaxH(flyoutMaxH(fibBtnRef.current, wrapRef.current));
+      setFibMaxW(flyoutMaxW(fibBtnRef.current, 288));
+    };
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -875,6 +894,23 @@ export function MarketChart({
    *  forkPts is a ref so the once-bound click handler can write to it, and a
    *  ref changing re-renders nothing. */
   const [draftLen, setDraftLen] = useState(0);
+
+  /* TOUCH.
+   *
+   * A finger is not a mouse pointer: it covers roughly 44px and it cannot
+   * hover, so targets sized for a cursor are unusable. Measured once with
+   * pointer: coarse rather than guessed from width — a touchscreen laptop is
+   * wide and still wants the bigger grips. */
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const apply = () => setCoarse(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+  const coarseRef = useRef(false);
+  useEffect(() => { coarseRef.current = coarse; }, [coarse]);
   const [railHidden, setRailHidden] = useState(false);
   /* The line type the rail button arms when you just click it.
    *
@@ -2228,9 +2264,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     // Grab a line by clicking within a few px of it, then drag. While dragging we
     // freeze the chart's own pan/zoom so the move doesn't scroll the candles.
     const el = wrapRef.current;
-    // 12px, matching the reference: a 2px line is a hard thing to hit and a
-    // miss reads as the drawing being unselectable rather than as a near miss.
-    const HIT = 12;
+    /* 12px for a mouse, matching the reference. 22 for a finger, which covers
+     * far more than it points at — the same miss that reads as a near one with
+     * a cursor reads as the drawing being dead to the touch. */
+    const HIT = coarseRef.current ? 22 : 12;
     const localXY = (e: PointerEvent) => {
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -2653,7 +2690,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         <div
           ref={wrapRef}
           className={`h-full w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`}
-          style={tool !== 'cursor' ? { cursor: 'crosshair' } : undefined}
+          /* touchAction none while drawing: without it the browser claims the
+             drag as a page scroll and the line never gets the move events. */
+          style={{
+            ...(tool !== 'cursor' ? { cursor: 'crosshair' } : {}),
+            touchAction: tool === 'cursor' ? undefined : 'none',
+          }}
         />
 
         {/* Diagonals and their handles. Clipped by the SVG viewport, which is
@@ -2701,7 +2743,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 key={h.id}
                 cx={h.x}
                 cy={h.y}
-                r={5}
+                r={coarse ? 9 : 5}
                 fill="#0b0f0d"
                 stroke={DRAW_COLOR}
                 strokeWidth={2}
@@ -3072,8 +3114,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                     className="fixed inset-0 z-40 cursor-default"
                   />
                   <div
-                    style={drawMaxH ? { maxHeight: drawMaxH } : undefined}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] w-64 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    style={{
+                      ...(drawMaxH ? { maxHeight: drawMaxH } : {}),
+                      ...(drawMaxW ? { width: drawMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
@@ -3175,8 +3220,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                     className="fixed inset-0 z-40 cursor-default"
                   />
                   <div
-                    style={fibMaxH ? { maxHeight: fibMaxH } : undefined}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    style={{
+                      ...(fibMaxH ? { maxHeight: fibMaxH } : {}),
+                      ...(fibMaxW ? { width: fibMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Fibonacci', FIB_MENU],
@@ -3299,8 +3347,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             one. Floated over the candles rather than docked, so it is next to
             the thing it edits. */}
         {selected && (
-          <div className="absolute left-1/2 top-3 z-40 -translate-x-1/2">
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 px-1.5 py-1 shadow-xl backdrop-blur-sm">
+          <div className="absolute left-1/2 top-3 z-40 w-[calc(100%-1rem)] max-w-max -translate-x-1/2">
+            {/* Scrolls sideways rather than overflowing: eleven controls do not
+                fit a phone, and a row that runs past the edge puts the bin -
+                the one people reach for - where it cannot be touched. */}
+            <div className="scrollbar-none flex items-center gap-1 overflow-x-auto rounded-lg border border-border bg-bg-elevated/95 px-1.5 py-1 shadow-xl backdrop-blur-sm">
               <GripVertical className="h-4 w-4 shrink-0 text-fg-subtle" />
 
               {/* Colour */}
@@ -3655,7 +3706,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         <div
           ref={wrapRef}
           className={`flex-1 w-full transition-opacity ${showEmpty ? 'opacity-0' : 'opacity-100'}`}
-          style={tool !== 'cursor' ? { cursor: 'crosshair' } : undefined}
+          style={{
+            ...(tool !== 'cursor' ? { cursor: 'crosshair' } : {}),
+            touchAction: tool === 'cursor' ? undefined : 'none',
+          }}
         />
 
         {loading && <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">Loading {alias}…</div>}
