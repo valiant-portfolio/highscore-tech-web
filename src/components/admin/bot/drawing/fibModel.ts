@@ -211,7 +211,7 @@ const SONIC_COLORS: Record<string, string> = {
 };
 const GOLDEN_SONIC_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 4.236, 6.854, 11.09];
 
-/** Listed so the menu shows them greyed; no builder yet (ready false). */
+/** Specs without a builder yet (ready false) show greyed in the menu. */
 export const GEOMETRY_SPEC_LIST: FibSpec[] = [
   {
     family: 'geometry', variant: 'dedekind', toolId: 'dedek', label: 'Dedekind Tessellation', clicks: 2, glyph: '◠',
@@ -222,22 +222,22 @@ export const GEOMETRY_SPEC_LIST: FibSpec[] = [
   {
     family: 'geometry', variant: 'sonic', toolId: 'sonic', label: 'Sonic', clicks: 2, glyph: '◉',
     levels: SONIC_LEVELS, levelColors: SONIC_COLORS, prompts: MACH_PROMPTS,
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     family: 'geometry', variant: 'supersonic', toolId: 'ssonic', label: 'Supersonic', clicks: 2, glyph: '≻',
     levels: SONIC_LEVELS, levelColors: SONIC_COLORS, prompts: MACH_PROMPTS,
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     family: 'geometry', variant: 'goldensonic', toolId: 'gsonic', label: 'Golden Sonic', clicks: 2, glyph: '❂',
     levels: GOLDEN_SONIC_LEVELS, prompts: MACH_PROMPTS,
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
   {
     family: 'geometry', variant: 'goldensupersonic', toolId: 'gssonic', label: 'Golden Supersonic', clicks: 2, glyph: '⋗',
     levels: GOLDEN_SONIC_LEVELS, prompts: MACH_PROMPTS,
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
 ];
 

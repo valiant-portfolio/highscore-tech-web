@@ -59,8 +59,6 @@ test('ALL_SPEC_LIST: 20 specs in three families, unique ids, round-trips', () =>
     assert.equal(FIB_TOOL_VARIANT[s.toolId], s.variant);
     assert.equal(FIB_SPECS[s.variant], s);
   }
-  // geometry specs have no builder yet
-  assert.ok(ALL_SPEC_LIST.filter((s) => s.family === 'geometry').every((s) => !s.ready));
 });
 
 test('formatRatio: up to three decimals, no trailing zeros', () => {

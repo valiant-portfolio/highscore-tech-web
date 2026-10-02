@@ -396,6 +396,58 @@ export const buildGannSquare: FibBuilder = (pts, d) => {
   }
   return { lines, curves, texts, connectors: [] };
 };
+// --- Mach family -----------------------------------------------------------
+// Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/types/MachFigure.ts and GoldenMach.ts: circles whose
+// centres drift along the A-B axis at M times the radius growth, enclosed by
+// the tangent "Mach cone" rays (a single wall at M = 1).
+
+const machOf = (d: FibDrawing): number =>
+  d.variant === 'sonic' || d.variant === 'goldensonic' ? 1 : Math.min(20, Math.max(1.01, d.mach ?? 2));
+
+export const buildMach: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  const R = len / 2;
+  if (R < 1) return {};
+  const ratios = fibRatios(d).filter((r) => r > 0).sort((x, y) => x - y);
+  if (ratios.length === 0) return {};
+  const M = machOf(d);
+  const c0: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const f: Pt = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+  const curves: FibGeometry['curves'] = [];
+  const texts: FibGeometry['texts'] = [];
+  for (const rho of ratios) {
+    const r = rho * R;
+    const cx = c0.x + M * (r - R) * f.x;
+    const cy = c0.y + M * (r - R) * f.y;
+    const color = ratioColor(d, rho);
+    curves.push({ pts: closedEllipse(cx, cy, r, r), color, closed: true });
+    if (d.showRatios !== false) {
+      texts.push({ x: cx + f.x * r + 4, y: cy + f.y * r + 3.5, text: formatRatio(rho), color, anchor: 'start' });
+    }
+  }
+  const nose: Pt = { x: c0.x - M * R * f.x, y: c0.y - M * R * f.y };
+  const rayLen = M * ratios[ratios.length - 1] * R + 2 * R;
+  const color = d.color ?? FIB_FALLBACK_COLOR;
+  const lines: FibGeometry['lines'] = [];
+  if (M <= 1 + 1e-9) {
+    const p: Pt = { x: -f.y, y: f.x };
+    lines.push({ x1: nose.x - p.x * rayLen, y1: nose.y - p.y * rayLen, x2: nose.x + p.x * rayLen, y2: nose.y + p.y * rayLen, color });
+  } else {
+    const mu = Math.asin(1 / M);
+    const cs = Math.cos(mu);
+    const sn = Math.sin(mu);
+    const dirs: Pt[] = [
+      { x: f.x * cs - f.y * sn, y: f.x * sn + f.y * cs },
+      { x: f.x * cs + f.y * sn, y: -f.x * sn + f.y * cs },
+    ];
+    for (const v of dirs) lines.push({ x1: nose.x, y1: nose.y, x2: nose.x + v.x * rayLen, y2: nose.y + v.y * rayLen, color });
+  }
+  curves.push({ pts: closedEllipse(nose.x, nose.y, 3, 3), color, closed: true });
+  return { lines, curves, texts, connectors: [] };
+};
+
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {
   retracement: buildLevels,
@@ -413,4 +465,8 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   gannfan: buildGannFan,
   gannbox: buildGannBox,
   gannsquare: buildGannSquare,
+  sonic: buildMach,
+  supersonic: buildMach,
+  goldensonic: buildMach,
+  goldensupersonic: buildMach,
 };
