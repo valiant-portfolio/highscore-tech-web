@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFibGeometry, computeFibGeometries, fibHitTest, makeFibDrawing } from './fibonacci.ts';
 import { FIB_SPEC_LIST } from './fibModel.ts';
+import { FIB_BUILDERS } from './fibShapes.ts';
 import type { FibVariant, FibDrawing } from './fibModel.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
 
@@ -120,6 +121,10 @@ test('extension2: down move goes down', () => {
 
 const ready = FIB_SPEC_LIST.filter((s) => s.ready);
 const samplePts = [A, B, CC];
+
+test('a spec is ready exactly when it has a builder', () => {
+  for (const s of FIB_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
+});
 
 test('ready set is what Batch A ships', () => {
   assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'timezones', 'channel', 'trendtime']);

@@ -41,3 +41,10 @@ test('fibLevels: extension2 has eight levels; an old-shaped record still gets se
   // variants without horizontal levels have none
   assert.equal(fibLevels({ ...e2, variant: 'timezones' }).length, 0);
 });
+
+test('a fill toggle defaults to the spec fillDefault', () => {
+  for (const s of FIB_SPEC_LIST) {
+    const t = s.toggles.find((x) => x.key === 'fill');
+    if (t) assert.equal(t.default, s.fillDefault, s.variant);
+  }
+});

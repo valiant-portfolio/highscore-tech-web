@@ -30,7 +30,7 @@ export function buildLevels(pts: Pt[], d: FibDrawing, ctx: FibCtx): Partial<FibG
     levels.push({ ratio: l.ratio, price: l.price, y, color: l.color });
   }
   const bands: FibGeometry['bands'] = [];
-  if (d.fill !== false) {
+  if (fillOn(d)) {
     for (let i = 0; i + 1 < levels.length; i++) {
       bands.push({
         yTop: Math.min(levels[i].y, levels[i + 1].y),

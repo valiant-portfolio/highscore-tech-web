@@ -29,7 +29,7 @@ import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
   duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT,
-  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId,
+  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
@@ -2518,7 +2518,7 @@ export function MarketChart({
                         <button
                           key={tg.key}
                           type="button"
-                          onClick={() => { patchDrawing(selected.id, { [tg.key]: !isOn }); close(); }}
+                          onClick={() => { patchDrawing(selected.id, { [tg.key]: !isOn } as Pick<FibDrawing, FibToggle['key']>); close(); }}
                           className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
                         >
                           <TgIcon className="h-3.5 w-3.5" />
