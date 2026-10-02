@@ -117,6 +117,80 @@ test('extension2: down move goes down', () => {
   assert.ok(g.levels.find((l) => l.ratio === 1.618)!.y > 900);
 });
 
+// --- fan --------------------------------------------------------------------
+
+const dirOf = (l: { x1: number; y1: number; x2: number; y2: number }) => ({ dx: l.x2 - l.x1, dy: l.y2 - l.y1 });
+const through = (l: { x1: number; y1: number; x2: number; y2: number }, x: number, y: number) => {
+  const { dx, dy } = dirOf(l);
+  return Math.abs((x - l.x1) * dy - (y - l.y1) * dx) / Math.hypot(dx, dy) < 1e-6;
+};
+
+test('fan: rays from A through B\'s vertical', () => {
+  const g = geo(makeFibDrawing('fan', [A, B], 'f'));
+  assert.equal(g.lines.length, 7);
+  const r5 = g.lines[3]; // ratio .5 through (200,850) and (300,800)
+  assert.ok(through(r5, 200, 850) && through(r5, 300, 800));
+  const r1 = g.lines[6]; // horizontal through A
+  near(r1.y1, 900); near(r1.y2, 900);
+  assert.ok(through(g.lines[0], 200, 800)); // ratio 0 is the trend line through B
+  for (const l of g.lines) assert.ok(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) >= ctx.paneW + ctx.paneH);
+  assert.equal(g.polys.length, 6);
+  assert.equal(g.texts[3].text, '50');
+  near(g.texts[3].x, 204); near(g.texts[3].y, 847);
+});
+test('fan: fill false, and a hit on a ray', () => {
+  const d = makeFibDrawing('fan', [A, B], 'f');
+  d.fill = false;
+  const g = geo(d);
+  assert.equal(g.polys.length, 0);
+  assert.equal(fibHitTest([g], 150, 850, 7), 'f'); // on the r=0 trend line (and r=.5 is at 875)
+  assert.equal(fibHitTest([g], 150, 990, 7), null);
+});
+
+// --- srfan ------------------------------------------------------------------
+
+test('srfan: 14 rays, 14 grid segments, 14 labels', () => {
+  const g = geo(makeFibDrawing('srfan', [A, B], 's'));
+  assert.equal(g.lines.length, 28);
+  assert.equal(g.texts.length, 14);
+  const grid = g.lines.filter((l) => l.dash === '2 3');
+  assert.equal(grid.length, 14);
+  assert.ok(grid.every((l) => l.color === '#787B86'));
+  const h = grid.find((l) => l.y1 === 850 && l.y2 === 850)!; // price ratio .5
+  near(h.x1, 100); near(h.x2, 200);
+  const rays = g.lines.filter((l) => l.dash === undefined);
+  assert.ok(rays.some((l) => through(l, 150, 800) && l.y1 === 900 && l.x1 === 100)); // time ray .5
+});
+test('srfan: grid false leaves only the rays', () => {
+  const d = makeFibDrawing('srfan', [A, B], 's');
+  d.grid = false;
+  const g = geo(d);
+  assert.equal(g.lines.length, 14);
+  assert.equal(g.texts.length, 14);
+});
+test('srfan: time labels sit inside the box, whichever way B lies', () => {
+  assert.equal(geo(makeFibDrawing('srfan', [A, B], 's')).texts.at(-1)!.y, 812); // B above A on screen
+  assert.equal(geo(makeFibDrawing('srfan', [B, A], 's')).texts.at(-1)!.y, 897); // B below A
+});
+
+// --- pitchfan ---------------------------------------------------------------
+
+test('pitchfan: median plus a ray each side per level', () => {
+  const g = geo(makeFibDrawing('pitchfan', [A, { t: 12000, p: 300 }, { t: 12000, p: 100 }], 'p'));
+  assert.equal(g.lines.length, 1 + 2 * 9);
+  assert.ok(through(g.lines[0], 200, 800)); // median to M
+  assert.equal(g.connectors.length, 2);
+  // ratio .25: lines[1], [2] through (200, 800 +/- 25*... ) h = (0,100) -> (200,825) and (200,775)
+  assert.ok(through(g.lines[1], 200, 825) && through(g.lines[2], 200, 775));
+});
+test('pitchfan: r=1 rays pass through P2 and P3', () => {
+  const P2 = { t: 12000, p: 300 }; // (200,700)
+  const P3 = { t: 12000, p: 100 }; // (200,900)
+  const g = geo(makeFibDrawing('pitchfan', [A, P2, P3], 'p'));
+  const ratios = [0.25, 0.382, 0.5, 0.618, 0.75, 1, 1.5, 1.75, 2];
+  const i = 1 + 2 * ratios.indexOf(1);
+  assert.ok(through(g.lines[i], 200, 900) && through(g.lines[i + 1], 200, 700));
+});
 // --- all ready variants ------------------------------------------------------
 
 const ready = FIB_SPEC_LIST.filter((s) => s.ready);
@@ -126,8 +200,8 @@ test('a spec is ready exactly when it has a builder', () => {
   for (const s of FIB_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
 });
 
-test('ready set is what Batch A ships', () => {
-  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'timezones', 'channel', 'trendtime']);
+test('ready set is what Batches 0, A and B ship', () => {
+  assert.deepEqual(ready.map((s) => s.variant), ['retracement', 'extension2', 'extension', 'fan', 'timezones', 'channel', 'srfan', 'trendtime', 'pitchfan']);
 });
 
 for (const s of ready) {
@@ -159,7 +233,8 @@ for (const s of ready) {
     const d = makeFibDrawing(s.variant, samplePts.slice(0, s.clicks), 'k');
     d.color = '#123456';
     const g = geo(d);
-    for (const c of [...g.levels, ...g.lines, ...g.polys, ...g.texts]) assert.equal(c.color, '#123456');
+    // the srfan grid is a fixed neutral, not a level
+    for (const c of [...g.levels, ...g.lines.filter((l) => l.dash !== '2 3'), ...g.polys, ...g.texts]) assert.equal(c.color, '#123456');
   });
 }
 

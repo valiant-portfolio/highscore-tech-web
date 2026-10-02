@@ -7,7 +7,7 @@
 // Builders never throw on degenerate input and never emit NaN.
 
 import type { FibDrawing } from './fibModel.ts';
-import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibLevelColor, formatFibPct, FIB_SPECS } from './fibModel.ts';
+import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibTimeRatios, fibLevelColor, formatFibPct, FIB_SPECS } from './fibModel.ts';
 import type { FibCtx, FibGeometry, Pt } from './fibGeometry.ts';
 import { rayEnd } from './fibGeometry.ts';
 
@@ -116,6 +116,80 @@ export const buildChannel: FibBuilder = (pts, d, ctx) => {
   return { lines, texts, polys };
 };
 
+// --- fans ------------------------------------------------------------------
+
+const GRID_COLOR = '#787B86';
+
+/** Fib fan: rays from A through points on B's vertical. */
+export const buildFan: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const lines: FibGeometry['lines'] = [];
+  const texts: FibGeometry['texts'] = [];
+  const ends: { e: Pt; r: number }[] = [];
+  for (const r of fibRatios(d)) {
+    const q: Pt = { x: b.x, y: b.y - r * (b.y - a.y) };
+    const e = rayEnd(a, q, ctx);
+    const color = ratioColor(d, r);
+    lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
+    texts.push({ x: b.x + 4, y: q.y - 3, text: formatFibPct(r), color, anchor: 'start' });
+    ends.push({ e, r });
+  }
+  const polys: FibGeometry['polys'] = [];
+  if (fillOn(d)) {
+    for (let i = 0; i + 1 < ends.length; i++) {
+      polys.push({ pts: [{ ...a }, ends[i].e, ends[i + 1].e], color: ratioColor(d, ends[i + 1].r) });
+    }
+  }
+  return { lines, texts, polys };
+};
+
+/** Speed resistance fan: a price x time grid in the A-B box with rays from A
+ *  through the grid points on the far sides. */
+export const buildSrfan: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const lines: FibGeometry['lines'] = [];
+  const texts: FibGeometry['texts'] = [];
+  const grid: FibGeometry['lines'] = [];
+  for (const r of fibRatios(d)) {
+    const y = a.y + r * (b.y - a.y);
+    const color = ratioColor(d, r);
+    const e = rayEnd(a, { x: b.x, y }, ctx);
+    lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
+    texts.push({ x: b.x + 4, y: y - 3, text: formatFibPct(r), color, anchor: 'start' });
+    if (d.grid !== false) grid.push({ x1: a.x, y1: y, x2: b.x, y2: y, color: GRID_COLOR, dash: '2 3' });
+  }
+  for (const s of fibTimeRatios(d)) {
+    const x = a.x + s * (b.x - a.x);
+    const color = ratioColor(d, s);
+    const e = rayEnd(a, { x, y: b.y }, ctx);
+    lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
+    texts.push({ x: x + 3, y: b.y > a.y ? b.y - 3 : b.y + 12, text: formatFibPct(s), color, anchor: 'start' });
+    if (d.grid !== false) grid.push({ x1: x, y1: a.y, x2: x, y2: b.y, color: GRID_COLOR, dash: '2 3' });
+  }
+  return { lines: [...grid, ...lines], texts };
+};
+
+/** Pitchfan: rays from the pivot through the median and through points
+ *  spread along the P2-P3 handle. */
+export const buildPitchfan: FibBuilder = (pts, d, ctx) => {
+  const [p1, p2, p3] = pts;
+  const m: Pt = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+  const h: Pt = { x: p3.x - m.x, y: p3.y - m.y };
+  const lines: FibGeometry['lines'] = [];
+  const texts: FibGeometry['texts'] = [];
+  const med = rayEnd(p1, m, ctx);
+  lines.push({ x1: p1.x, y1: p1.y, x2: med.x, y2: med.y, color: d.color ?? GRID_COLOR });
+  for (const r of fibRatios(d)) {
+    const color = ratioColor(d, r);
+    for (const sign of [1, -1]) {
+      const q: Pt = { x: m.x + sign * r * h.x, y: m.y + sign * r * h.y };
+      const e = rayEnd(p1, q, ctx);
+      lines.push({ x1: p1.x, y1: p1.y, x2: e.x, y2: e.y, color });
+      texts.push({ x: q.x + 4, y: q.y - 3, text: String(r), color, anchor: 'start' });
+    }
+  }
+  return { lines, texts };
+};
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {
   retracement: buildLevels,
@@ -124,4 +198,7 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   timezones: buildTimezones,
   trendtime: buildTrendtime,
   channel: buildChannel,
+  fan: buildFan,
+  srfan: buildSrfan,
+  pitchfan: buildPitchfan,
 };

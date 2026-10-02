@@ -99,7 +99,7 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     variant: 'fan', toolId: 'fibf', label: 'Fib Fan', clicks: 2, glyph: '◿',
     levels: [0, 0.25, 0.382, 0.5, 0.618, 0.75, 1],
     prompts: ['click the fan origin', 'click the end of the trend'],
-    fillDefault: true, toggles: [T_FILL], ready: false,
+    fillDefault: true, toggles: [T_FILL], ready: true,
   },
   {
     variant: 'timezones', toolId: 'fibtz', label: 'Fib Time Zones', clicks: 2, glyph: '⫼',
@@ -119,7 +119,7 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     timeLevels: [0, 0.25, 0.382, 0.5, 0.618, 0.75, 1],
     prompts: ['click the first corner', 'click the opposite corner'],
     fillDefault: false,
-    toggles: [{ key: 'grid', on: 'Show grid', off: 'Hide grid', default: true }], ready: false,
+    toggles: [{ key: 'grid', on: 'Show grid', off: 'Hide grid', default: true }], ready: true,
   },
   {
     variant: 'trendtime', toolId: 'fibtt', label: 'Trend-Based Fib Time', clicks: 3, glyph: '⫿',
@@ -157,7 +157,7 @@ const FIB_SPEC_LIST_RAW: FibSpec[] = [
     variant: 'pitchfan', toolId: 'fibpf', label: 'Pitchfan', clicks: 3, glyph: '⋔',
     levels: [0.25, 0.382, 0.5, 0.618, 0.75, 1, 1.5, 1.75, 2],
     prompts: ['click the pivot', 'click the second point', 'click the third point'],
-    fillDefault: false, toggles: [], ready: false,
+    fillDefault: false, toggles: [], ready: true,
   },
 ];
 
@@ -191,6 +191,9 @@ export function fibRatios(d: FibDrawing): number[] {
   const hidden = d.hidden ?? [];
   return base.filter((r) => !hidden.includes(r));
 }
+
+/** Speed-resistance fan: the time ratios (own or the spec's), minus nothing. */
+export const fibTimeRatios = (d: FibDrawing): number[] => d.timeLevels ?? FIB_SPECS[d.variant]?.timeLevels ?? [];
 
 function levelPrice(d: FibDrawing, r: number): number | null {
   const [a, b, c] = d.points;
