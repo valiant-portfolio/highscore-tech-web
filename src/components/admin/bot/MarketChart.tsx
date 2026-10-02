@@ -67,7 +67,7 @@ const FORK_VARIANT: Partial<Record<Tool, ForkVariant>> = {
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
  *  hides what it cannot do sends you hunting for a tool that is not there. */
 type DrawItem = {
-  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2 | 3; glyph: string; soon?: true;
+  tool?: Tool; label: string; keys?: string; clicks?: 1 | 2 | 3 | 4; glyph: string; soon?: true;
 };
 const LINE_TOOLS: DrawItem[] = [
   { tool: 'trend', label: 'Trend Line', keys: 'Alt+T', clicks: 2, glyph: '/' },
@@ -82,7 +82,10 @@ const LINE_TOOLS: DrawItem[] = [
 ];
 const CHANNEL_TOOLS: DrawItem[] = [
   { tool: 'chpar', label: 'Parallel Channel', clicks: 3, glyph: '⫽' },
-  { tool: 'chdis', label: 'Disjoint Channel', clicks: 3, glyph: '≻' },
+  // FOUR clicks: both ends of both lines. Its second boundary is free of the
+  // first, so there is no third point that could imply where it ends - that
+  // has to be asked for.
+  { tool: 'chdis', label: 'Disjoint Channel', clicks: 4, glyph: '≻' },
   { tool: 'chflat', label: 'Flat Top/Bottom', clicks: 3, glyph: '⊐' },
   // Two clicks: it needs a RANGE of candles, not a third point — the channel
   // is computed from the closes inside it rather than placed by hand.
@@ -224,75 +227,61 @@ type Drawing =
       id: string; kind: 'hline'; price: number; label?: string;
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
     }
-  /* `reach` is how far the line runs beyond the two clicks that define it:
-   *   segment  — between them and no further (the default, and what every
-   *              existing saved drawing is, since they have no `reach`)
-   *   ray      — from the first click through the second and onward
-   *   extended — both directions, across the chart
-   *   hray     — flat, from one click onward: a level that only applies from
-   *              a moment, not one drawn across history it predates */
+  /* EVERY ANCHOR IN ONE ARRAY.
+   *
+   * These carried t1/v1 through t4/v4, a pair per click, and every function
+   * that touched a drawing had to know which kind had how many: the body drag
+   * listed them by hand, the anchor drag switched on a letter, duplicate
+   * nudged each in turn. Adding the channel's fourth point meant editing all
+   * of them, and a missed one is a drawing that warps when you move it.
+   *
+   * `pts` is the clicks, in order. One drag path, one hit test, one preview —
+   * and a tool that wants five points needs no change to any of them.
+   *
+   * hline keeps `price`: it has no time, so it is not a point. Fibonacci keeps
+   * its own model — that is Samuel's module and it is not ours to reshape.
+   */
   | {
-      id: string; kind: 'trend'; t1: number; v1: number; t2: number; v2: number;
+      id: string; kind: 'trend'; pts: DPt[];
+      /* How far the line runs beyond the clicks that define it:
+       *   segment  — between them and no further (the default)
+       *   ray      — from the first click through the second and onward
+       *   extended — both directions, across the chart
+       *   hray     — flat, from one click onward */
       reach?: 'segment' | 'ray' | 'extended' | 'hray';
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
-      /** Drawn as an overlay at the line's midpoint. A level's label rides the
-       *  price axis; a diagonal has no fixed place there, which is the only
-       *  reason labels started out limited to levels. */
       label?: string;
-      /* INFO LINE and TREND ANGLE are trend lines that report on themselves,
-       * so they are this kind with a readout rather than kinds of their own —
-       * which means they inherit dragging, hit-testing and styling instead of
-       * each needing its own copy. `readout` says which number to show; the
-       * text is computed at render time, because a move or a drag changes it
-       * and a stored string would go stale the moment you touched the line. */
+      /** Info and Angle are trend lines that report on themselves, so they are
+       *  this kind with a readout rather than kinds of their own. Computed at
+       *  render: a stored string would describe where the line used to be. */
       readout?: 'info' | 'angle';
     }
-  /** A moment, marked. One click: no price, because it is about WHEN. */
+  /** A moment, marked. Its point carries a price nothing reads — a vertical
+   *  line is about WHEN, and has no height to move. */
   | {
-      id: string; kind: 'vline'; t1: number; label?: string;
+      id: string; kind: 'vline'; pts: DPt[]; label?: string;
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
     }
   /** A time AND a price — the two lines crossing where you clicked. */
   | {
-      id: string; kind: 'cross'; t1: number; v1: number; label?: string;
+      id: string; kind: 'cross'; pts: DPt[]; label?: string;
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
     }
-  /* ANDREWS' PITCHFORK — three clicks, three lines.
-   *
-   * p1 is the pivot; p2 and p3 are the swing that followed it. The MEDIAN runs
-   * from p1 through the midpoint of p2-p3 and onward; the two tines run from p2
-   * and from p3, parallel to it. That is the whole construction, and it is why
-   * this cannot be three trend lines drawn by hand: move any anchor and all
-   * three lines have to be re-derived together.
-   *
-   * Stored as the three clicks only. The lines themselves are geometry, and
-   * geometry recomputed at render time cannot drift out of step with the points
-   * it came from — the same reason a ray stores its direction, not its end. */
+  /** Andrews and the three Schiff variants: pivot, then the swing off it. */
   | {
-      id: string; kind: 'pitchfork';
-      t1: number; v1: number; t2: number; v2: number; t3: number; v3: number;
+      id: string; kind: 'pitchfork'; pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
-      /** Rides the median, the line the fork is actually read against. */
       label?: string;
       /** Absent means Andrews — every fork saved before the variants existed. */
       variant?: ForkVariant;
     }
-  /* CHANNELS. Three clicks for the first three variants: p1-p2 is the line you
-   * drew, p3 says where the second one goes. Linear Regression takes two,
-   * because its lines are CALCULATED from the candles between them rather than
-   * placed — which is why it alone re-derives when the bars move. */
+  /** Channels. Two points for a regression (a RANGE), three for parallel and
+   *  flat, four for disjoint — whose second line is free of the first. */
   | {
-      id: string; kind: 'channel'; variant: ChannelVariant;
-      t1: number; v1: number; t2: number; v2: number;
-      /** Absent on a regression, which has no third anchor. */
-      t3?: number; v3?: number;
-      /** Disjoint only: the far end of the SECOND line, which is free of the
-       *  first. Seeded alongside p3 so the channel starts parallel and then
-       *  stops being so the moment either end is dragged. */
-      t4?: number; v4?: number;
+      id: string; kind: 'channel'; variant: ChannelVariant; pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
       label?: string;
-      /** The tint between the boundaries. On by default; the ⋮ menu hides it. */
+      /** The tint between the boundaries. On by default. */
       fill?: boolean;
     }
   | FibDrawing;
@@ -447,7 +436,7 @@ function channelSegments(
  * the range or the bars change, and says nothing when there is too little to
  * fit a line to.
  */
-function regressionFit(closes: number[]): { a: number; b: number; sd: number } | null {
+function regressionFit(closes: number[]): { a: number; b: number; sd: number; r2: number } | null {
   const n = closes.length;
   if (n < 3) return null;                            // two points are not a trend
   let sx = 0, sy = 0, sxy = 0, sxx = 0;
@@ -456,9 +445,14 @@ function regressionFit(closes: number[]): { a: number; b: number; sd: number } |
   if (den === 0) return null;
   const b = (n * sxy - sx * sy) / den;               // slope, per bar
   const a = (sy - b * sx) / n;                       // intercept
-  let ss = 0;
-  for (let i = 0; i < n; i++) { const r = closes[i] - (a + b * i); ss += r * r; }
-  return { a, b, sd: Math.sqrt(ss / n) };
+  const mean = sy / n;
+  let ss = 0, tot = 0;
+  for (let i = 0; i < n; i++) {
+    const r = closes[i] - (a + b * i);
+    ss += r * r;
+    tot += (closes[i] - mean) ** 2;
+  }
+  return { a, b, sd: Math.sqrt(ss / n), r2: tot === 0 ? 1 : Math.max(0, 1 - ss / tot) };
 }
 
 /* HOW TALL A FLYOUT MAY BE.
@@ -481,6 +475,10 @@ function flyoutMaxH(el: HTMLElement | null, within: HTMLElement | null): number 
   const floor = within ? within.getBoundingClientRect().bottom : window.innerHeight;
   return Math.max(200, floor - top - 8);
 }
+
+/** One click, stored as the chart stores it: a time and a price, never a
+ *  pixel — pixels are what a zoom changes. */
+type DPt = { t: number; v: number };
 
 /** A line of the overlay, in pane pixels. */
 type Seg = {
@@ -947,11 +945,21 @@ export function MarketChart({
   /** syncLabels runs from handlers bound once, which would hold the first
    *  render's selection — i.e. none, permanently. */
   const selectedRef = useRef<Drawing | null>(null);
+  /* THE DRAWING UNDER THE CURSOR.
+   *
+   * Handles show for the selected drawing — and for the one being pointed at,
+   * which is what lets you reach straight for a grip. Selection-only meant
+   * every edit took two gestures: click the line to reveal its ends, then go
+   * back for the end you wanted. Hovering shows them; the grips are live as
+   * soon as they are visible. */
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const hoverRef = useRef<string | null>(null);
   useEffect(() => {
     selectedRef.current = selected;
-    syncLabels();           // repaint so the highlight follows the selection
+    hoverRef.current = hoverId;
+    syncLabels();           // repaint so the grips follow selection and hover
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, hoverId]);
 
   /** Where each diagonal's label sits, in pane pixels. Recomputed whenever the
    *  chart moves, because the line's midpoint moves with it. */
@@ -1036,12 +1044,15 @@ export function MarketChart({
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
     const quads: { id: string; pts: Pt[]; color: string }[] = [];
+    const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean }[] = [];
     for (const d of drawings.current) {
       if (d.kind !== 'trend') continue;
-      const ax = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
-      const ay = s.priceToCoordinate(d.v1);
-      const bx = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
-      const by = s.priceToCoordinate(d.v2);
+      const [tA, tB] = d.pts;
+      if (!tA || !tB) continue;
+      const ax = c.timeScale().timeToCoordinate(tA.t as UTCTimestamp);
+      const ay = s.priceToCoordinate(tA.v);
+      const bx = c.timeScale().timeToCoordinate(tB.t as UTCTimestamp);
+      const by = s.priceToCoordinate(tB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
 
       let x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
@@ -1087,7 +1098,9 @@ export function MarketChart({
         const y = s.priceToCoordinate(v);
         return x == null || y == null ? null : { x: x as number, y: y as number };
       };
-      const p1 = pt(d.t1, d.v1), p2 = pt(d.t2, d.v2), p3 = pt(d.t3, d.v3);
+      const [fA, fB, fC] = d.pts;
+      if (!fA || !fB || !fC) continue;
+      const p1 = pt(fA.t, fA.v), p2 = pt(fB.t, fB.v), p3 = pt(fC.t, fC.v);
       if (!p1 || !p2 || !p3) continue;
       out.push(...forkSegments(p1, p2, p3, d.id, {
         color: d.color ?? DRAW_COLOR,
@@ -1104,7 +1117,9 @@ export function MarketChart({
         const cy0 = s.priceToCoordinate(v);
         return cx0 == null || cy0 == null ? null : { x: cx0 as number, y: cy0 as number };
       };
-      const pa = pt(d.t1, d.v1), pb = pt(d.t2, d.v2);
+      const [cA, cB, cC, cD] = d.pts;
+      if (!cA || !cB) continue;
+      const pa = pt(cA.t, cA.v), pb = pt(cB.t, cB.v);
       if (!pa || !pb) continue;
       const style = {
         color: d.color ?? DRAW_COLOR,
@@ -1117,7 +1132,7 @@ export function MarketChart({
          * and the bands sit one standard deviation either side. Nothing is
          * drawn when the range is too short to fit a line to — a regression
          * through two points is just the two points. */
-        const lo = Math.min(d.t1, d.t2), hi = Math.max(d.t1, d.t2);
+        const lo = Math.min(cA.t, cB.t), hi = Math.max(cA.t, cB.t);
         const rows = barsRef.current.filter(
           (bar) => (bar.time as number) >= lo && (bar.time as number) <= hi,
         );
@@ -1132,21 +1147,40 @@ export function MarketChart({
         const mid = ends(0), up = ends(fit.sd), dn = ends(-fit.sd);
         if (!mid) continue;
         out.push({ id: d.id, x1: mid[0].x, y1: mid[0].y, x2: mid[1].x, y2: mid[1].y, ...style });
-        for (const [key, e] of [['u', up], ['d', dn]] as const) {
+        /* The bands carry the UP and DOWN colours, not the drawing's.
+         * They are not two copies of one boundary: above the fit is where price
+         * ran rich and below is where it ran cheap, and that is the reading the
+         * tool exists to give. One tint each, meeting at the line. */
+        for (const [key, e, col] of [
+          ['u', up, palette.up], ['d', dn, palette.down],
+        ] as const) {
           if (!e) continue;
           out.push({
             id: `${d.id}#${key}`, x1: e[0].x, y1: e[0].y, x2: e[1].x, y2: e[1].y,
-            color: style.color, width: Math.max(1, style.width - 1), dash: '5 4',
+            color: col, width: Math.max(1, style.width - 1), dash: style.dash,
           });
+          if (d.fill !== false) {
+            quads.push({
+              id: `${d.id}#fill-${key}`,
+              pts: [mid[0], mid[1], e[1], e[0]],
+              color: col,
+            });
+          }
         }
-        if (d.fill !== false && up && dn) {
-          quads.push({ id: `${d.id}#fill`, pts: [up[0], up[1], dn[1], dn[0]], color: style.color });
-        }
+        // How much of the move the line actually accounts for. At the start of
+        // the fit, where the eye begins reading it.
+        extraLabels.push({
+          id: `${d.id}`,
+          x: mid[0].x, y: mid[0].y,
+          text: `R² ${Math.round(fit.r2 * 100)}%`,
+          color: style.color,
+          readout: true,
+        });
         continue;
       }
 
-      const pc = d.t3 != null && d.v3 != null ? pt(d.t3, d.v3) : null;
-      const pd = d.t4 != null && d.v4 != null ? pt(d.t4, d.v4) : null;
+      const pc = cC ? pt(cC.t, cC.v) : null;
+      const pd = cD ? pt(cD.t, cD.v) : null;
       const r = channelSegments(pa, pb, pc, pd, d.variant, d.id, style);
       out.push(...r.segs);
       if (r.quad && d.fill !== false) {
@@ -1162,7 +1196,9 @@ export function MarketChart({
      * marks a moment, and a moment has no height. */
     for (const d of drawings.current) {
       if (d.kind !== 'vline' && d.kind !== 'cross') continue;
-      const cx = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+      const vp = d.pts[0];
+      if (!vp) continue;
+      const cx = c.timeScale().timeToCoordinate(vp.t as UTCTimestamp);
       if (cx == null) continue;
       const color = d.color ?? DRAW_COLOR;
       const width = d.width ?? 2;
@@ -1170,7 +1206,7 @@ export function MarketChart({
       // The vertical takes the drawing's own id so the label pass lands on it.
       out.push({ id: d.id, x1: cx as number, y1: 0, x2: cx as number, y2: H, color, width, dash });
       if (d.kind === 'cross') {
-        const cy = s.priceToCoordinate(d.v1);
+        const cy = s.priceToCoordinate(vp.v);
         if (cy != null) {
           out.push({
             id: `${d.id}#h`, x1: 0, y1: cy as number, x2: W, y2: cy as number,
@@ -1193,10 +1229,12 @@ export function MarketChart({
     const angleAt = new Map<string, { x: number; y: number }>();
     for (const d of drawings.current) {
       if (d.kind !== 'trend' || d.readout !== 'angle') continue;
-      const ax = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
-      const ay = s.priceToCoordinate(d.v1);
-      const bx = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
-      const by = s.priceToCoordinate(d.v2);
+      const [gA, gB] = d.pts;
+      if (!gA || !gB) continue;
+      const ax = c.timeScale().timeToCoordinate(gA.t as UTCTimestamp);
+      const ay = s.priceToCoordinate(gA.v);
+      const bx = c.timeScale().timeToCoordinate(gB.t as UTCTimestamp);
+      const by = s.priceToCoordinate(gB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
       const x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
       const dxA = x2 - x1, dyA = y2 - y1;
@@ -1264,14 +1302,16 @@ export function MarketChart({
        * units and a rescale would change the number without the line moving. */
       let text = d.label ?? '';
       if (d.kind === 'trend' && d.readout) {
-        const dv = d.v2 - d.v1;
-        const pct = d.v1 !== 0 ? (dv / Math.abs(d.v1)) * 100 : 0;
+        const [rA, rB] = d.pts;
+        if (!rA || !rB) continue;
+        const dv = rB.v - rA.v;
+        const pct = rA.v !== 0 ? (dv / Math.abs(rA.v)) * 100 : 0;
         if (d.readout === 'angle') {
           const deg = -Math.atan2(g.y2 - g.y1, g.x2 - g.x1) * (180 / Math.PI);
           text = `${deg >= 0 ? '+' : ''}${deg.toFixed(1)}°`;
         } else {
           const step = barStepSecs();
-          const bars = step > 0 ? Math.abs(Math.round((d.t2 - d.t1) / step)) : 0;
+          const bars = step > 0 ? Math.abs(Math.round((rB.t - rA.t) / step)) : 0;
           text = `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
             + (bars ? `  ${bars} bar${bars === 1 ? '' : 's'}` : '');
         }
@@ -1298,7 +1338,7 @@ export function MarketChart({
         bare: !!at,
       });
     }
-    setLineLabels(labels);
+    setLineLabels([...labels, ...extraLabels]);
 
     /* HANDLES, FOR THE SELECTED DRAWING ONLY.
      *
@@ -1317,13 +1357,15 @@ export function MarketChart({
      * placed — a handle there would invite you to drag a thing that is not a
      * handle. So: the clicked points only. */
     const hs: { id: string; x: number; y: number }[] = [];
-    const selForHandles = selectedRef.current?.id ?? null;
+    const selForHandles = selectedRef.current?.id ?? hoverRef.current;
     for (const d of drawings.current) {
       if (d.kind !== 'trend' || d.id !== selForHandles) continue;
       const reach = d.reach ?? 'segment';
-      const x1 = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
-      const y1 = s.priceToCoordinate(d.v1);
-      if (x1 != null && y1 != null) hs.push({ id: `${d.id}:a`, x: x1 as number, y: y1 as number });
+      const [hA, hB] = d.pts;
+      if (!hA || !hB) continue;
+      const x1 = c.timeScale().timeToCoordinate(hA.t as UTCTimestamp);
+      const y1 = s.priceToCoordinate(hA.v);
+      if (x1 != null && y1 != null) hs.push({ id: `${d.id}:0`, x: x1 as number, y: y1 as number });
       /* The second click gets a handle on a RAY and an EXTENDED line too.
        *
        * It was hidden on those, on the reasoning that their far end is a
@@ -1336,46 +1378,40 @@ export function MarketChart({
        * A flat ray is the exception: it is horizontal by definition, so a
        * second handle would only offer to break that. */
       if (reach !== 'hray') {
-        const x2 = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
-        const y2 = s.priceToCoordinate(d.v2);
-        if (x2 != null && y2 != null) hs.push({ id: `${d.id}:b`, x: x2 as number, y: y2 as number });
+        const x2 = c.timeScale().timeToCoordinate(hB.t as UTCTimestamp);
+        const y2 = s.priceToCoordinate(hB.v);
+        if (x2 != null && y2 != null) hs.push({ id: `${d.id}:1`, x: x2 as number, y: y2 as number });
       }
     }
     /* All three of a fork's points are real clicks, so all three get a handle —
      * unlike a ray, whose far end is a computed edge. */
     for (const d of drawings.current) {
       if (d.kind !== 'pitchfork' || d.id !== selForHandles) continue;
-      const pts: [number, number, string][] = [
-        [d.t1, d.v1, 'a'], [d.t2, d.v2, 'b'], [d.t3, d.v3, 'c'],
-      ];
-      for (const [t, v, key] of pts) {
-        const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
-        const y = s.priceToCoordinate(v);
-        if (x != null && y != null) hs.push({ id: `${d.id}:${key}`, x: x as number, y: y as number });
-      }
+      d.pts.forEach((q, i) => {
+        const x = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const y = s.priceToCoordinate(q.v);
+        if (x != null && y != null) hs.push({ id: `${d.id}:${i}`, x: x as number, y: y as number });
+      });
     }
     /* A CHANNEL's anchors. The regression has two — its lines are computed,
      * so there is no third point to offer. */
     for (const d of drawings.current) {
       if (d.kind !== 'channel' || d.id !== selForHandles) continue;
-      const pts: [number, number, string][] = [[d.t1, d.v1, 'a'], [d.t2, d.v2, 'b']];
-      // Disjoint's second line has two ends of its own, so both get a grip.
-      if (d.variant === 'disjoint') {
-        if (d.t3 != null && d.v3 != null) pts.push([d.t3, d.v3, 'c']);
-        if (d.t4 != null && d.v4 != null) pts.push([d.t4, d.v4, 'd']);
-      }
-      for (const [t, v, key] of pts) {
-        const hx = c.timeScale().timeToCoordinate(t as UTCTimestamp);
-        const hy = s.priceToCoordinate(v);
-        if (hx != null && hy != null) hs.push({ id: `${d.id}:${key}`, x: hx as number, y: hy as number });
-      }
+      /* The first two always; disjoint's second line has two ends of its own,
+       * so it shows all four. Parallel and flat get a mid grip instead, below. */
+      const shown = d.variant === 'disjoint' ? d.pts : d.pts.slice(0, 2);
+      shown.forEach((q, i) => {
+        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hy = s.priceToCoordinate(q.v);
+        if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
+      });
       /* PARALLEL and FLAT put ONE grip at the MIDDLE of the second boundary.
        * That line has no independent ends — it only moves across — so a handle
        * at each end would offer to tilt something that cannot tilt. Taken from
        * the drawn segment rather than recomputed, so grip and line agree. */
       if (d.variant === 'parallel' || d.variant === 'flat') {
         const g = out.find((o) => o.id === `${d.id}#b`);
-        if (g) hs.push({ id: `${d.id}:c`, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 });
+        if (g) hs.push({ id: `${d.id}:2`, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 });
       }
     }
 
@@ -1392,11 +1428,13 @@ export function MarketChart({
      * which IS its anchor. */
     for (const d of drawings.current) {
       if ((d.kind !== 'vline' && d.kind !== 'cross') || d.id !== selForHandles) continue;
-      const hx = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
+      const q = d.pts[0];
+      if (!q) continue;
+      const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
       if (hx == null) continue;
-      const hy = d.kind === 'cross' ? s.priceToCoordinate(d.v1) : H / 2;
+      const hy = d.kind === 'cross' ? s.priceToCoordinate(q.v) : H / 2;
       if (hy == null) continue;
-      hs.push({ id: `${d.id}:a`, x: hx as number, y: hy as number });
+      hs.push({ id: `${d.id}:0`, x: hx as number, y: hy as number });
     }
 
     handlesRef.current = hs;
@@ -1464,16 +1502,9 @@ export function MarketChart({
     // Offset a little so the copy is visibly a second line, not one hiding
     // exactly underneath the original.
     if (copy.kind === 'hline') copy.price *= 1.0005;
-    // A vertical has no price to nudge, so the copy steps sideways by a bar —
-    // nudging nothing would stack it exactly on the original.
-    else if (copy.kind === 'vline') copy.t1 += barStepSecs();
-    // A fib was already offset by duplicateFib above.
-    else if (copy.kind !== 'fib') {
-      copy.v1 *= 1.0005;
-      if (copy.kind === 'trend' || copy.kind === 'pitchfork' || copy.kind === 'channel') copy.v2 *= 1.0005;
-      if (copy.kind === 'pitchfork') copy.v3 *= 1.0005;
-      if (copy.kind === 'channel' && copy.v3 != null) copy.v3 *= 1.0005;
-    }
+    // A vertical has no price to nudge, so its copy steps sideways by a bar.
+    else if (copy.kind === 'vline') copy.pts = copy.pts.map((q: DPt) => ({ ...q, t: q.t + barStepSecs() }));
+    else if (copy.kind !== 'fib') copy.pts = copy.pts.map((q) => ({ ...q, v: q.v * 1.0005 }));
     drawings.current.push(copy);
     if (!drawingsHidden) renderDrawings(); else syncLabels();
     persistDrawings();
@@ -1539,7 +1570,8 @@ export function MarketChart({
    *  `kind` is the full union so a fib can be dragged like anything else. */
   const drag = useRef<{
     id: string; kind: Drawing['kind']; lastX: number; lastY: number;
-    anchor?: 'a' | 'b' | 'c' | 'd';
+    /** Index into `pts`. */
+    anchor?: number;
   } | null>(null);
   // Indicators.
   const barsRef = useRef<Candle[]>([]);
@@ -1603,8 +1635,36 @@ export function MarketChart({
     }
     syncLabels();
   };
+  /* ANYTHING SAVED BEFORE `pts` EXISTED.
+   *
+   * Drawings live in localStorage, so every line anyone has already drawn is
+   * still in the old shape — t1/v1 through t4/v4. Shipping without this would
+   * not lose them quietly: they would load, fail to find `pts`, and vanish
+   * from the chart with the data still sitting in storage.
+   *
+   * Converted on read and written back in the new shape by the next save.
+   * hline has no points to migrate, and a fib keeps its own model. */
+  const migrateDrawing = (d: Record<string, unknown>): Drawing => {
+    if (!d || d.kind === 'hline' || d.kind === 'fib' || Array.isArray(d.pts)) {
+      return d as unknown as Drawing;
+    }
+    const pts: DPt[] = [];
+    for (const i of [1, 2, 3, 4]) {
+      const t = d[`t${i}`], v = d[`v${i}`];
+      if (typeof t !== 'number') continue;
+      // A vertical line stored no price; zero is a placeholder nothing reads.
+      pts.push({ t, v: typeof v === 'number' ? v : 0 });
+    }
+    const out: Record<string, unknown> = { ...d, pts };
+    for (const i of [1, 2, 3, 4]) { delete out[`t${i}`]; delete out[`v${i}`]; }
+    return out as unknown as Drawing;
+  };
+
   const loadDrawings = (sym: string, t: string): Drawing[] => {
-    try { const raw = localStorage.getItem(DRAW_KEY(sym, t)); if (raw) return JSON.parse(raw) as Drawing[]; } catch { /* ignore */ }
+    try {
+      const raw = localStorage.getItem(DRAW_KEY(sym, t));
+      if (raw) return (JSON.parse(raw) as Record<string, unknown>[]).map(migrateDrawing);
+    } catch { /* ignore */ }
     return [];
   };
   const clearDrawings = () => {
@@ -1936,7 +1996,7 @@ export function MarketChart({
         // was not there before an event.
         const d: Drawing = {
           id: newDrawId(), kind: 'trend', reach: 'hray',
-          t1: time, v1: price, t2: time, v2: price,
+          pts: [{ t: time, v: price }, { t: time, v: price }],
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         syncLabels();           // a horizontal ray is a diagonal too — same overlay
@@ -1944,8 +2004,8 @@ export function MarketChart({
         // One click each. A vertical line marks WHEN and takes no price; a
         // cross marks when AND what, so it keeps both.
         const d: Drawing = t === 'vline'
-          ? { id: newDrawId(), kind: 'vline', t1: time }
-          : { id: newDrawId(), kind: 'cross', t1: time, v1: price };
+          ? { id: newDrawId(), kind: 'vline', pts: [{ t: time, v: price }] }
+          : { id: newDrawId(), kind: 'cross', pts: [{ t: time, v: price }] };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         clearPreview();
         syncLabels();
@@ -1962,8 +2022,10 @@ export function MarketChart({
           // running on past it would be reporting on something you did not mark.
           reach: t === 'ray' || t === 'extended' ? t : 'segment',
           ...(t === 'info' || t === 'angle' ? { readout: t } : {}),
-          t1: trendStart.current.time as number, v1: trendStart.current.value,
-          t2: time, v2: price,
+          pts: [
+            { t: trendStart.current.time as number, v: trendStart.current.value },
+            { t: time, v: price },
+          ],
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
         trendStart.current = null;
@@ -1975,23 +2037,14 @@ export function MarketChart({
          * and a third click would be asking where to put a line it is going to
          * calculate for you. */
         const variant = CHANNEL_VARIANT[t]!;
-        const need = variant === 'linreg' ? 2 : 3;
+        const need = variant === 'linreg' ? 2 : variant === 'disjoint' ? 4 : 3;
         forkPts.current.push({ time: time as Time, value: price });
         if (forkPts.current.length < need) { setDrawPending(true); return; }
-        const [ca, cb, cc] = forkPts.current;
         const d: Drawing = {
           id: newDrawId(), kind: 'channel', variant,
-          t1: ca.time as number, v1: ca.value,
-          t2: cb.time as number, v2: cb.value,
-          ...(cc ? { t3: cc.time as number, v3: cc.value } : {}),
-          // Disjoint starts parallel: its far end is p3 carried along by the
-          // same run and rise as p1->p2. From there both ends are free.
-          ...(cc && variant === 'disjoint'
-            ? {
-              t4: (cc.time as number) + ((cb.time as number) - (ca.time as number)),
-              v4: cc.value + (cb.value - ca.value),
-            }
-            : {}),
+          // The clicks, in order. The fourth IS the far end of the second line,
+          // not a parallel one derived from the first.
+          pts: forkPts.current.map((q) => ({ t: q.time as number, v: q.value })),
           fill: true,
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
@@ -2006,12 +2059,9 @@ export function MarketChart({
         // same three; only the stored variant differs.
         forkPts.current.push({ time: time as Time, value: price });
         if (forkPts.current.length < 3) { setDrawPending(true); return; }
-        const [a, b, c3] = forkPts.current;
         const d: Drawing = {
           id: newDrawId(), kind: 'pitchfork',
-          t1: a.time as number, v1: a.value,
-          t2: b.time as number, v2: b.value,
-          t3: c3.time as number, v3: c3.value,
+          pts: forkPts.current.map((q) => ({ t: q.time as number, v: q.value })),
           variant: FORK_VARIANT[t],
         };
         drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
@@ -2077,9 +2127,11 @@ export function MarketChart({
       }
       for (const d of drawings.current) {
         if (d.kind !== 'trend') continue;
-        const x1 = c.timeScale().timeToCoordinate(d.t1 as UTCTimestamp);
-        const x2 = c.timeScale().timeToCoordinate(d.t2 as UTCTimestamp);
-        const y1 = s.priceToCoordinate(d.v1), y2 = s.priceToCoordinate(d.v2);
+        const [kA, kB] = d.pts;
+        if (!kA || !kB) continue;
+        const x1 = c.timeScale().timeToCoordinate(kA.t as UTCTimestamp);
+        const x2 = c.timeScale().timeToCoordinate(kB.t as UTCTimestamp);
+        const y1 = s.priceToCoordinate(kA.v), y2 = s.priceToCoordinate(kB.v);
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
         if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
       }
@@ -2129,7 +2181,7 @@ export function MarketChart({
         e.preventDefault();
         setSelected(d);
         drag.current = {
-          id, kind: 'trend', lastX: x, lastY: y, anchor: key as 'a' | 'b' | 'c' | 'd',
+          id, kind: 'trend', lastX: x, lastY: y, anchor: Number(key),
         };
         chart.applyOptions({ handleScroll: false, handleScale: false });
         try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -2303,7 +2355,19 @@ export function MarketChart({
 
       const dg = drag.current;
       if (!dg) {
-        if (toolRef.current === 'cursor') el!.style.cursor = hitTest(x, y) ? 'grab' : '';
+        if (toolRef.current === 'cursor') {
+          const over = hitTest(x, y);
+          el!.style.cursor = over ? 'grab' : '';
+          // Only on change: this fires on every mouse move, and setting state
+          // each time would re-render the chart continuously.
+          if ((over?.id ?? null) !== hoverRef.current) {
+            hoverRef.current = over?.id ?? null;
+            setHoverId(over?.id ?? null);
+          }
+        } else if (hoverRef.current) {
+          hoverRef.current = null;
+          setHoverId(null);
+        }
         return;
       }
       const d = drawings.current.find((k) => k.id === dg.id);
@@ -2319,51 +2383,32 @@ export function MarketChart({
         const dv = pNow != null && pLast != null ? pNow - pLast : 0;
         shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
         syncLabels();
-      } else if (dg.anchor) {
-        /* ONE END, FOLLOWING THE CURSOR. The rest of the drawing stays put and
-         * everything derived from it is recomputed — which for a fork means
-         * the median and both tines swing as the anchor moves, and for an
-         * extended line means it pivots about its other end. */
-        const p = s.coordinateToPrice(y);
+      } else if (dg.anchor != null) {
+        /* ONE END, FOLLOWING THE CURSOR. Everything derived from the drawing is
+         * recomputed, so a fork's median and tines swing, an extended line
+         * pivots about its other end, and a channel's boundary follows. */
+        const pr = s.coordinateToPrice(y);
         const tt = timeAtXRef.current?.(x) ?? null;
-        if (p != null && tt != null) {
-          if (dg.anchor === 'a') { d.t1 = tt; if (d.kind !== 'vline') d.v1 = p as number; }
-          else if (dg.anchor === 'b'
-            && (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel')) {
-            d.t2 = tt; d.v2 = p as number;
-          } else if (dg.anchor === 'c' && (d.kind === 'pitchfork' || d.kind === 'channel')) {
-            d.t3 = tt; d.v3 = p as number;
-          } else if (dg.anchor === 'd' && d.kind === 'channel') {
-            d.t4 = tt; d.v4 = p as number;
-          }
+        const q = d.pts[dg.anchor];
+        if (pr != null && tt != null && q) {
+          q.t = tt;
+          // A vertical line has no height to move; only its moment changes.
+          if (d.kind !== 'vline') q.v = pr as number;
           syncLabels();
         }
       } else {
-        /* EVERY anchor the drawing has, not the first two.
-         *
-         * This moved v1/v2 and t1/t2 only, which is the whole of a trend line
-         * and two thirds of a pitchfork — dragging one warped it, because its
-         * third point stayed behind while the other two moved out from under
-         * it. Moving a drawing must not reshape it. */
+        /* EVERY anchor, whatever the drawing has. This listed v1/v2 and t1/t2
+         * by hand and had to be edited each time a kind gained a point — a
+         * missed one is a drawing that warps when you merely move it. */
         const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
         if (pNow != null && pLast != null) {
           const dv = pNow - pLast;
-          // A vertical line has no price to move — it marks a moment, and
-          // dragging it up and down must not invent a height for it.
-          if (d.kind !== 'vline') d.v1 += dv;
-          if (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel') d.v2 += dv;
-          if (d.kind === 'pitchfork') d.v3 += dv;
-          if (d.kind === 'channel' && d.v3 != null) d.v3 += dv;
-          if (d.kind === 'channel' && d.v4 != null) d.v4 += dv;
+          if (d.kind !== 'vline') for (const q of d.pts) q.v += dv;
         }
         const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
         if (tNow != null && tLast != null) {
           const dt = (tNow as number) - (tLast as number);
-          d.t1 += dt;
-          if (d.kind === 'trend' || d.kind === 'pitchfork' || d.kind === 'channel') d.t2 += dt;
-          if (d.kind === 'pitchfork') d.t3 += dt;
-          if (d.kind === 'channel' && d.t3 != null) d.t3 += dt;
-          if (d.kind === 'channel' && d.t4 != null) d.t4 += dt;
+          for (const q of d.pts) q.t += dt;
         }
         // The overlay owns diagonals now, so moving one is just re-measuring.
         syncLabels();
@@ -3414,15 +3459,15 @@ export function MarketChart({
                   // A three-click tool has to say WHICH point it is waiting
                   // for: "click the second point" through two of them is the
                   // same hint twice, and reads as a click that did not land.
-                  ? armed?.clicks === 3
-                    ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
-                    : 'click the second point'
-                  : armed?.clicks === 3
+                  // Counted, not special-cased: a four-click tool needs a
+                  // fourth ordinal, and the next tool will need its own.
+                  ? `click the ${['first', 'second', 'third', 'fourth'][forkPts.current.length] ?? 'next'} point`
+                  : FORK_VARIANT[tool]
                       // "Pivot" is the pitchfork's word for its first click and
                       // means nothing on a channel, which has no pivot - it has
                       // a line and an offset.
-                      ? (FORK_VARIANT[tool] ? 'click the pivot' : 'click the first point')
-                      : armed?.clicks === 2
+                      ? 'click the pivot'
+                      : (armed?.clicks ?? 1) > 1
                         ? 'click the first point'
                         : 'click a price on the chart'}
               </span>
