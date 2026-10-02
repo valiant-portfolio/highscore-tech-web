@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFibGeometry, computeFibGeometries, fibHitTest, makeFibDrawing } from './fibonacci.ts';
-import { FIB_SPEC_LIST } from './fibModel.ts';
-import { FIB_BUILDERS } from './fibShapes.ts';
+import { FIB_SPEC_LIST, ALL_SPEC_LIST } from './fibModel.ts';
+import { FIB_BUILDERS, dedekindCentersInUnit } from './fibShapes.ts';
 import type { FibVariant, FibDrawing } from './fibModel.ts';
 import type { FibCtx, FibGeometry } from './fibGeometry.ts';
-import { distToPolyline } from './fibGeometry.ts';
+import { distToPolyline, distToSeg } from './fibGeometry.ts';
 
 const ctx: FibCtx = { timeToX: (t) => t / 60, priceToY: (p) => 1000 - p, paneW: 800, paneH: 1000 };
 const A = { t: 6000, p: 100 }; // (100, 900)
@@ -341,4 +341,223 @@ for (const s of ready) {
 test('computeFibGeometries skips an unknown variant', () => {
   const bad = { ...makeFibDrawing('retracement', [A, B], 'u'), variant: 'nope' as FibVariant };
   assert.equal(computeFibGeometries([bad, makeFibDrawing('retracement', [A, B], 'ok')], ctx).length, 1);
+});
+
+
+// --- Gann -------------------------------------------------------------------
+
+test('gann fan: 9 rays through Q_r, labels, colours', () => {
+  const g = geo(makeFibDrawing('gannfan', [A, B], 'g'));
+  assert.equal(g.lines.length, 9);
+  assert.equal(g.texts.length, 9);
+  assert.equal(g.connectors.length, 0);
+  const q = (i: number, y: number) => near(distToSeg(200, y, g.lines[i].x1, g.lines[i].y1, g.lines[i].x2, g.lines[i].y2), 0, 1e-6);
+  q(4, 800); q(3, 850); q(8, 100); q(0, 887.5);
+  near(g.lines[4].x2, 1726.35, 0.01);
+  near(g.lines[4].y2, -726.35, 0.01);
+  assert.equal(g.texts[4].text, '1/1');
+  assert.equal(g.texts[4].x, 204);
+  assert.equal(g.lines[4].color, '#b2b5be');
+  assert.ok(g.lines.every((l) => l.x1 === 100 && l.y1 === 900));
+});
+test('gann fan: d.color overrides, A==B finite, B left of A mirrors labels, hit', () => {
+  const d = makeFibDrawing('gannfan', [A, B], 'g');
+  assert.ok(geo({ ...d, color: '#123456' }).lines.every((l) => l.color === '#123456'));
+  const z = geo(makeFibDrawing('gannfan', [A, A], 'g'));
+  for (const l of z.lines) for (const v of [l.x1, l.y1, l.x2, l.y2]) assert.ok(Number.isFinite(v));
+  const l = geo(makeFibDrawing('gannfan', [B, A], 'g'));
+  assert.equal(l.texts[0].anchor, 'end');
+  assert.equal(l.texts[0].x, 96);
+  const g = geo(d);
+  assert.equal(fibHitTest([g], 150, 850, 7), 'g');
+  assert.equal(fibHitTest([g], 150, 600, 7), null);
+});
+
+test('gann box: 16 lines, labelled grid, diagonals, hits lines only', () => {
+  const g = geo(makeFibDrawing('gannbox', [A, B], 'b'));
+  assert.equal(g.lines.length, 16);
+  assert.deepEqual(g.texts.map((t) => t.text), ['0', '0.25', '0.382', '0.5', '0.618', '0.75', '1']);
+  near(g.lines[2].y1, 861.8); near(g.lines[2].x1, 100); near(g.lines[2].x2, 200);
+  near(g.lines[11].x1, 161.8); near(g.lines[11].y1, 800); near(g.lines[11].y2, 900);
+  assert.deepEqual([g.lines[14].x1, g.lines[14].y1, g.lines[14].x2, g.lines[14].y2], [100, 800, 200, 900]);
+  assert.deepEqual([g.lines[15].x1, g.lines[15].y1, g.lines[15].x2, g.lines[15].y2], [100, 900, 200, 800]);
+  near(g.texts[1].x, 96); near(g.texts[1].y, 878.5);
+  assert.equal(g.lines[2].color, '#ff9800');
+  assert.equal(g.polys.length, 0);
+  assert.equal(g.connectors.length, 0);
+  assert.equal(fibHitTest([g], 150, 850, 7), 'b');
+  assert.equal(fibHitTest([g], 112, 818, 3), null);
+});
+
+test('gann square: grid, fan, arcs', () => {
+  const g = geo(makeFibDrawing('gannsquare', [A, B], 's'));
+  assert.equal(g.lines.length, 19);
+  assert.equal(g.curves.length, 4);
+  assert.equal(g.texts.length, 12);
+  const end = (i: number) => [g.lines[14 + i].x2, g.lines[14 + i].y2];
+  const exp = [[200, 866.667], [200, 850], [200, 800], [150, 800], [133.333, 800]];
+  exp.forEach((e, i) => { near(end(i)[0], e[0], 1e-3); near(end(i)[1], e[1], 1e-3); });
+  assert.deepEqual(g.texts.slice(7).map((t) => t.text), ['3x1', '2x1', '1x1', '1x2', '1x3']);
+  const c = g.curves[1];
+  assert.equal(c.pts.length, 25);
+  near(c.pts[0].x, 150); near(c.pts[0].y, 900);
+  near(c.pts[24].x, 100); near(c.pts[24].y, 850);
+  near(c.pts[12].x, 135.355, 1e-3); near(c.pts[12].y, 864.645, 1e-3);
+  assert.equal(fibHitTest([g], 150, 850, 7), 's');
+  assert.equal(fibHitTest([g], 170.71, 829.29, 3), 's');
+});
+test('gann square: flat box has no arcs and stays finite; d.color overrides', () => {
+  const flat = geo(makeFibDrawing('gannsquare', [A, { t: 12000, p: 100 }], 's'));
+  assert.equal(flat.curves.length, 0);
+  for (const l of flat.lines) for (const v of [l.x1, l.y1, l.x2, l.y2]) assert.ok(Number.isFinite(v));
+  const c = geo({ ...makeFibDrawing('gannsquare', [A, B], 's'), color: '#abcdef' });
+  assert.ok(c.curves.every((k) => k.color === '#abcdef'));
+  assert.ok(c.lines.slice(14).every((l) => l.color === '#abcdef'));
+});
+
+test('every spec is ready and has a builder', () => {
+  assert.ok(ALL_SPEC_LIST.every((s) => s.ready));
+  for (const s of ALL_SPEC_LIST) assert.equal(Boolean(FIB_BUILDERS[s.variant]), s.ready, s.variant);
+});
+// --- Mach family -------------------------------------------------------------
+
+const MA = { t: 6000, p: 100 }; // (100, 900)
+const MB = { t: 12000, p: 200 }; // (200, 800)
+const R70 = Math.hypot(100, 100) / 2;
+const finite = (g: FibGeometry) => {
+  for (const l of g.lines) for (const v of [l.x1, l.y1, l.x2, l.y2]) assert.ok(Number.isFinite(v));
+  for (const c of g.curves) for (const q of c.pts) assert.ok(Number.isFinite(q.x) && Number.isFinite(q.y));
+};
+const tangent = (g: FibGeometry, n: number) => {
+  for (let k = 0; k < n; k++) {
+    const c = g.curves[k].pts;
+    const cx = c.reduce((s, q) => s + q.x, 0) / c.length;
+    const cy = c.reduce((s, q) => s + q.y, 0) / c.length;
+    const r = Math.hypot(c[0].x - cx, c[0].y - cy);
+    for (const l of g.lines) near(distToSeg(cx, cy, l.x1, l.y1, l.x2, l.y2), r, 1e-6);
+  }
+};
+const centre = (g: FibGeometry, k: number) => {
+  const c = g.curves[k].pts;
+  return { x: c.reduce((s, q) => s + q.x, 0) / c.length, y: c.reduce((s, q) => s + q.y, 0) / c.length };
+};
+
+test('sonic: 6 circles on a drifting centre, a wall, nose ring, labels', () => {
+  const g = geo(makeFibDrawing('sonic', [MA, MB], 'm'));
+  assert.equal(g.curves.length, 7);
+  for (let k = 1; k <= 6; k++) {
+    const c = centre(g, k - 1);
+    near(c.x, 150 + 50 * (k - 1), 0.05); near(c.y, 850 - 50 * (k - 1), 0.05);
+    near(Math.hypot(g.curves[k - 1].pts[0].x - c.x, g.curves[k - 1].pts[0].y - c.y), R70 * k, 1e-6);
+  }
+  const nose = centre(g, 6);
+  near(nose.x, 100, 0.05); near(nose.y, 900, 0.05);
+  assert.equal(g.lines.length, 1);
+  const l = g.lines[0];
+  const ends = [[l.x1, l.y1], [l.x2, l.y2]].sort((u, v) => u[0] - v[0]);
+  near(ends[0][0], -300, 0.01); near(ends[0][1], 500, 0.01);
+  near(ends[1][0], 500, 0.01); near(ends[1][1], 1300, 0.01);
+  assert.deepEqual(g.texts.map((t) => t.text), ['1', '2', '3', '4', '5', '6']);
+  near(g.texts[0].x, 204, 0.05); near(g.texts[0].y, 803.5, 0.05);
+  assert.equal(g.connectors.length, 0);
+  assert.equal(fibHitTest([g], 100, 900, 4), 'm');
+});
+
+test('supersonic: Mach 2 cone, tangent rays; mach 1.5 angle', () => {
+  const g = geo(makeFibDrawing('supersonic', [MA, MB], 'm'));
+  assert.equal(g.lines.length, 2);
+  const nose = centre(g, 6);
+  near(nose.x, 50, 0.05); near(nose.y, 950, 0.05);
+  const c2 = centre(g, 1);
+  near(c2.x, 250, 0.05); near(c2.y, 750, 0.05);
+  const dirs = g.lines.map((l) => [(l.x2 - l.x1) / Math.hypot(l.x2 - l.x1, l.y2 - l.y1), (l.y2 - l.y1) / Math.hypot(l.x2 - l.x1, l.y2 - l.y1)]);
+  near(dirs[0][0], 0.9659, 1e-4); near(dirs[0][1], -0.2588, 1e-4);
+  near(dirs[1][0], 0.2588, 1e-4); near(dirs[1][1], -0.9659, 1e-4);
+  for (const l of g.lines) { near(l.x1, 50, 1e-6); near(l.y1, 950, 1e-6); near(Math.hypot(l.x2 - l.x1, l.y2 - l.y1), 989.95, 0.01); }
+  tangent(g, 6);
+  const g15 = geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), mach: 1.5 });
+  tangent(g15, 6);
+  const v = g15.lines[0];
+  const ang = Math.atan2(-(v.y2 - v.y1), v.x2 - v.x1) - Math.PI / 4;
+  near(Math.abs(ang), Math.asin(2 / 3), 1e-9);
+});
+
+test('golden sonic and supersonic: 11 circles', () => {
+  const g = geo(makeFibDrawing('goldensonic', [MA, MB], 'm'));
+  assert.equal(g.curves.length, 12);
+  const s = centre(g, 0);
+  near(s.x, 111.8, 0.05); near(s.y, 888.2, 0.05);
+  near(Math.hypot(g.curves[0].pts[0].x - s.x, g.curves[0].pts[0].y - s.y), 16.688, 1e-3);
+  const one = centre(g, 5); near(one.x, 150, 0.05); near(one.y, 850, 0.05);
+  const phi = centre(g, 6); near(phi.x, 180.9, 0.05); near(phi.y, 819.1, 0.05);
+  const nose = centre(g, 11); near(nose.x, 100, 0.05); near(nose.y, 900, 0.05);
+  assert.equal(g.texts[0].text, '0.236');
+  assert.equal(g.texts[10].text, '11.09');
+  const l = g.lines[0];
+  near(Math.hypot(l.x2 - l.x1, l.y2 - l.y1) / 2, 925.6, 0.1);
+  const gs = geo(makeFibDrawing('goldensupersonic', [MA, MB], 'm'));
+  assert.equal(gs.lines.length, 2);
+  const n2 = centre(gs, 11); near(n2.x, 50, 0.05); near(n2.y, 950, 0.05);
+  tangent(gs, 11);
+});
+
+test('mach: degenerate, showRatios false, d.color', () => {
+  for (const v of ['sonic', 'supersonic', 'goldensonic', 'goldensupersonic'] as const) {
+    const z = geo(makeFibDrawing(v, [MA, MA], 'm'));
+    assert.equal(z.curves.length, 0); assert.equal(z.lines.length, 0);
+    finite(geo(makeFibDrawing(v, [MA, MB], 'm')));
+  }
+  finite(geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), mach: NaN }));
+  const g = geo({ ...makeFibDrawing('sonic', [MA, MB], 'm'), showRatios: false });
+  assert.equal(g.texts.length, 0);
+  const c = geo({ ...makeFibDrawing('supersonic', [MA, MB], 'm'), color: '#abcdef' });
+  assert.ok(c.curves.every((k) => k.color === '#abcdef'));
+  assert.ok(c.lines.every((l) => l.color === '#abcdef'));
+});
+// --- Dedekind tessellation ---------------------------------------------------
+
+test('dedekind centres in the unit interval', () => {
+  const exp: Record<number, number[]> = { 1: [0], 2: [], 3: [1, 2], 4: [], 5: [1, 4], 8: [3, 5], 16: [7, 9], 24: [5, 11, 13, 19] };
+  for (const n of Object.keys(exp)) assert.deepEqual(dedekindCentersInUnit(Number(n)), exp[Number(n)], `n=${n}`);
+});
+
+test('dedekind: maxCurvature 1 gives one vertical, a border and two exact arcs', () => {
+  const g = geo({ ...makeFibDrawing('dedekind', [A, B], 'k'), maxCurvature: 1 });
+  assert.equal(g.lines.length, 5);
+  assert.equal(g.lines.filter((l) => l.dash === '3 3').length, 4);
+  const v = g.lines.find((l) => !l.dash)!;
+  near(v.x1, 150); near(v.y1, 900); near(v.y2, 800);
+  assert.equal(g.curves.length, 2);
+  const [c0, c1] = g.curves;
+  near(c0.pts[0].x, 200); near(c0.pts[0].y, 900);
+  near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
+  near(c1.pts[0].x, 200); near(c1.pts[0].y, 800);
+  near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
+  assert.equal(g.connectors.length, 0);
+});
+
+test('dedekind: default curvature stays inside the box and finite; flat box is empty; d.color', () => {
+  const g = geo(makeFibDrawing('dedekind', [A, B], 'k'));
+  assert.ok(g.curves.length > 20);
+  for (const c of g.curves) for (const q of c.pts) {
+    assert.ok(Number.isFinite(q.x) && Number.isFinite(q.y));
+    assert.ok(q.x >= 100 - 1e-6 && q.x <= 200 + 1e-6 && q.y >= 800 - 1e-6 && q.y <= 900 + 1e-6, `${q.x},${q.y}`);
+  }
+  const flat = geo(makeFibDrawing('dedekind', [A, { t: 12000, p: 100 }], 'k'));
+  assert.equal(flat.curves.length, 0); assert.equal(flat.lines.length, 0);
+  const col = geo({ ...makeFibDrawing('dedekind', [A, B], 'k'), color: '#abcdef' });
+  assert.ok(col.curves.every((k) => k.color === '#abcdef') && col.lines.every((l) => l.color === '#abcdef'));
+});
+test('dedekind: verticals stay inside the box; a narrow box clips its arcs', () => {
+  const wide = geo({ ...makeFibDrawing('dedekind', [A, { t: 18000, p: 200 }], 'k'), maxCurvature: 1 });
+  assert.deepEqual(wide.lines.filter((l) => !l.dash).map((l) => l.x1), [150, 250]);
+  assert.equal(wide.curves.length, 3);
+  const g = geo({ ...makeFibDrawing('dedekind', [A, { t: 9000, p: 200 }], 'k'), maxCurvature: 1 });
+  assert.equal(g.curves.length, 2);
+  const [c0, c1] = g.curves;
+  const y = 900 - 100 * Math.sin(Math.PI / 3);
+  near(c0.pts[0].x, 150); near(c0.pts[0].y, y);
+  near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
+  near(c1.pts[0].x, 150); near(c1.pts[0].y, y);
+  near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
 });

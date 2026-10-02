@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT, fibClicksNeeded, fibPrompt, fibExtension2Price, fibLevels,
+  FIB_SPECS, FIB_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT, formatRatio, fibClicksNeeded, fibPrompt, fibExtension2Price, fibLevels,
 } from './fibModel.ts';
 import type { FibDrawing } from './fibModel.ts';
 
@@ -47,4 +47,25 @@ test('a fill toggle defaults to the spec fillDefault', () => {
     const t = s.toggles.find((x) => x.key === 'fill');
     if (t) assert.equal(t.default, s.fillDefault, s.variant);
   }
+});
+
+test('ALL_SPEC_LIST: 20 specs in three families, unique ids, round-trips', () => {
+  assert.equal(ALL_SPEC_LIST.length, 20);
+  const count = (f: string) => ALL_SPEC_LIST.filter((s) => s.family === f).length;
+  assert.deepEqual([count('fib'), count('gann'), count('geometry')], [12, 3, 5]);
+  assert.equal(new Set(ALL_SPEC_LIST.map((s) => s.toolId)).size, 20);
+  for (const s of ALL_SPEC_LIST) {
+    assert.equal(s.prompts.length, s.clicks, s.variant);
+    assert.equal(FIB_TOOL_VARIANT[s.toolId], s.variant);
+    assert.equal(FIB_SPECS[s.variant], s);
+  }
+});
+
+test('formatRatio: up to three decimals, no trailing zeros', () => {
+  assert.equal(formatRatio(0.25), '0.25');
+  assert.equal(formatRatio(1), '1');
+  assert.equal(formatRatio(0.382), '0.382');
+  assert.equal(formatRatio(0.3333333), '0.333');
+  assert.equal(formatRatio(11.09), '11.09');
+  assert.equal(formatRatio(0), '0');
 });

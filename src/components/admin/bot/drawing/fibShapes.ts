@@ -7,14 +7,15 @@
 // Builders never throw on degenerate input and never emit NaN.
 
 import type { FibDrawing } from './fibModel.ts';
-import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibTimeRatios, fibLevelColor, formatFibPct, FIB_SPECS } from './fibModel.ts';
+import { FIB_FALLBACK_COLOR, fibLevels, fibRatios, fibTimeRatios, fibLevelColor, formatFibPct, formatRatio, FIB_SPECS } from './fibModel.ts';
 import type { FibCtx, FibGeometry, Pt } from './fibGeometry.ts';
 import { rayEnd, ellipsePoints, ellipseSamples, paneIntersects } from './fibGeometry.ts';
 
 export type FibBuilder = (pts: Pt[], d: FibDrawing, ctx: FibCtx) => Partial<FibGeometry>;
 
 const fillOn = (d: FibDrawing): boolean => d.fill ?? FIB_SPECS[d.variant].fillDefault;
-const ratioColor = (d: FibDrawing, r: number): string => d.color ?? fibLevelColor(r);
+const ratioColor = (d: FibDrawing, r: number): string =>
+  d.color ?? FIB_SPECS[d.variant].levelColors?.[String(r)] ?? fibLevelColor(r);
 
 /** Horizontal price levels across the span of the anchors: retracement,
  *  extension and two-point extension. */
@@ -296,6 +297,229 @@ export const buildSpiral: FibBuilder = (pts, d, ctx) => {
   }
   return { curves: [{ pts: out, color: d.color ?? FIB_FALLBACK_COLOR }] };
 };
+
+// --- Gann ------------------------------------------------------------------
+// Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/types/GannFan.ts, GannBox.ts and GannSquare.ts. Deviations:
+// fan rays run toward B's side (Vela always extends right); box and square are
+// selected by their lines and curves only, not by clicking inside.
+
+const ratioLabel = (d: FibDrawing, r: number): string => FIB_SPECS[d.variant].levelLabels?.[String(r)] ?? formatRatio(r);
+
+/** Rays from A through (xB, yA + r*(yB-yA)). */
+export const buildGannFan: FibBuilder = (pts, d, ctx) => {
+  const [a, b] = pts;
+  const lines: FibGeometry['lines'] = [];
+  const texts: FibGeometry['texts'] = [];
+  const left = b.x < a.x;
+  for (const r of fibRatios(d)) {
+    const q: Pt = { x: b.x, y: a.y + r * (b.y - a.y) };
+    const e = rayEnd(a, q, ctx);
+    const color = ratioColor(d, r);
+    lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
+    texts.push({ x: left ? b.x - 4 : b.x + 4, y: q.y + 3.5, text: ratioLabel(d, r), color, anchor: left ? 'end' : 'start' });
+  }
+  return { lines, texts, connectors: [] };
+};
+
+/** The ratio grid shared by the box and the square: horizontals (labelled)
+ *  then verticals, both coloured by ratio. */
+function gannGrid(a: Pt, b: Pt, d: FibDrawing): { lines: FibGeometry['lines']; texts: FibGeometry['texts'] } {
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const bot = Math.max(a.y, b.y);
+  const ratios = fibRatios(d);
+  const lines: FibGeometry['lines'] = [];
+  const texts: FibGeometry['texts'] = [];
+  for (const r of ratios) {
+    const y = a.y + r * (b.y - a.y);
+    const color = ratioColor(d, r);
+    lines.push({ x1: left, y1: y, x2: right, y2: y, color });
+    texts.push({ x: left - 4, y: y + 3.5, text: formatRatio(r), color, anchor: 'end' });
+  }
+  for (const r of ratios) {
+    const x = a.x + r * (b.x - a.x);
+    lines.push({ x1: x, y1: top, x2: x, y2: bot, color: ratioColor(d, r) });
+  }
+  return { lines, texts };
+}
+
+export const buildGannBox: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const { lines, texts } = gannGrid(a, b, d);
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const bot = Math.max(a.y, b.y);
+  const color = ratioColor(d, 1);
+  lines.push({ x1: left, y1: top, x2: right, y2: bot, color });
+  lines.push({ x1: left, y1: bot, x2: right, y2: top, color });
+  return { lines, texts, connectors: [] };
+};
+
+const GANN_SQUARE_FAN = [
+  { label: '3x1', x: 3, y: 1, color: '#f23645' },
+  { label: '2x1', x: 2, y: 1, color: '#ff9800' },
+  { label: '1x1', x: 1, y: 1, color: '#b2b5be' },
+  { label: '1x2', x: 1, y: 2, color: '#089981' },
+  { label: '1x3', x: 1, y: 3, color: '#5b9cf6' },
+];
+const GANN_SQUARE_ARCS = [
+  { k: 0.25, color: '#f23645' }, { k: 0.5, color: '#ff9800' },
+  { k: 0.75, color: '#4caf50' }, { k: 1, color: '#089981' },
+];
+
+export const buildGannSquare: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const { lines, texts } = gannGrid(a, b, d);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  for (const f of GANN_SQUARE_FAN) {
+    const end: Pt = f.x > f.y
+      ? { x: a.x + dx, y: a.y + (f.y / f.x) * dy }
+      : { x: a.x + (f.x / f.y) * dx, y: a.y + dy };
+    const color = d.color ?? f.color;
+    lines.push({ x1: a.x, y1: a.y, x2: end.x, y2: end.y, color });
+    texts.push({ x: end.x + 4, y: end.y + 3.5, text: f.label, color, anchor: 'start' });
+  }
+  const curves: FibGeometry['curves'] = [];
+  if (Math.abs(dx) >= 1 && Math.abs(dy) >= 1) {
+    for (const arc of GANN_SQUARE_ARCS) {
+      const pl: Pt[] = [];
+      for (let i = 0; i <= 24; i++) {
+        const t = (i / 24) * (Math.PI / 2);
+        pl.push({ x: a.x + arc.k * dx * Math.cos(t), y: a.y + arc.k * dy * Math.sin(t) });
+      }
+      curves.push({ pts: pl, color: d.color ?? arc.color });
+    }
+  }
+  return { lines, curves, texts, connectors: [] };
+};
+// --- Mach family -----------------------------------------------------------
+// Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/types/MachFigure.ts and GoldenMach.ts: circles whose
+// centres drift along the A-B axis at M times the radius growth, enclosed by
+// the tangent "Mach cone" rays (a single wall at M = 1).
+
+const machOf = (d: FibDrawing): number => {
+  if (d.variant === 'sonic' || d.variant === 'goldensonic') return 1;
+  const m = Number.isFinite(d.mach) ? d.mach! : 2;
+  return Math.min(20, Math.max(1.01, m));
+};
+
+export const buildMach: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  const R = len / 2;
+  if (R < 1) return {};
+  const ratios = fibRatios(d).filter((r) => r > 0).sort((x, y) => x - y);
+  if (ratios.length === 0) return {};
+  const M = machOf(d);
+  const c0: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const f: Pt = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+  const curves: FibGeometry['curves'] = [];
+  const texts: FibGeometry['texts'] = [];
+  for (const rho of ratios) {
+    const r = rho * R;
+    const cx = c0.x + M * (r - R) * f.x;
+    const cy = c0.y + M * (r - R) * f.y;
+    const color = ratioColor(d, rho);
+    curves.push({ pts: closedEllipse(cx, cy, r, r), color, closed: true });
+    if (d.showRatios !== false) {
+      texts.push({ x: cx + f.x * r + 4, y: cy + f.y * r + 3.5, text: formatRatio(rho), color, anchor: 'start' });
+    }
+  }
+  const nose: Pt = { x: c0.x - M * R * f.x, y: c0.y - M * R * f.y };
+  const rayLen = M * ratios[ratios.length - 1] * R + 2 * R;
+  const color = d.color ?? FIB_FALLBACK_COLOR;
+  const lines: FibGeometry['lines'] = [];
+  if (M <= 1 + 1e-9) {
+    const p: Pt = { x: -f.y, y: f.x };
+    lines.push({ x1: nose.x - p.x * rayLen, y1: nose.y - p.y * rayLen, x2: nose.x + p.x * rayLen, y2: nose.y + p.y * rayLen, color });
+  } else {
+    const mu = Math.asin(1 / M);
+    const cs = Math.cos(mu);
+    const sn = Math.sin(mu);
+    const dirs: Pt[] = [
+      { x: f.x * cs - f.y * sn, y: f.x * sn + f.y * cs },
+      { x: f.x * cs + f.y * sn, y: -f.x * sn + f.y * cs },
+    ];
+    for (const v of dirs) lines.push({ x1: nose.x, y1: nose.y, x2: nose.x + v.x * rayLen, y2: nose.y + v.y * rayLen, color });
+  }
+  curves.push({ pts: closedEllipse(nose.x, nose.y, 3, 3), color, closed: true });
+  return { lines, curves, texts, connectors: [] };
+};
+
+// --- Dedekind tessellation -------------------------------------------------
+// Ported from LuxAlgo Vela (Apache-2.0), https://github.com/LuxAlgo/Vela,
+// src/core/drawings/types/DedekindTessellation.ts: the semicircles of the
+// modular group's fundamental domain tiling on the upper half plane, with the
+// A-B box as the unit-height strip and its bottom edge as the real axis.
+
+/** True when k/n (mod 1) is the centre of a semicircle of curvature n. */
+export function isDedekindCenter(k: number, n: number): boolean {
+  if (n % 2 === 1) return (k * k - 1) % n === 0;
+  if (n % 8 === 0) return (k * k - 1) % n === 0 && ((k * k - 1) / n) % 2 !== 0;
+  return false;
+}
+
+/** The k in [0, n) that are centres for curvature n. */
+export function dedekindCentersInUnit(n: number): number[] {
+  const out: number[] = [];
+  for (let k = 0; k < n; k++) if (isDedekindCenter(k, n)) out.push(k);
+  return out;
+}
+
+export const buildDedekind: FibBuilder = (pts, d) => {
+  const [a, b] = pts;
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const bot = Math.max(a.y, b.y);
+  const w = right - left;
+  const h = bot - top;
+  if (w < 1 || h < 1) return {};
+  const color = d.color ?? FIB_FALLBACK_COLOR;
+  const unitPx = h;
+  const realSpan = w / h;
+  const maxN = Math.min(64, Math.max(1, Math.round(d.maxCurvature ?? 24)));
+  const xMin = -1 / maxN;
+  const xMax = realSpan + 1 / maxN;
+  const lines: FibGeometry['lines'] = [
+    { x1: left, y1: top, x2: right, y2: top, color, dash: '3 3' },
+    { x1: left, y1: bot, x2: right, y2: bot, color, dash: '3 3' },
+    { x1: left, y1: top, x2: left, y2: bot, color, dash: '3 3' },
+    { x1: right, y1: top, x2: right, y2: bot, color, dash: '3 3' },
+  ];
+  for (let k = Math.floor(2 * xMin); k <= Math.ceil(2 * xMax); k++) {
+    if (Math.abs(k) % 2 !== 1) continue;
+    const x = left + (k / 2) * unitPx;
+    if (x < left || x > right) continue;
+    lines.push({ x1: x, y1: bot, x2: x, y2: top, color });
+  }
+  const curves: FibGeometry['curves'] = [];
+  for (let n = 1; n <= maxN; n++) {
+    const rPx = unitPx / n;
+    if (rPx < 0.75) continue;
+    const centres = dedekindCentersInUnit(n);
+    for (let t = Math.floor(xMin) - 1; t <= Math.ceil(xMax) + 1; t++) {
+      for (const k of centres) {
+        const c = k / n + t;
+        if (c + 1 / n < xMin || c - 1 / n > xMax) continue;
+        const cx = left + c * unitPx;
+        if (cx + rPx < left - 1 || cx - rPx > right + 1) continue;
+        const th0 = Math.acos(Math.min(1, Math.max(-1, (right - cx) / rPx)));
+        const th1 = Math.acos(Math.min(1, Math.max(-1, (left - cx) / rPx)));
+        if (th1 - th0 < 1e-6) continue;
+        const steps = Math.max(4, Math.min(96, Math.round((rPx * (th1 - th0)) / 3)));
+        curves.push({ pts: ellipsePoints(cx, bot, rPx, -rPx, th0, th1, steps), color });
+      }
+    }
+  }
+  return { lines, curves, connectors: [] };
+};
+
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {
   retracement: buildLevels,
@@ -310,4 +534,12 @@ export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = 
   arcs: buildArcs,
   wedge: buildWedge,
   spiral: buildSpiral,
+  gannfan: buildGannFan,
+  gannbox: buildGannBox,
+  gannsquare: buildGannSquare,
+  sonic: buildMach,
+  supersonic: buildMach,
+  goldensonic: buildMach,
+  goldensupersonic: buildMach,
+  dedekind: buildDedekind,
 };

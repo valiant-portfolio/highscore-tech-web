@@ -28,8 +28,8 @@ import {
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT,
-  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
@@ -109,27 +109,14 @@ const EXTRA_TOOLS: DrawItem[] = [
 ];
 /** The Fibonacci family, derived from the registry in drawing/fibModel.ts.
  *  Specs whose builder has not landed show greyed. No keyboard shortcut. */
-const FIB_TOOLS: DrawItem[] = FIB_SPEC_LIST.map((s) => ({
+const specItems = (list: readonly FibSpec[]): DrawItem[] => list.map((s) => ({
   tool: s.toolId, label: s.label, clicks: s.clicks, glyph: s.glyph,
   ...(s.ready ? {} : { soon: true as const }),
 }));
-/** Gann and Geometry share the Fibonacci button in the design, so they are
- *  listed under it rather than given a button of their own. None are built;
- *  they are shown greyed for the same reason a missing fib spec is — a tool
- *  absent from the menu reads as one you misremembered. */
-const GANN_TOOLS: DrawItem[] = [
-  { label: 'Gann Fan', glyph: '◤', soon: true },
-  { label: 'Gann Box', glyph: '▦', soon: true },
-  { label: 'Gann Square', glyph: '▧', soon: true },
-];
-const GEOMETRY_TOOLS: DrawItem[] = [
-  { label: 'Dedekind Tessellation', glyph: '◠', soon: true },
-  { label: 'Sonic', glyph: '◗', soon: true },
-  { label: 'Supersonic', glyph: '◖', soon: true },
-  { label: 'Golden Sonic', glyph: '◑', soon: true },
-  { label: 'Golden Supersonic', glyph: '◐', soon: true },
-];
-
+const FIB_TOOLS = specItems(ALL_SPEC_LIST);      // armed/title lookups keep working
+const FIB_MENU = specItems(FIB_SPEC_LIST);
+const GANN_TOOLS = specItems(GANN_SPEC_LIST);
+const GEOMETRY_TOOLS = specItems(GEOMETRY_SPEC_LIST);
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 
 /** Every drawing tool in one list. The armed-tool banner and the rail's
@@ -138,7 +125,9 @@ const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
  *  both and a channel announced itself as "chdis". */
 const ALL_DRAW_TOOLS: DrawItem[] = [
   ...LINE_TOOLS, ...EXTRA_TOOLS, ...CHANNEL_TOOLS, ...PITCHFORK_TOOLS,
-  ...FIB_TOOLS, ...GANN_TOOLS, ...GEOMETRY_TOOLS,
+  // FIB_TOOLS is specItems(ALL_SPEC_LIST) — fib, gann and geometry together —
+  // so spreading GANN_TOOLS and GEOMETRY_TOOLS as well would list each twice.
+  ...FIB_TOOLS,
 ];
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
@@ -877,7 +866,7 @@ export function MarketChart({
   }, [fibOpen]);
   /* Whether a two-click tool is half-way through.
    *
-   * State, not the trendStart ref the click handler uses: a ref changing does
+   * State, not a ref: a ref changing does
    * not re-render, so the banner would never update from "click the first
    * point" to "click the second" — which is exactly the missing feedback that
    * made the tools look dead. */
@@ -985,9 +974,9 @@ export function MarketChart({
   const drawings = useRef<Drawing[]>([]);
   const hlineObjs = useRef<Map<string, IPriceLine>>(new Map());
   const trendObjs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
-  const trendStart = useRef<{ time: Time; value: number } | null>(null);
-  /** The pitchfork's clicks so far. Its own ref rather than reusing trendStart,
-   *  which holds one point: this needs two before the third completes it. */
+  /** THE DRAFT: the clicks placed so far, for whichever tool is armed. One
+   *  array for every tool, as theirs has — the second collector it replaced
+   *  existed only because two-click tools were special-cased. */
   const forkPts = useRef<{ time: Time; value: number }[]>([]);
   /** The rubber band, in pane pixels. `flat` means a level rather than a line,
    *  so it is drawn edge to edge at one height. Mirrored into a ref because the
@@ -1682,7 +1671,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
       if (e.key === 'Escape') {
         setTool('cursor');
-        trendStart.current = null;
         forkPts.current = [];
         setDrawPending(false);
         clearPreview();
@@ -1707,7 +1695,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (!hit) return;
       e.preventDefault();
       if (hit.tool) setTool(hit.tool);
-      trendStart.current = null;
       forkPts.current = [];
       setDrawPending(false);
       clearPreview();
@@ -1826,7 +1813,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   const clearDrawings = () => {
     removeDrawingObjects();
     drawings.current = [];
-    trendStart.current = null;
     forkPts.current = [];
     persistDrawings();
   };
@@ -2452,7 +2438,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     setLoading(true);
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    trendStart.current = null; fibPts.current = []; forkPts.current = [];
+    fibPts.current = []; forkPts.current = [];
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -3037,7 +3023,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 type="button"
                 onClick={() => {
                   setTool(lastLine);
-                  trendStart.current = null;
                   forkPts.current = [];
                   setDrawPending(false);
                   clearPreview();
@@ -3100,7 +3085,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                               setTool(t.tool);
                               setLastLine(t.tool);
                               setDrawOpen(false);
-                              trendStart.current = null;
                               forkPts.current = [];
                               setDrawPending(false);
                               clearPreview();
@@ -3144,7 +3128,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 type="button"
                 onClick={() => {
                   setTool(lastFib);
-                  trendStart.current = null;
                   forkPts.current = [];
                   setDrawPending(false);
                   clearPreview();
@@ -3184,7 +3167,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                     className="absolute left-[calc(100%+6px)] top-0 z-[60] w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
-                      ['Fibonacci', FIB_TOOLS],
+                      ['Fibonacci', FIB_MENU],
                       ['Gann', GANN_TOOLS],
                       ['Geometry', GEOMETRY_TOOLS],
                     ] as const).map(([group, items]) => (
@@ -3203,7 +3186,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           setTool(t.tool);
                           setLastFib(t.tool);
                           setFibOpen(false);
-                          trendStart.current = null;
                           forkPts.current = [];
                                   setDrawPending(false);
                           clearPreview();
@@ -3500,7 +3482,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                      * and says nothing about how much is left. How many more
                      * clicks it needs answers both, for any count. */
                     const need = clicksNeeded(tool, ALL_DRAW_TOOLS);
-                    const left = Math.max(0, need - forkPts.current.length - (trendStart.current ? 1 : 0));
+                    const left = Math.max(0, need - forkPts.current.length);
                     if (need <= 1) return 'click a price on the chart';
                     return `click ${left} more point${left === 1 ? '' : 's'}`;
                   })()}
@@ -3636,7 +3618,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             </button>
           ))}
 
-          {tool === 'trend' && trendStart.current && <span className="ml-1 text-[11px] text-fg-subtle">click the second point…</span>}
           {fs && quote && (
             <span className="ml-auto mr-2 flex items-center gap-3 font-mono text-xs">
               {quote.pnl != null && (
