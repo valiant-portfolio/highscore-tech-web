@@ -23,7 +23,7 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -2513,7 +2513,7 @@ export function MarketChart({
                     </button>
                     {selected.kind === 'fib' && FIB_SPECS[selected.variant]?.toggles.map((tg) => {
                       const isOn = selected[tg.key] ?? tg.default;
-                      const TgIcon = tg.key === 'fill' ? Layers : tg.key === 'extendLeft' ? ArrowLeftToLine : ArrowRightToLine;
+                      const TgIcon = { extendRight: ArrowRightToLine, extendLeft: ArrowLeftToLine, fill: Layers, grid: Grid3x3, fullCircle: Circle, ccw: RotateCcw }[tg.key];
                       return (
                         <button
                           key={tg.key}

@@ -150,20 +150,26 @@ export const buildSrfan: FibBuilder = (pts, d, ctx) => {
   const lines: FibGeometry['lines'] = [];
   const texts: FibGeometry['texts'] = [];
   const grid: FibGeometry['lines'] = [];
-  for (const r of fibRatios(d)) {
+  const priceRatios = fibRatios(d);
+  for (const r of priceRatios) {
     const y = a.y + r * (b.y - a.y);
     const color = ratioColor(d, r);
     const e = rayEnd(a, { x: b.x, y }, ctx);
     lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
-    texts.push({ x: b.x + 4, y: y - 3, text: formatFibPct(r), color, anchor: 'start' });
+    texts.push({ x: b.x < a.x ? b.x - 4 : b.x + 4, y: y - 3, text: formatFibPct(r), color, anchor: b.x < a.x ? 'end' : 'start' });
     if (d.grid !== false) grid.push({ x1: a.x, y1: y, x2: b.x, y2: y, color: GRID_COLOR, dash: '2 3' });
   }
   for (const s of fibTimeRatios(d)) {
     const x = a.x + s * (b.x - a.x);
     const color = ratioColor(d, s);
+    // The s=1 time ray is the r=1 price ray: both run from A through B.
+    if (s === 1 && priceRatios.includes(1)) {
+      if (d.grid !== false) grid.push({ x1: x, y1: a.y, x2: x, y2: b.y, color: GRID_COLOR, dash: '2 3' });
+      continue;
+    }
     const e = rayEnd(a, { x, y: b.y }, ctx);
     lines.push({ x1: a.x, y1: a.y, x2: e.x, y2: e.y, color });
-    texts.push({ x: x + 3, y: b.y > a.y ? b.y - 3 : b.y + 12, text: formatFibPct(s), color, anchor: 'start' });
+    texts.push({ x: x + 3, y: b.y > a.y ? b.y + 12 : b.y - 3, text: formatFibPct(s), color, anchor: 'start' });
     if (d.grid !== false) grid.push({ x1: x, y1: a.y, x2: x, y2: b.y, color: GRID_COLOR, dash: '2 3' });
   }
   return { lines: [...grid, ...lines], texts };
@@ -188,7 +194,8 @@ export const buildPitchfan: FibBuilder = (pts, d, ctx) => {
       texts.push({ x: q.x + 4, y: q.y - 3, text: String(r), color, anchor: 'start' });
     }
   }
-  return { lines, texts };
+  // Only the P2-P3 handle: the base's P1-P2 connector would overprint the r=1 ray.
+  return { lines, texts, connectors: [{ x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y }] };
 };
 /** Variants with a builder. Variants missing here are not drawn. */
 export const FIB_BUILDERS: Partial<Record<FibDrawing['variant'], FibBuilder>> = {

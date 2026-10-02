@@ -149,10 +149,10 @@ test('fan: fill false, and a hit on a ray', () => {
 
 // --- srfan ------------------------------------------------------------------
 
-test('srfan: 14 rays, 14 grid segments, 14 labels', () => {
+test('srfan: 13 rays (r=1 and s=1 are one ray), 14 grid segments, 13 labels', () => {
   const g = geo(makeFibDrawing('srfan', [A, B], 's'));
-  assert.equal(g.lines.length, 28);
-  assert.equal(g.texts.length, 14);
+  assert.equal(g.lines.length, 27);
+  assert.equal(g.texts.length, 13);
   const grid = g.lines.filter((l) => l.dash === '2 3');
   assert.equal(grid.length, 14);
   assert.ok(grid.every((l) => l.color === '#787B86'));
@@ -165,12 +165,12 @@ test('srfan: grid false leaves only the rays', () => {
   const d = makeFibDrawing('srfan', [A, B], 's');
   d.grid = false;
   const g = geo(d);
-  assert.equal(g.lines.length, 14);
-  assert.equal(g.texts.length, 14);
+  assert.equal(g.lines.length, 13);
+  assert.equal(g.texts.length, 13);
 });
-test('srfan: time labels sit inside the box, whichever way B lies', () => {
-  assert.equal(geo(makeFibDrawing('srfan', [A, B], 's')).texts.at(-1)!.y, 812); // B above A on screen
-  assert.equal(geo(makeFibDrawing('srfan', [B, A], 's')).texts.at(-1)!.y, 897); // B below A
+test('srfan: time labels sit outside the box, whichever way B lies', () => {
+  assert.equal(geo(makeFibDrawing('srfan', [A, B], 's')).texts.at(-1)!.y, 797); // B above A on screen
+  assert.equal(geo(makeFibDrawing('srfan', [B, A], 's')).texts.at(-1)!.y, 912); // B below A
 });
 
 // --- pitchfan ---------------------------------------------------------------
@@ -179,7 +179,7 @@ test('pitchfan: median plus a ray each side per level', () => {
   const g = geo(makeFibDrawing('pitchfan', [A, { t: 12000, p: 300 }, { t: 12000, p: 100 }], 'p'));
   assert.equal(g.lines.length, 1 + 2 * 9);
   assert.ok(through(g.lines[0], 200, 800)); // median to M
-  assert.equal(g.connectors.length, 2);
+  assert.deepEqual(g.connectors, [{ x1: 200, y1: 700, x2: 200, y2: 900 }]);
   // ratio .25: lines[1], [2] through (200, 800 +/- 25*... ) h = (0,100) -> (200,825) and (200,775)
   assert.ok(through(g.lines[1], 200, 825) && through(g.lines[2], 200, 775));
 });
