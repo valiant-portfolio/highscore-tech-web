@@ -298,10 +298,12 @@ type Drawing =
 /** The palette the style toolbar offers. */
 const DRAW_COLORS = ['#2962FF', '#26a69a', '#ef5350', '#f59e0b', '#a855f7', '#e5e7eb'];
 const DRAW_WIDTHS = [1, 2, 3, 4] as const;
+/* Dash patterns are theirs: DASH = { solid: undefined, dashed: "8 5",
+ * dotted: "2 4" }. Ours were 6 4 and 2 3, which reads tighter at the same width. */
 const DRAW_STYLES = [
   { key: 'solid', label: 'Solid', dash: '' },
-  { key: 'dashed', label: 'Dashed', dash: '6 4' },
-  { key: 'dotted', label: 'Dotted', dash: '2 3' },
+  { key: 'dashed', label: 'Dashed', dash: '8 5' },
+  { key: 'dotted', label: 'Dotted', dash: '2 4' },
 ] as const;
 const lwStyle = (s?: string) =>
   s === 'dotted' ? LineStyle.Dotted : s === 'solid' ? LineStyle.Solid : LineStyle.Dashed;
@@ -1007,7 +1009,8 @@ export function MarketChart({
   const clearPreview = () => {
     bandRef.current = null; setBand(null);
     fibPts.current = []; setFibStep(0); setFibPreview(null);
-    ghostRef.current = []; setGhostState([]);
+    ghostRef.current = []; setGhostState([]); setGhostFillState(null);
+    previewRef.current = null;
     bandLabelRef.current = null; setBandLabelState(null);
   };
 
@@ -1096,6 +1099,20 @@ export function MarketChart({
    *  that is one line, and a fork is four. */
   const [ghost, setGhostState] = useState<Seg[]>([]);
   const ghostRef = useRef<Seg[]>([]);
+  /* THE DRAFT, as a real Drawing.
+   *
+   * Theirs previews with renderShape({id:"draft", kind: tool, pts:[...draft,
+   * hover]}, true) — the SAME function that draws a committed shape, handed
+   * the clicks plus the cursor. Ours had a branch per tool: a rubber band
+   * here, a ghost there, each worked out separately, and they drifted.
+   *
+   * Held as a Drawing and appended to the list syncLabels walks, so the
+   * preview is produced by the identical geometry and cannot disagree with
+   * what the next click will make. */
+  const previewRef = useRef<Drawing | null>(null);
+  /** The preview's fill — theirs tints the area while you are still placing. */
+  const [ghostFill, setGhostFillState] = useState<Pt[] | null>(null);
+  const setGhostFill = (v: Pt[] | null) => setGhostFillState(v);
   const setGhost = (v: Seg[]) => { ghostRef.current = v; setGhostState(v); };
 
   /** The visible time window, for extending rays to the pane's edge. */
@@ -1108,6 +1125,11 @@ export function MarketChart({
   const clearOverlay = () => {
     setLineLabels([]); segsRef.current = []; setSegs([]); setHandles([]); setFibGeoms([]); fibGeomsRef.current = [];
   };
+  /** Committed drawings, plus the one being placed. */
+  const drawDraft = (): Drawing[] => (
+    previewRef.current ? [...drawings.current, previewRef.current] : drawings.current
+  );
+
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
     if (!s || !c) { clearOverlay(); return; }
@@ -1124,7 +1146,7 @@ export function MarketChart({
     const out: typeof segs = [];
     const quads: { id: string; pts: Pt[]; color: string; solid?: boolean }[] = [];
     const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean }[] = [];
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'trend') continue;
       const [tA, tB] = d.pts;
       if (!tA || !tB) continue;
@@ -1178,7 +1200,7 @@ export function MarketChart({
         id: d.id, x1, y1, x2, y2,
         color: d.color ?? DRAW_COLOR,
         width: d.width ?? 2,
-        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+        dash: d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '',
       });
     }
     /* THE FORK, derived here rather than stored.
@@ -1193,7 +1215,7 @@ export function MarketChart({
      * parallel on screen. Price and time have different units and a rescale
      * changes their ratio, so tines computed in price space would splay apart
      * the moment the axis moved. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork') continue;
       const pt = (t: number, v: number) => {
         const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
@@ -1207,12 +1229,12 @@ export function MarketChart({
       out.push(...forkSegments(p1, p2, p3, d.id, {
         color: d.color ?? DRAW_COLOR,
         width: d.width ?? 2,
-        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+        dash: d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '',
       }, W, H, d.variant ?? 'andrews'));
     }
 
     /* CHANNELS: the two boundaries, and the quad between them for the tint. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'channel') continue;
       const pt = (t: number, v: number): Pt | null => {
         const cx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
@@ -1226,7 +1248,7 @@ export function MarketChart({
       const style = {
         color: d.color ?? DRAW_COLOR,
         width: d.width ?? 2,
-        dash: d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '',
+        dash: d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '',
       };
 
       if (d.variant === 'linreg') {
@@ -1312,7 +1334,7 @@ export function MarketChart({
      * only the anchored axis is measured — the other end is the edge. The
      * vertical is anchored in TIME alone, which is why it has no price: it
      * marks a moment, and a moment has no height. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'vline' && d.kind !== 'cross') continue;
       /* A cross marks a PRICE as well as a moment, so it earns an axis tag —
        * the same badge a horizontal line gets. Without it the horizontal arm
@@ -1323,7 +1345,7 @@ export function MarketChart({
       if (cx == null) continue;
       const color = d.color ?? DRAW_COLOR;
       const width = d.width ?? 2;
-      const dash = d.style === 'dashed' ? '6 4' : d.style === 'dotted' ? '2 3' : '';
+      const dash = d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '';
       // The vertical takes the drawing's own id so the label pass lands on it.
       out.push({ id: d.id, x1: cx as number, y1: 0, x2: cx as number, y2: H, color, width, dash });
       if (d.kind === 'cross') {
@@ -1355,7 +1377,7 @@ export function MarketChart({
      * get an arc bigger than itself and a long one does not get a dinner plate. */
     const arcOut: { id: string; d: string; color: string }[] = [];
     const angleAt = new Map<string, { x: number; y: number }>();
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'trend' || d.readout !== 'angle') continue;
       const [gA, gB] = d.pts;
       if (!gA || !gB) continue;
@@ -1497,7 +1519,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
      * the thing being placed. Hovering does not reveal them there, so it does
      * not here either. */
     const selForHandles = selectedRef.current?.id ?? null;
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'trend' || d.id !== selForHandles) continue;
       const reach = d.reach ?? 'segment';
       const [hA, hB] = d.pts;
@@ -1524,7 +1546,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
     /* All three of a fork's points are real clicks, so all three get a handle —
      * unlike a ray, whose far end is a computed edge. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork' || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
         const x = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
@@ -1534,7 +1556,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
     /* A CHANNEL's anchors. The regression has two — its lines are computed,
      * so there is no third point to offer. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if (d.kind !== 'channel' || d.id !== selForHandles) continue;
       /* EVERY clicked point, as theirs does: {P.map((q, k) => <circle ...)}.
        * Ours showed the first two and put a derived grip at the middle of the
@@ -1560,7 +1582,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
      * other, and the middle is the one place that stays reachable whatever the
      * price scale does. The cross puts its handle where the two lines meet,
      * which IS its anchor. */
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       if ((d.kind !== 'vline' && d.kind !== 'cross') || d.id !== selForHandles) continue;
       const q = d.pts[0];
       if (!q) continue;
@@ -1764,7 +1786,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
    *  disposed series) must not take the other nine off the chart with it. */
   const renderDrawings = () => {
     removeDrawingObjects();
-    for (const d of drawings.current) {
+    for (const d of drawDraft()) {
       try { addDrawingObject(d); } catch { /* skip this one, keep the rest */ }
     }
     syncLabels();
@@ -2151,104 +2173,35 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const snapped = snapPoint(rawTime, price as number, param.point.y);
       const time = snapped.t;
       const sPrice = snapped.v as typeof price;
-      if (t === 'hline') {
-        const d: Drawing = { id: newDrawId(), kind: 'hline', price };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        clearPreview();
-      } else if (t === 'hray') {
-        // One click. A horizontal RAY differs from a horizontal LINE in where
-        // it starts: the line spans all of history, this one applies from the
-        // moment you clicked — which is the honest way to mark a level that
-        // was not there before an event.
-        const d: Drawing = {
-          id: newDrawId(), kind: 'trend', reach: 'hray',
-          pts: [{ t: time, v: sPrice }, { t: time, v: sPrice }],
-        };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        syncLabels();           // a horizontal ray is a diagonal too — same overlay
-      } else if (t === 'vline' || t === 'cross') {
-        // One click each. A vertical line marks WHEN and takes no price; a
-        // cross marks when AND what, so it keeps both.
-        const d: Drawing = t === 'vline'
-          ? { id: newDrawId(), kind: 'vline', pts: [{ t: time, v: sPrice }] }
-          : { id: newDrawId(), kind: 'cross', pts: [{ t: time, v: sPrice }] };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        clearPreview();
-        syncLabels();
-      } else if (t === 'trend' || t === 'ray' || t === 'extended' || t === 'info'
-        || t === 'angle' || t === 'arrow') {
-        // Two clicks. The first is remembered; the second completes it.
-        if (!trendStart.current) {
-          trendStart.current = { time: time as Time, value: sPrice };
-          setDrawPending(true);
-          return;
-        }
-        const d: Drawing = {
-          id: newDrawId(), kind: 'trend',
-          // Info and Angle are segments: they measure the span you drew, so
-          // running on past it would be reporting on something you did not mark.
-          reach: t === 'ray' || t === 'extended' ? t : 'segment',
-          ...(t === 'info' || t === 'angle' ? { readout: t } : {}),
-          ...(t === 'arrow' ? { arrow: true as const } : {}),
-          pts: [
-            { t: trendStart.current.time as number, v: trendStart.current.value },
-            { t: time, v: sPrice },
-          ],
-        };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        trendStart.current = null;
-        setDrawPending(false);
-        clearPreview();
-        syncLabels();           // see the pitchfork branch — the overlay needs measuring
-      } else if (CHANNEL_VARIANT[t]) {
-        /* Two or three clicks. A regression stops at two — it needs a RANGE,
-         * and a third click would be asking where to put a line it is going to
-         * calculate for you. */
-        const variant = CHANNEL_VARIANT[t]!;
-        const need = variant === 'linreg' ? 2 : variant === 'disjoint' ? 4 : 3;
-        forkPts.current.push({ time: time as Time, value: sPrice });
-        if (forkPts.current.length < need) { setDrawPending(true); return; }
-        const d: Drawing = {
-          id: newDrawId(), kind: 'channel', variant,
-          // The clicks, in order. The fourth IS the far end of the second line,
-          // not a parallel one derived from the first.
-          pts: forkPts.current.map((q) => ({ t: q.time as number, v: q.value })),
-          fill: true,
-        };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        forkPts.current = [];
-        setDrawPending(false);
-        clearPreview();
-        syncLabels();
-      } else if (FORK_VARIANT[t]) {
-        // Three clicks: pivot, then the two ends of the swing off it. The first
-        // two are only remembered — nothing is drawn until the third, because
-        // two points do not yet describe a fork. All four variants take the
-        // same three; only the stored variant differs.
-        forkPts.current.push({ time: time as Time, value: sPrice });
-        if (forkPts.current.length < 3) { setDrawPending(true); return; }
-        const d: Drawing = {
-          id: newDrawId(), kind: 'pitchfork',
-          pts: forkPts.current.map((q) => ({ t: q.time as number, v: q.value })),
-          variant: FORK_VARIANT[t],
-        };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
-        forkPts.current = [];
-        setDrawPending(false);
-        clearPreview();
-        // Diagonals live in the SVG overlay, and the overlay is only rebuilt by
-        // syncLabels. Without this the fork is in `drawings` but nothing has
-        // measured it yet, so it stays invisible until a pan or zoom happens to
-        // trigger a re-measure — which reads as the tool not working.
-        syncLabels();
-      } else if (t === 'text') {
-        // A labelled level. Cancelling the prompt places nothing — an empty
-        // label would just be a plain line the text tool pretended to name.
-        const label = window.prompt('Label for this level');
-        if (label == null || !label.trim()) return;
-        const d: Drawing = { id: newDrawId(), kind: 'hline', price: sPrice, label: label.trim() };
-        drawings.current.push(d); addDrawingObject(d); persistDrawings(); setSelected(d);
+      /* THEIR onDown, generalised: push the click, and when there are as many
+       * as the tool needs, build the drawing from them. One path for every
+       * tool instead of a branch each — and the same buildDrawing() the
+       * preview uses, so what you aimed at is what you get. */
+      const need = clicksNeeded(t, ALL_DRAW_TOOLS);
+      forkPts.current.push({ time: time as Time, value: sPrice });
+      if (forkPts.current.length < need) { setDrawPending(true); return; }
+
+      // The one tool that asks a question before it draws.
+      let typed: string | undefined;
+      if (t === 'text') {
+        const answer = window.prompt('Label for this level');
+        if (answer == null || !answer.trim()) { forkPts.current = []; setDrawPending(false); return; }
+        typed = answer.trim();
       }
+
+      const pts: DPt[] = forkPts.current.map((q) => ({ t: q.time as number, v: q.value }));
+      const made = buildDrawing(t, pts, newDrawId());
+      forkPts.current = [];
+      previewRef.current = null;
+      setDrawPending(false);
+      clearPreview();
+      if (!made) return;
+      if (typed) (made as { label?: string }).label = typed;
+      drawings.current.push(made);
+      addDrawingObject(made);
+      persistDrawings();
+      setSelected(made);
+      syncLabels();
     };
     chart.subscribeClick(onClick);
 
@@ -2290,12 +2243,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     const hitTest = (x: number, y: number): { id: string; kind: Drawing['kind'] } | null => {
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return null;
-      for (const d of drawings.current) {
+      for (const d of drawDraft()) {
         if (d.kind !== 'hline') continue;
         const cy = s.priceToCoordinate(d.price);
         if (cy != null && Math.abs(cy - y) <= HIT) return { id: d.id, kind: 'hline' };
       }
-      for (const d of drawings.current) {
+      for (const d of drawDraft()) {
         if (d.kind !== 'trend') continue;
         const [kA, kB] = d.pts;
         if (!kA || !kB) continue;
@@ -2311,7 +2264,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * — the segments syncLabels already computed — rather than re-deriving
        * the geometry here, so the thing you can see and the thing you can grab
        * cannot disagree. */
-      for (const d of drawings.current) {
+      for (const d of drawDraft()) {
         if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
           && d.kind !== 'channel') continue;
         const mine = segsRef.current.filter(
@@ -2386,140 +2339,20 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * each frame, so the band tracks the cursor whatever the chart is doing. */
       const t = toolRef.current;
       if (t === 'cursor') {
-        if (bandRef.current) { bandRef.current = null; setBand(null); }
-      } else {
-        const st = trendStart.current;
-        const twoClick = t === 'trend' || t === 'ray' || t === 'extended'
-          || t === 'info' || t === 'angle' || t === 'arrow';
-        const W0 = wrapRef.current?.clientWidth ?? 0;
-        const H0 = wrapRef.current?.clientHeight ?? 0;
-        /* A FORK IN PROGRESS previews from its last click to the cursor.
-         *
-         * It fell through to the level preview below, so arming a three-click
-         * tool drew a flat line across the pane — a preview of a drawing you
-         * were not making. Before the first click there is nothing to draw
-         * from, so it previews nothing rather than something wrong. */
-        if (t === 'vline' || t === 'cross') {
-          /* Previewed as the lines themselves, at the cursor. The flat band
-           * below would have shown a horizontal line for both — right for half
-           * of a cross and wrong for a vertical. */
-          const style = { color: DRAW_COLOR, width: 2, dash: '' };
-          const g: Seg[] = [{ id: 'ghost-v', x1: x, y1: 0, x2: x, y2: H0, ...style }];
-          if (t === 'cross') g.push({ id: 'ghost-h', x1: 0, y1: y, x2: W0, y2: y, ...style });
-          setGhost(g);
-          if (bandRef.current) { bandRef.current = null; setBand(null); }
-        } else if (CHANNEL_VARIANT[t]) {
-          /* One click down: the line you are drawing. Two: the whole channel,
-           * with the cursor as the offset — through the same channelSegments
-           * the committed one uses, so the preview cannot promise a shape the
-           * click will not produce. */
-          const cpx = (q: { time: Time; value: number }): Pt | null => {
-            const qx = c.timeScale().timeToCoordinate(q.time as UTCTimestamp);
-            const qy = s.priceToCoordinate(q.value);
-            return qx == null || qy == null ? null : { x: qx as number, y: qy as number };
-          };
-          const pts = forkPts.current;
-          const pa = pts[0] ? cpx(pts[0]) : null;
-          if (pts.length === 2 && pa) {
-            const pb = cpx(pts[1]);
-            setGhost(pb
-              ? channelSegments(pa, pb, { x, y }, null, CHANNEL_VARIANT[t]!, 'ghost',
-                  { color: DRAW_COLOR, width: 2, dash: '' }).segs
-              : []);
-            if (bandRef.current) { bandRef.current = null; setBand(null); }
-          } else if (pts.length === 1 && pa) {
-            if (ghostRef.current.length) setGhost([]);
-            const next = { x1: pa.x, y1: pa.y, x2: x, y2: y, flat: false };
-            bandRef.current = next;
-            setBand(next);
-          } else {
-            if (ghostRef.current.length) setGhost([]);
-            if (bandRef.current) { bandRef.current = null; setBand(null); }
-          }
-        } else if (FORK_VARIANT[t]) {
-          const px = (p: { time: Time; value: number }): Pt | null => {
-            const ax = c.timeScale().timeToCoordinate(p.time as UTCTimestamp);
-            const ay = s.priceToCoordinate(p.value);
-            return ax == null || ay == null ? null : { x: ax as number, y: ay as number };
-          };
-          const pts = forkPts.current;
-          if (pts.length === 2) {
-            /* TWO DOWN: preview the WHOLE fork, with the cursor as the third
-             * point. A single rubber band would show one line and then produce
-             * four — the preview has to be the drawing, which is why this calls
-             * the same forkSegments the committed one does. */
-            const a = px(pts[0]), b = px(pts[1]);
-            const W = wrapRef.current?.clientWidth ?? 0;
-            const H = wrapRef.current?.clientHeight ?? 0;
-            setGhost(a && b
-              ? forkSegments(a, b, { x, y }, 'ghost',
-                  { color: DRAW_COLOR, width: 2, dash: '' }, W, H, FORK_VARIANT[t])
-              : []);
-            if (bandRef.current) { bandRef.current = null; setBand(null); }
-          } else if (pts.length === 1) {
-            // One down: the base is all that exists yet, so show just that.
-            if (ghostRef.current.length) setGhost([]);
-            const a = px(pts[0]);
-            const next = a ? { x1: a.x, y1: a.y, x2: x, y2: y, flat: false } : null;
-            bandRef.current = next;
-            setBand(next);
-          } else {
-            if (ghostRef.current.length) setGhost([]);
-            if (bandRef.current) { bandRef.current = null; setBand(null); }
-          }
-        } else if (twoClick && st) {
-          const ax = c.timeScale().timeToCoordinate(st.time as UTCTimestamp);
-          const ay = s.priceToCoordinate(st.value);
-          const next = ax != null && ay != null
-            ? { x1: ax as number, y1: ay as number, x2: x, y2: y, flat: false }
-            : null;
-          /* THE NUMBERS WHILE YOU DRAW, not once you have finished.
-           *
-           * Info and Angle exist to answer "how far is that" — and they were
-           * answering it only after the second click, which is after the
-           * moment you wanted to know. The reading is taken from the cursor
-           * the same way the committed one is taken from the anchors. */
-          if ((t === 'info' || t === 'angle') && next) {
-            if (t === 'angle') {
-              const deg = -Math.atan2(next.y2 - next.y1, next.x2 - next.x1) * (180 / Math.PI);
-              setBandLabel(`${deg >= 0 ? '+' : ''}${deg.toFixed(1)}°`);
-            } else {
-              const pNow = s.coordinateToPrice(y);
-              const dv = pNow == null ? null : (pNow as number) - st.value;
-              const tNow = timeAtXRef.current?.(x) ?? null;
-              const step = barStepSecs();
-              const bars = tNow != null && step > 0
-                ? Math.abs(Math.round((tNow - (st.time as number)) / step)) : 0;
-              const pct = dv != null && st.value !== 0 ? (dv / Math.abs(st.value)) * 100 : 0;
-              setBandLabel(dv == null ? null
-                : `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
-                  + (bars ? `  ${bars} bar${bars === 1 ? '' : 's'}` : ''));
-            }
-          } else if (bandLabelRef.current) setBandLabel(null);
-          bandRef.current = next;
-          setBand(next);
-        } else if (isFibTool(t)) {
-          const fc = fibCtx();
-          if (!fibPts.current.length) {
-            // Nothing placed yet: the same flat band a level gets.
-            const next = { x1: 0, y1: y, x2: 0, y2: y, flat: true };
-            bandRef.current = next;
-            setBand(next);
-          } else {
-            bandRef.current = null;
-            setBand(null);
-            const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
-            const variant = FIB_TOOL_VARIANT[t];
-            const g = fc && pt
-              ? computeFibGeometry(makeFibDrawing(variant, [...fibPts.current, pt], 'preview'), fc)
-              : null;
-            setFibPreview(g);
-          }
-        } else if (!twoClick) {
-          // A level: horizontal, at the cursor's height, across the pane.
-          const next = { x1: 0, y1: y, x2: 0, y2: y, flat: true };
-          bandRef.current = next;
-          setBand(next);
+        if (previewRef.current) { previewRef.current = null; syncLabels(); }
+      } else if (!isFibTool(t)) {
+        /* ONE preview for every tool: the clicks so far, plus the cursor as
+         * the next point, built into the drawing it will become. */
+        const pr = s.coordinateToPrice(y);
+        const tt = timeAtXRef.current?.(x) ?? null;
+        if (pr != null && tt != null) {
+          const sn = snapRef.current?.(tt, pr as number, y) ?? { t: tt, v: pr as number };
+          const pts: DPt[] = [
+            ...forkPts.current.map((q) => ({ t: q.time as number, v: q.value })),
+            { t: sn.t, v: sn.v },
+          ];
+          previewRef.current = buildDrawing(t, pts, 'draft');
+          syncLabels();
         }
       }
 
@@ -2847,7 +2680,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}
                 stroke={g.color}
                 strokeWidth={g.width}
-                strokeDasharray={g.dash || undefined}
+                /* Theirs: strokeDasharray = preview ? "4 4" : DASH[...].
+                 * The draft is the only thing on this layer that is not yet a
+                 * drawing, so it is the only thing drawn provisionally. */
+                strokeDasharray={
+                  g.id === 'draft' || g.id.startsWith('draft#') ? '4 4' : (g.dash || undefined)
+                }
                 strokeLinecap="round"
               />
             ))}
@@ -2919,8 +2757,16 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             the thing still following your cursor. It is also never clipped by
             the saved-drawings layer, so it is always the clearest line on the
             chart - which is the one you are aiming. */}
-        {ghost.length > 0 && (
+        {(ghost.length > 0 || ghostFill) && (
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden">
+            {ghostFill && (
+              <polygon
+                points={ghostFill.map((q) => `${q.x},${q.y}`).join(' ')}
+                fill={DRAW_COLOR}
+                fillOpacity={0.12}
+                stroke="none"
+              />
+            )}
             {ghost.map((g) => (
               <line
                 key={g.id}
