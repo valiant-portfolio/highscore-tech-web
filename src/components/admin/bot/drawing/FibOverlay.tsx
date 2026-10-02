@@ -3,6 +3,8 @@
 import type { FibGeometry } from './fibonacci.ts';
 import { formatFibLabel } from './fibonacci.ts';
 
+const ptsAttr = (pts: { x: number; y: number }[]): string => pts.map((p) => `${p.x},${p.y}`).join(' ');
+
 /** Fibonacci levels as an SVG overlay, drawn from already-projected geometry
  *  (see computeFibGeometries). pointer-events-none: selection and drag go
  *  through the chart's own hit test, so this never eats a click. `digits` is a
@@ -29,6 +31,9 @@ export function FibOverlay({
           const handleColor = g.color ?? '#2962FF';
           return (
             <g key={isPreview ? 'preview' : g.id} opacity={isPreview ? 0.6 : 1}>
+              {g.polys.map((pl, i) => (
+                <polygon key={`p${i}`} points={ptsAttr(pl.pts)} fill={pl.color} fillOpacity={0.08} stroke="none" />
+              ))}
               {g.bands.map((b, i) => (
                 <rect
                   key={i}
@@ -62,6 +67,25 @@ export function FibOverlay({
                   {formatFibLabel(l.ratio, l.price, digits)}
                 </text>
               ))}
+              {g.lines.map((l, i) => (
+                <line
+                  key={`ln${i}`}
+                  x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                  stroke={l.color}
+                  strokeWidth={g.width}
+                  strokeDasharray={isPreview ? '5 4' : l.dash ?? (g.dash || undefined)}
+                />
+              ))}
+              {g.curves.map((c, i) => (
+                <polyline
+                  key={`cv${i}`}
+                  points={ptsAttr(c.closed && c.pts.length ? [...c.pts, c.pts[0]] : c.pts)}
+                  fill="none"
+                  stroke={c.color}
+                  strokeWidth={g.width}
+                  strokeDasharray={isPreview ? '5 4' : g.dash || undefined}
+                />
+              ))}
               {g.connectors.map((c, i) => (
                 <line
                   key={`c${i}`}
@@ -71,6 +95,21 @@ export function FibOverlay({
                   strokeDasharray="4 3"
                   opacity={0.6}
                 />
+              ))}
+              {g.texts.map((t, i) => (
+                <text
+                  key={`tx${i}`}
+                  x={t.x} y={t.y}
+                  textAnchor={t.anchor}
+                  fontSize={10}
+                  fontFamily="monospace"
+                  fill={t.color}
+                  paintOrder="stroke"
+                  stroke="var(--bg-elevated)"
+                  strokeWidth={3}
+                >
+                  {t.text}
+                </text>
               ))}
               {g.handles.map((h) => (
                 <circle

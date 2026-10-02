@@ -22,14 +22,16 @@ import {
   Crosshair, Search, Trash2, X, ChevronDown, LineChart, Grid3x3, BarChart3,
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
-  ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, Rows3, Rows4, GitFork,
+  ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, type FibDrawing, type FibGeometry, type FibPoint,
+  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, FIB_TOOL_VARIANT,
+  type FibDrawing, type FibGeometry, type FibPoint, type FibToolId,
 } from './drawing/fibonacci.ts';
+import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
 import { inferBarSecs } from './drawing/barTime.ts';
 import { FibOverlay } from './drawing/FibOverlay.tsx';
@@ -43,7 +45,7 @@ import {
 type Tool =
   | 'cursor' | 'hline' | 'trend' | 'text' | 'ray' | 'extended' | 'hray'
   | 'pitchfork' | 'cross' | 'vline' | 'info' | 'angle'
-  | 'fibr' | 'fibe';
+  | FibToolId;
 
 /** The drawing menu, in the design's order and wording. `clicks` is how many
  *  points a tool needs; `soon` is drawn but not armable, because a menu that
@@ -79,13 +81,13 @@ const PITCHFORK_TOOLS: DrawItem[] = [
 const EXTRA_TOOLS: DrawItem[] = [
   { tool: 'text', label: 'Labelled Level', keys: 'Alt+L', clicks: 1, glyph: 'T' },
 ];
-/** Fibonacci: levels drawn from two points (retracement) or three (trend-based
- *  extension). No keyboard shortcut. */
-const FIB_TOOLS: DrawItem[] = [
-  { tool: 'fibr', label: 'Fib Retracement', clicks: 2, glyph: '⌗' },
-  { tool: 'fibe', label: 'Trend-Based Fib Extension', clicks: 3, glyph: '⇶' },
-];
-const isFibTool = (t: Tool): t is 'fibr' | 'fibe' => t === 'fibr' || t === 'fibe';
+/** The Fibonacci family, derived from the registry in drawing/fibModel.ts.
+ *  Specs whose builder has not landed show greyed. No keyboard shortcut. */
+const FIB_TOOLS: DrawItem[] = FIB_SPEC_LIST.map((s) => ({
+  tool: s.toolId, label: s.label, clicks: s.clicks, glyph: s.glyph,
+  ...(s.ready ? {} : { soon: true as const }),
+}));
+const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
  *  tells you what a click will draw without a tooltip or an open menu — theirs
@@ -103,8 +105,7 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   vline: Minus,
   info: Slash,
   angle: Slash,
-  fibr: Rows3,
-  fibe: Rows4,
+  ...FIB_TOOL_ICONS,
 };
 
 // One browser Supabase client for the module, pointed at the BOT project — the
@@ -1369,7 +1370,7 @@ export function MarketChart({
         if (!param.point) return;
         const pt = clickToFibPoint(chartRef.current, seriesRef.current, param.point, barsRef.current);
         if (!pt) return;
-        const variant = t === 'fibe' ? 'extension' : 'retracement';
+        const variant = FIB_TOOL_VARIANT[t];
         fibPts.current.push(pt);
         const n = fibPts.current.length;
         if (n < fibClicksNeeded(variant)) {
@@ -1644,7 +1645,7 @@ export function MarketChart({
             bandRef.current = null;
             setBand(null);
             const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
-            const variant = t === 'fibe' ? 'extension' : 'retracement';
+            const variant = FIB_TOOL_VARIANT[t];
             const g = fc && pt
               ? computeFibGeometry(makeFibDrawing(variant, [...fibPts.current, pt], 'preview'), fc)
               : null;
@@ -2510,26 +2511,21 @@ export function MarketChart({
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Reset settings
                     </button>
-                    {selected.kind === 'fib' && (
-                      <>
+                    {selected.kind === 'fib' && FIB_SPECS[selected.variant]?.toggles.map((tg) => {
+                      const isOn = selected[tg.key] ?? tg.default;
+                      const TgIcon = tg.key === 'fill' ? Layers : tg.key === 'extendLeft' ? ArrowLeftToLine : ArrowRightToLine;
+                      return (
                         <button
+                          key={tg.key}
                           type="button"
-                          onClick={() => { patchDrawing(selected.id, { extendRight: !selected.extendRight }); close(); }}
+                          onClick={() => { patchDrawing(selected.id, { [tg.key]: !isOn }); close(); }}
                           className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
                         >
-                          <ArrowRightToLine className="h-3.5 w-3.5" />
-                          {selected.extendRight ? 'Stop extending right' : 'Extend lines right'}
+                          <TgIcon className="h-3.5 w-3.5" />
+                          {isOn ? tg.off : tg.on}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => { patchDrawing(selected.id, { fill: selected.fill === false }); close(); }}
-                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg transition-colors hover:bg-brand/10"
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                          {selected.fill === false ? 'Fill between levels' : 'Hide fill'}
-                        </button>
-                      </>
-                    )}
+                      );
+                    })}
                     {/* Bring to front / send to back are in the design and not
                         here: this library draws each drawing as its own series
                         and gives no z-order control over them. Listing them as
@@ -2578,18 +2574,17 @@ export function MarketChart({
               <PenLine className="h-3.5 w-3.5 text-brand" />
               <span className="font-semibold text-brand">{armed?.label ?? tool}</span>
               <span className="text-fg-muted">
-                {drawPending
+                {isFibTool(tool)
+                  // Each fib tool words its own prompt (see fibModel.ts).
+                  ? fibPrompt(FIB_TOOL_VARIANT[tool], drawPending ? fibStep : 0)
+                  : drawPending
                   // A three-click tool has to say WHICH point it is waiting
                   // for: "click the second point" through two of them is the
                   // same hint twice, and reads as a click that did not land.
-                  ? tool === 'fibe'
-                    ? (fibStep === 2 ? 'click the third point (projection anchor)' : 'click the second point')
-                    : armed?.clicks === 3
-                      ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
-                      : 'click the second point'
-                  : tool === 'fibe'
-                    ? 'click the first point'
-                    : armed?.clicks === 3
+                  ? armed?.clicks === 3
+                    ? `click the ${forkPts.current.length === 1 ? 'second' : 'third'} point`
+                    : 'click the second point'
+                  : armed?.clicks === 3
                       ? 'click the pivot'
                       : armed?.clicks === 2
                         ? 'click the first point'
