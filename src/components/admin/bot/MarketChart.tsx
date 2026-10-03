@@ -167,7 +167,7 @@ const ARROW_TOOLS: DrawItem[] = [
   { tool: 'arrowdown', label: 'Arrow Mark Down', clicks: 1, glyph: '↓' },
 ];
 const SHAPE_TOOLS: DrawItem[] = [
-  { tool: 'rect', label: 'Rectangle', clicks: 2, glyph: '▭' },
+  { tool: 'rect', label: 'Rectangle', keys: 'Alt+R', clicks: 2, glyph: '▭' },
   { tool: 'ellipse', label: 'Ellipse', clicks: 2, glyph: '◯' },
   { tool: 'tri', label: 'Triangle', clicks: 3, glyph: '△' },
 ];
@@ -686,9 +686,11 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'arrowdown': return { id, kind: 'mark', variant: 'down', pts };
     case 'flag': return { id, kind: 'mark', variant: 'flag', pts };
     case 'icon': return { id, kind: 'mark', variant: 'icon', pts };
-    case 'rect': return { id, kind: 'shape', variant: 'rect', pts, fill: true };
-    case 'ellipse': return { id, kind: 'shape', variant: 'ellipse', pts, fill: true };
-    case 'tri': return { id, kind: 'shape', variant: 'tri', pts, fill: true };
+    // fill defaults FALSE, as theirs does: `{ ...style }` starts unfilled, so a
+    // shape is an outline until the paint bucket is turned on.
+    case 'rect': return { id, kind: 'shape', variant: 'rect', pts, fill: false };
+    case 'ellipse': return { id, kind: 'shape', variant: 'ellipse', pts, fill: false };
+    case 'tri': return { id, kind: 'shape', variant: 'tri', pts, fill: false };
     case 'pos': return { id, kind: 'measure', variant: 'pos', pts };
     case 'poss': return { id, kind: 'measure', variant: 'poss', pts };
     case 'prange': return { id, kind: 'measure', variant: 'prange', pts };
@@ -1416,7 +1418,7 @@ export function MarketChart({
   const [arcs, setArcs] = useState<{ id: string; d: string; color: string }[]>([]);
   /** The tint between a channel's boundaries. A polygon, so it cannot be a
    *  seg — and separate state so hiding fills never disturbs the lines. */
-  const [fills, setFills] = useState<{ id: string; pts: Pt[]; color: string; solid?: boolean }[]>([]);
+  const [fills, setFills] = useState<{ id: string; pts: Pt[]; color: string; solid?: boolean; op?: number }[]>([]);
 
   /** Info/Angle's reading while the line is still being drawn. */
   const [bandLabel, setBandLabelState] = useState<string | null>(null);
@@ -1487,7 +1489,7 @@ export function MarketChart({
      * ways. Because this is pixels, "the edge" is literally the edge — it
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
-    const quads: { id: string; pts: Pt[]; color: string; solid?: boolean }[] = [];
+    const quads: { id: string; pts: Pt[]; color: string; solid?: boolean; op?: number }[] = [];
     const arcOut: { id: string; d: string; color: string }[] = [];
     const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean; bare?: boolean }[] = [];
     for (const d of drawDraft()) {
@@ -1743,7 +1745,7 @@ export function MarketChart({
         out.push({ id: d.id, x1: pA.x, y1: pA.y, x2: pB.x, y2: pB.y, color, width, dash });
         out.push({ id: `${d.id}#b`, x1: pB.x, y1: pB.y, x2: pC.x, y2: pC.y, color, width, dash });
         out.push({ id: `${d.id}#c`, x1: pC.x, y1: pC.y, x2: pA.x, y2: pA.y, color, width, dash });
-        if (d.fill !== false) quads.push({ id: `${d.id}#fill`, color, pts: [pA, pB, pC] });
+        if (d.fill) quads.push({ id: `${d.id}#fill`, color, pts: [pA, pB, pC], op: 0.15 });
         continue;
       }
       if (!sB) continue;
@@ -1755,7 +1757,7 @@ export function MarketChart({
         out.push({ id: `${d.id}#r`, x1: c1.x, y1: c1.y, x2: pB.x, y2: pB.y, color, width, dash });
         out.push({ id: `${d.id}#b`, x1: pB.x, y1: pB.y, x2: c2.x, y2: c2.y, color, width, dash });
         out.push({ id: `${d.id}#l`, x1: c2.x, y1: c2.y, x2: pA.x, y2: pA.y, color, width, dash });
-        if (d.fill !== false) quads.push({ id: `${d.id}#fill`, color, pts: [pA, c1, pB, c2] });
+        if (d.fill) quads.push({ id: `${d.id}#fill`, color, pts: [pA, c1, pB, c2], op: 0.15 });
         continue;
       }
       // An ellipse, as an SVG arc path — the one shape here that is not lines.
@@ -3476,7 +3478,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 key={f.id}
                 points={f.pts.map((q) => `${q.x},${q.y}`).join(' ')}
                 fill={f.color}
-                fillOpacity={f.solid ? 1 : 0.12}
+                fillOpacity={f.solid ? 1 : (f.op ?? 0.12)}
                 stroke="none"
               />
             ))}
