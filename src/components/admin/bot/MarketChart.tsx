@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 // Candlestick chart for one market, TradingView Lightweight Charts (MIT).
 //
