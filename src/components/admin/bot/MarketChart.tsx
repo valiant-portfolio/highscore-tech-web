@@ -1306,6 +1306,7 @@ export function MarketChart({
   useEffect(() => { keepToolRef.current = keepTool; }, [keepTool]);
 
   const [magnet, setMagnet] = useState<'off' | 'weak' | 'strong'>('off');
+  const [magnetOpen, setMagnetOpen] = useState(false);
   const magnetRef = useRef<'off' | 'weak' | 'strong'>('off');
   useEffect(() => { magnetRef.current = magnet; }, [magnet]);
 
@@ -4667,20 +4668,54 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               <Eraser className="h-4 w-4" />
             </RailBtn>
 
-            {/* MAGNET: off -> weak -> strong -> off. One button rather than
-                three, because they are states of one setting; the icon says
-                which by how loud it is. */}
-            <RailBtn
-              active={magnet !== 'off'}
-              onClick={() => setMagnet((m) => (m === 'off' ? 'weak' : m === 'weak' ? 'strong' : 'off'))}
-              title={
-                magnet === 'off' ? 'Magnet off — click to snap near candle levels'
-                  : magnet === 'weak' ? 'Magnet weak — snaps when close to a candle O/H/L/C'
-                    : 'Magnet strong — always snaps to the nearest candle level'
-              }
-            >
-              <Magnet className={`h-4 w-4 ${magnet === 'strong' ? 'fill-current' : ''}`} />
-            </RailBtn>
+            {/* MAGNET, as a menu rather than a cycle.
+                Three named states with a tick against the current one, the way
+                the reference has it: cycling hides which state you are in until
+                you read the tooltip, and makes you click twice to go back. */}
+            <div className="relative">
+              <RailBtn
+                active={magnet !== 'off'}
+                onClick={() => setMagnetOpen((v) => !v)}
+                title={`Magnet — ${magnet}`}
+              >
+                <Magnet className={`h-4 w-4 ${magnet === 'strong' ? 'fill-current' : ''}`} />
+              </RailBtn>
+              {magnetOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss magnet menu"
+                    onClick={() => setMagnetOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div className="absolute left-[calc(100%+6px)] top-0 z-[60] w-40 rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
+                    <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
+                      Magnet
+                    </p>
+                    {(['off', 'weak', 'strong'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => { setMagnet(m); setMagnetOpen(false); }}
+                        title={
+                          m === 'off' ? 'No snapping'
+                            : m === 'weak' ? 'Snaps when close to a candle O/H/L/C'
+                              : 'Always snaps to the nearest candle level'
+                        }
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-[15px] capitalize transition-colors ${
+                          magnet === m
+                            ? 'font-semibold text-brand'
+                            : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        {m}
+                        {magnet === m && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
             <RailBtn
               active={drawingsLocked}
