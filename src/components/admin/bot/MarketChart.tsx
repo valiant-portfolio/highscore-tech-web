@@ -3376,7 +3376,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     setLoading(true);
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    fibPts.current = []; forkPts.current = []; setDraftLen(0);
+    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview();
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -3953,7 +3953,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               railHidden ? 'hidden' : 'flex'
             }`}
           >
-            <RailBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Crosshair">
+            <RailBtn active={tool === 'cursor'} onClick={() => { setTool('cursor'); setDrawPending(false); clearPreview(); }} title="Crosshair">
               <Crosshair className="h-4 w-4" />
             </RailBtn>
             {/* SPLIT BUTTON. The icon arms the line type you last used — one
@@ -5177,7 +5177,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               <span className="mx-1 h-5 w-px bg-border" />
             </>
           )}
-          <ToolBtn active={tool === 'cursor'} onClick={() => setTool('cursor')} title="Cursor"><MousePointer2 className="h-4 w-4" /></ToolBtn>
+          <ToolBtn active={tool === 'cursor'} onClick={() => { setTool('cursor'); setDrawPending(false); clearPreview(); }} title="Cursor"><MousePointer2 className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'hline'} onClick={() => setTool('hline')} title="Horizontal line — click a price"><Minus className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={tool === 'trend'} onClick={() => setTool('trend')} title="Trend line — click two points"><PenLine className="h-4 w-4" /></ToolBtn>
           <ToolBtn active={false} onClick={clearDrawings} title="Clear drawings"><Eraser className="h-4 w-4" /></ToolBtn>
