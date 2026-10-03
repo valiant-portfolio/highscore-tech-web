@@ -23,7 +23,8 @@ import {
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
-  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Columns3, Circle,
+  GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Columns3,
+  Paintbrush, Flag, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -49,6 +50,8 @@ type Tool =
   | 'chpar' | 'chdis' | 'chflat' | 'chlin'
   | 'pos' | 'poss' | 'dpr' | 'mag' | 'prange' | 'avwap' | 'vprof'
   | 'callout' | 'note' | 'pricenote' | 'comment' | 'pricelabel' | 'signpost'
+  | 'brush' | 'highlighter' | 'arrowup' | 'arrowdown' | 'rect' | 'ellipse' | 'tri'
+  | 'flag' | 'icon'
   | FibToolId;
 
 /** Which channel a tool draws. All but the regression take three clicks and
@@ -146,6 +149,41 @@ const VOLUME_TOOLS: DrawItem[] = [
   { tool: 'avwap', label: 'Anchored VWAP', clicks: 1, glyph: '⌁' },
   { tool: 'vprof', label: 'Fixed Range Volume Profile', clicks: 2, glyph: '▥' },
 ];
+/* BRUSHES, ARROWS and SHAPES — the three groups on one button.
+ *
+ * Brush and Highlighter are FREEHAND: they are not placed with clicks at all,
+ * they follow the pointer while it is held. `clicks: 0` marks that, and the
+ * click handler leaves them alone — see the drag capture below.
+ *
+ * Arrow is the one already in Lines; it is listed here too because that is
+ * where the design puts it, and both entries arm the same tool. */
+const BRUSH_TOOLS: DrawItem[] = [
+  { tool: 'brush', label: 'Brush', clicks: 0, glyph: '🖌' },
+  { tool: 'highlighter', label: 'Highlighter', clicks: 0, glyph: '🖍' },
+];
+const ARROW_TOOLS: DrawItem[] = [
+  { tool: 'arrow', label: 'Arrow', clicks: 2, glyph: '↗' },
+  { tool: 'arrowup', label: 'Arrow Mark Up', clicks: 1, glyph: '↑' },
+  { tool: 'arrowdown', label: 'Arrow Mark Down', clicks: 1, glyph: '↓' },
+];
+const SHAPE_TOOLS: DrawItem[] = [
+  { tool: 'rect', label: 'Rectangle', clicks: 2, glyph: '▭' },
+  { tool: 'ellipse', label: 'Ellipse', clicks: 2, glyph: '◯' },
+  { tool: 'tri', label: 'Triangle', clicks: 3, glyph: '△' },
+];
+/* ICONS: a flag and a star, one click each. The last button on the rail. */
+const ICON_TOOLS: DrawItem[] = [
+  { tool: 'flag', label: 'Flag', clicks: 1, glyph: '⚑' },
+  { tool: 'icon', label: 'Icon', clicks: 1, glyph: '☆' },
+];
+const ICON_IDS = new Set(['flag', 'icon']);
+const isIconTool = (t: Tool): boolean => ICON_IDS.has(t as string);
+
+const BRUSH_IDS = new Set(['brush', 'highlighter', 'arrowup', 'arrowdown', 'rect', 'ellipse', 'tri']);
+const isBrushTool = (t: Tool): boolean => BRUSH_IDS.has(t as string) || t === 'arrow';
+/** Freehand: follows the pointer instead of counting clicks. */
+const isFreehand = (t: Tool): boolean => t === 'brush' || t === 'highlighter';
+
 /* TEXT. Theirs, in their order and with their click counts - all 1:
  *   text, callout, note, pricenote, comment, pricelabel, signpost
  * Each prompts for its words on the click, and the default offered is the
@@ -331,6 +369,24 @@ type Drawing =
       pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
       label?: string;
+    }
+  /** A stroke that followed the pointer. Every sample it passed through, in
+   *  time and price like any other anchor — so it stays on the bars it was
+   *  drawn over when the chart is zoomed. */
+  | {
+      id: string; kind: 'freehand'; variant: 'brush' | 'highlighter'; pts: DPt[];
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted'; label?: string;
+    }
+  /** A mark at one price: the arrows, and the flag and star. */
+  | {
+      id: string; kind: 'mark'; variant: 'up' | 'down' | 'flag' | 'icon'; pts: DPt[];
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted'; label?: string;
+    }
+  /** Rectangle, ellipse, triangle. */
+  | {
+      id: string; kind: 'shape'; variant: 'rect' | 'ellipse' | 'tri'; pts: DPt[];
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted'; label?: string;
+      fill?: boolean;
     }
   /* ANNOTATIONS. One click and some words. They differ only in what is drawn
    * around them - a plate, a price tag on the axis, a post - so one kind with
@@ -624,6 +680,15 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'info': return { id, kind: 'trend', reach: 'segment', readout: 'info', pts };
     case 'angle': return { id, kind: 'trend', reach: 'segment', readout: 'angle', pts };
     case 'arrow': return { id, kind: 'trend', reach: 'segment', arrow: true, pts };
+    case 'brush': return { id, kind: 'freehand', variant: 'brush', pts };
+    case 'highlighter': return { id, kind: 'freehand', variant: 'highlighter', pts };
+    case 'arrowup': return { id, kind: 'mark', variant: 'up', pts };
+    case 'arrowdown': return { id, kind: 'mark', variant: 'down', pts };
+    case 'flag': return { id, kind: 'mark', variant: 'flag', pts };
+    case 'icon': return { id, kind: 'mark', variant: 'icon', pts };
+    case 'rect': return { id, kind: 'shape', variant: 'rect', pts, fill: true };
+    case 'ellipse': return { id, kind: 'shape', variant: 'ellipse', pts, fill: true };
+    case 'tri': return { id, kind: 'shape', variant: 'tri', pts, fill: true };
     case 'pos': return { id, kind: 'measure', variant: 'pos', pts };
     case 'poss': return { id, kind: 'measure', variant: 'poss', pts };
     case 'prange': return { id, kind: 'measure', variant: 'prange', pts };
@@ -1017,6 +1082,8 @@ export function MarketChart({
    *  Fibonacci button arms. */
   const [patOpen, setPatOpen] = useState(false);
   const [measOpen, setMeasOpen] = useState(false);
+  const [brushOpen, setBrushOpen] = useState(false);
+  const [iconsOpen, setIconsOpen] = useState(false);
   const [textOpen, setTextOpen] = useState(false);
   /* WHERE A FLYOUT CAN ACTUALLY FIT.
    *
@@ -1031,6 +1098,8 @@ export function MarketChart({
   const fibBtnRef = useRef<HTMLDivElement | null>(null);
   const patBtnRef = useRef<HTMLDivElement | null>(null);
   const measBtnRef = useRef<HTMLDivElement | null>(null);
+  const brushBtnRef = useRef<HTMLDivElement | null>(null);
+  const iconsBtnRef = useRef<HTMLDivElement | null>(null);
   const textBtnRef = useRef<HTMLDivElement | null>(null);
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
   const [fibMaxW, setFibMaxW] = useState<number | null>(null);
@@ -1084,6 +1153,30 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [textOpen]);
+  const [iconsMaxH, setIconsMaxH] = useState<number | null>(null);
+  const [iconsMaxW, setIconsMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!iconsOpen) { setIconsMaxH(null); return; }
+    const place = () => {
+      setIconsMaxH(flyoutMaxH(iconsBtnRef.current, wrapRef.current));
+      setIconsMaxW(flyoutMaxW(iconsBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [iconsOpen]);
+  const [brushMaxH, setBrushMaxH] = useState<number | null>(null);
+  const [brushMaxW, setBrushMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!brushOpen) { setBrushMaxH(null); return; }
+    const place = () => {
+      setBrushMaxH(flyoutMaxH(brushBtnRef.current, wrapRef.current));
+      setBrushMaxW(flyoutMaxW(brushBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [brushOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not a ref: a ref changing does
@@ -1122,6 +1215,8 @@ export function MarketChart({
   const [lastFib, setLastFib] = useState<Tool>('fibr');
   const [lastPat, setLastPat] = useState<Tool>('xabcd');
   const [lastMeas, setLastMeas] = useState<Tool>('pos');
+  const [lastBrush, setLastBrush] = useState<Tool>('brush');
+  const [lastIcons, setLastIcons] = useState<Tool>('flag');
   const [lastText, setLastText] = useState<Tool>('text');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
@@ -1334,6 +1429,12 @@ export function MarketChart({
   const syncCrosshairRef = useRef(false);
   const paneKeyRef = useRef('solo');
   const snapRef = useRef<((t: number, v: number, y: number) => { t: number; v: number }) | null>(null);
+  /* THE STROKE BEING DRAWN.
+   *
+   * Freehand does not fit clicksNeeded: there is no count, the stroke ends when
+   * the button comes up. Samples collect here on pointermove and commit on
+   * release. Held in a ref because the pointer handlers are bound once. */
+  const strokeRef = useRef<DPt[] | null>(null);
 
   /** The fork being placed, previewed in full. Separate from the rubber band:
    *  that is one line, and a fork is four. */
@@ -1568,6 +1669,103 @@ export function MarketChart({
       }
       if (r.quad && d.fill !== false) {
         quads.push({ id: `${d.id}#fill`, pts: r.quad, color: style.color });
+      }
+    }
+
+    /* FREEHAND, MARKS and SHAPES. */
+    for (const d of drawDraft()) {
+      if (d.kind !== 'freehand' && d.kind !== 'mark' && d.kind !== 'shape') continue;
+      const pt = (t: number, v: number): Pt | null => {
+        const bx = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const by = s.priceToCoordinate(v);
+        return bx == null || by == null ? null : { x: bx as number, y: by as number };
+      };
+      const color = d.color ?? DRAW_COLOR;
+      const width = d.width ?? 2;
+      const dash = d.style === 'dashed' ? '8 5' : d.style === 'dotted' ? '2 4' : '';
+
+      if (d.kind === 'freehand') {
+        /* Segment per sample. A highlighter is the same stroke drawn fat and
+         * faint — that IS the difference between the two tools. */
+        const hi = d.variant === 'highlighter';
+        const px = d.pts.map((q) => pt(q.t, q.v));
+        for (let i = 1; i < px.length; i++) {
+          const a0 = px[i - 1], b0 = px[i];
+          if (!a0 || !b0) continue;
+          out.push({
+            id: i === 1 ? d.id : `${d.id}#${i}`,
+            x1: a0.x, y1: a0.y, x2: b0.x, y2: b0.y,
+            color, width: hi ? Math.max(8, width * 5) : width, dash: '',
+          });
+        }
+        continue;
+      }
+
+      if (d.kind === 'mark') {
+        const q = pt(d.pts[0].t, d.pts[0].v);
+        if (!q) continue;
+        if (d.variant === 'flag' || d.variant === 'icon') {
+          // A short post with the glyph at its top — placed at a price, like
+          // the arrows, but carrying a symbol rather than a direction.
+          out.push({ id: d.id, x1: q.x, y1: q.y, x2: q.x, y2: q.y - 22, color, width, dash: '' });
+          extraLabels.push({
+            id: `${d.id}#g`, x: q.x + 7, y: q.y - 26,
+            text: d.variant === 'flag' ? '⚑' : '★',
+            color, bare: true,
+          });
+          continue;
+        }
+        // A stem with a head on it, pointing the way it is named.
+        const up = d.variant === 'up';
+        const len = 26, head = 9;
+        const tip = { x: q.x, y: up ? q.y - len : q.y + len };
+        out.push({ id: d.id, x1: q.x, y1: q.y, x2: tip.x, y2: tip.y, color, width, dash });
+        quads.push({
+          id: `${d.id}#head`, color, solid: true,
+          pts: [
+            tip,
+            { x: tip.x - head * 0.6, y: up ? tip.y + head : tip.y - head },
+            { x: tip.x + head * 0.6, y: up ? tip.y + head : tip.y - head },
+          ],
+        });
+        continue;
+      }
+
+      // SHAPES.
+      const [sA, sB, sC] = d.pts;
+      if (!sA) continue;
+      const pA = pt(sA.t, sA.v);
+      if (!pA) continue;
+      if (d.variant === 'tri') {
+        if (!sB || !sC) continue;
+        const pB = pt(sB.t, sB.v), pC = pt(sC.t, sC.v);
+        if (!pB || !pC) continue;
+        out.push({ id: d.id, x1: pA.x, y1: pA.y, x2: pB.x, y2: pB.y, color, width, dash });
+        out.push({ id: `${d.id}#b`, x1: pB.x, y1: pB.y, x2: pC.x, y2: pC.y, color, width, dash });
+        out.push({ id: `${d.id}#c`, x1: pC.x, y1: pC.y, x2: pA.x, y2: pA.y, color, width, dash });
+        if (d.fill !== false) quads.push({ id: `${d.id}#fill`, color, pts: [pA, pB, pC] });
+        continue;
+      }
+      if (!sB) continue;
+      const pB = pt(sB.t, sB.v);
+      if (!pB) continue;
+      if (d.variant === 'rect') {
+        const c1 = { x: pB.x, y: pA.y }, c2 = { x: pA.x, y: pB.y };
+        out.push({ id: d.id, x1: pA.x, y1: pA.y, x2: c1.x, y2: c1.y, color, width, dash });
+        out.push({ id: `${d.id}#r`, x1: c1.x, y1: c1.y, x2: pB.x, y2: pB.y, color, width, dash });
+        out.push({ id: `${d.id}#b`, x1: pB.x, y1: pB.y, x2: c2.x, y2: c2.y, color, width, dash });
+        out.push({ id: `${d.id}#l`, x1: c2.x, y1: c2.y, x2: pA.x, y2: pA.y, color, width, dash });
+        if (d.fill !== false) quads.push({ id: `${d.id}#fill`, color, pts: [pA, c1, pB, c2] });
+        continue;
+      }
+      // An ellipse, as an SVG arc path — the one shape here that is not lines.
+      const cx = (pA.x + pB.x) / 2, cy = (pA.y + pB.y) / 2;
+      const rx = Math.abs(pB.x - pA.x) / 2, ry = Math.abs(pB.y - pA.y) / 2;
+      if (rx > 0 && ry > 0) {
+        arcOut.push({
+          id: d.id, color,
+          d: `M ${cx - rx} ${cy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0`,
+        });
       }
     }
 
@@ -2022,7 +2220,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
 
     for (const d of drawDraft()) {
-      if ((d.kind !== 'measure' && d.kind !== 'note') || d.id !== selForHandles) continue;
+      if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
+        && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
         const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
         const hy = s.priceToCoordinate(q.v);
@@ -2031,7 +2230,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
 
     for (const d of drawDraft()) {
-      if ((d.kind !== 'measure' && d.kind !== 'note') || d.id !== selForHandles) continue;
+      if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
+        && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
         const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
         const hy = s.priceToCoordinate(q.v);
@@ -2762,7 +2962,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * cannot disagree. */
       for (const d of drawings.current) {
         if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
-          && d.kind !== 'channel' && d.kind !== 'measure' && d.kind !== 'note') continue;
+          && d.kind !== 'channel' && d.kind !== 'measure' && d.kind !== 'note'
+          && d.kind !== 'freehand' && d.kind !== 'mark' && d.kind !== 'shape') continue;
         const mine = segsRef.current.filter(
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
@@ -2775,6 +2976,19 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       return null;
     };
     const onDown = (e: PointerEvent) => {
+      /* A FREEHAND STROKE STARTS HERE, not in the click handler: it needs the
+       * whole press-drag-release, and subscribeClick only fires on release. */
+      if (isFreehand(toolRef.current)) {
+        const { x, y } = localXY(e);
+        const pr = series.coordinateToPrice(y);
+        const tt = timeAtX(x);
+        if (pr == null || tt == null) return;
+        e.preventDefault();
+        strokeRef.current = [{ t: tt, v: pr as number }];
+        chart.applyOptions({ handleScroll: false, handleScale: false });
+        try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        return;
+      }
       if (toolRef.current !== 'cursor') return;
       // Locked: the lines stay where they are. Without this, a pan that starts
       // near a level silently drags the level instead of the chart.
@@ -2852,6 +3066,28 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         }
       }
 
+      /* Extending the stroke. Samples nearer than 2px are dropped — a pointer
+       * reports far more often than a line needs, and keeping them all makes a
+       * drawing that is slow to redraw and heavy to store. */
+      if (strokeRef.current) {
+        const pr = s.coordinateToPrice(y);
+        const tt = timeAtXRef.current?.(x) ?? null;
+        if (pr != null && tt != null) {
+          const pts = strokeRef.current;
+          const prev = pts[pts.length - 1];
+          const px0 = c.timeScale().timeToCoordinate(prev.t as UTCTimestamp);
+          const py0 = s.priceToCoordinate(prev.v);
+          const far = px0 == null || py0 == null
+            || Math.hypot((px0 as number) - x, (py0 as number) - y) >= 2;
+          if (far) {
+            pts.push({ t: tt, v: pr as number });
+            previewRef.current = buildDrawing(toolRef.current, pts, 'draft');
+            syncLabels();
+          }
+        }
+        return;
+      }
+
       const dg = drag.current;
       if (!dg) {
         if (toolRef.current === 'cursor') {
@@ -2920,6 +3156,26 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       el!.style.cursor = 'grabbing';
     };
     const endDrag = (e: PointerEvent) => {
+      /* The stroke ends when the button does. Two samples is the shortest thing
+       * worth keeping — a single tap with a brush is a smudge, not a drawing. */
+      if (strokeRef.current) {
+        const pts = strokeRef.current;
+        strokeRef.current = null;
+        previewRef.current = null;
+        chart.applyOptions({ handleScroll: true, handleScale: true });
+        try { el!.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        if (pts.length >= 2) {
+          const made = buildDrawing(toolRef.current, pts, newDrawId());
+          if (made) {
+            drawings.current.push(made);
+            persistDrawings();
+            setSelected(made);
+            setTool('cursor');
+          }
+        }
+        syncLabels();
+        return;
+      }
       if (!drag.current) return;
       drag.current = null;
       chart.applyOptions({ handleScroll: true, handleScale: true });
@@ -3935,6 +4191,106 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 </>
               )}
             </div>
+            {/* BRUSH, on its own control.
+                Text, callout, note, price note, comment, price label and
+                signpost - theirs, in their order. Same split button again, with
+                its own `lastBrush`. */}
+            <div
+              ref={brushBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isBrushTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastBrush);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastBrush)?.label ?? 'Brush'}`
+                  + (isBrushTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isBrushTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastBrush] ?? Paintbrush;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBrushOpen((v) => !v)}
+                title="Choose a brush tool"
+                aria-label="Choose a brush tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  brushOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {brushOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss brush tools"
+                    onClick={() => setBrushOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(brushMaxH ? { maxHeight: brushMaxH } : {}),
+                      ...(brushMaxW ? { width: brushMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Brushes', BRUSH_TOOLS],
+                      ['Arrows', ARROW_TOOLS],
+                      ['Shapes', SHAPE_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastBrush(t.tool);
+                          setBrushOpen(false);
+                          forkPts.current = []; setDraftLen(0);
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             {/* TEXT, on its own control.
                 Text, callout, note, price note, comment, price label and
                 signpost - theirs, in their order. Same split button again, with
@@ -4008,6 +4364,104 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           setTool(t.tool);
                           setLastText(t.tool);
                           setTextOpen(false);
+                          forkPts.current = []; setDraftLen(0);
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* ICONS, on its own control.
+                Text, callout, note, price note, comment, price label and
+                signpost - theirs, in their order. Same split button again, with
+                its own `lastIcons`. */}
+            <div
+              ref={iconsBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isIconTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastIcons);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastIcons)?.label ?? 'Icons'}`
+                  + (isIconTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isIconTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastIcons] ?? Flag;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIconsOpen((v) => !v)}
+                title="Choose a icons tool"
+                aria-label="Choose a icons tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  iconsOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {iconsOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss icons tools"
+                    onClick={() => setIconsOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(iconsMaxH ? { maxHeight: iconsMaxH } : {}),
+                      ...(iconsMaxW ? { width: iconsMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Icons', ICON_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastIcons(t.tool);
+                          setIconsOpen(false);
                           forkPts.current = []; setDraftLen(0);
                                   setDrawPending(false);
                           clearPreview();
