@@ -260,6 +260,11 @@ export function Workspace({
    * IS in the URL; the period never was. */
   const [range, setRange] = useState('today');
 
+  /** The section on screen. Seeded from the route and re-synced whenever it
+   *  lands, so Back and a refresh still win — this only runs ahead of it. */
+  const [sec, setSec] = useState<Section>(section);
+  useEffect(() => { setSec(section); }, [section]);
+
   /* THE PAGE TITLE CARRIES THE PRICE.
    *
    * Set from the client because it moves: a title rendered on the server is
@@ -269,8 +274,8 @@ export function Workspace({
     const m = markets.find((x) => x.symbol === marketFocus) ?? null;
     document.title = m && m.price != null
       ? `${m.alias} ${px(m.price)} · Highscore`
-      : `${TITLES[section]} · Highscore`;
-  }, [markets, marketFocus, section]);
+      : `${TITLES[sec]} · Highscore`;
+  }, [markets, marketFocus, sec]);
 
   /* On a phone the rail is a drawer, not a column: 232px of navigation beside
    * a chart leaves room for neither. It slides over, and picking a section
@@ -288,9 +293,23 @@ export function Workspace({
   /* NAVIGATION IS NAVIGATION. Each of these pushes a path and lets the route
    * come back through props, so Back and a refresh both work by construction
    * rather than by us remembering to mirror state into the address. */
+  /* THE PANEL SWITCHES NOW; THE URL CATCHES UP.
+   *
+   * Every tab used to wait on router.push. The desk is force-dynamic, so that
+   * is a full server render - getBotOverview's nine Supabase queries, a
+   * thousand closed trades and a five-hundred-point equity curve - before
+   * anything on screen moved. For a change that needs NO new data: every
+   * section is drawn from props the page already has, and only which panel
+   * shows is different.
+   *
+   * So the section is held here as well, switched on the click, and the push
+   * still goes out behind it. The address, Back and a refresh all keep working
+   * - the route is still the source of truth, it just stops being the thing
+   * you wait for. */
   const open = (s: Section) => {
     setPanelOpen(true);
     setNavOpen(false);
+    setSec(s);
     router.push(deskPath(s));
   };
 
@@ -408,14 +427,14 @@ export function Workspace({
                   onClick={() => open(it.key)}
                   title={railExpanded ? undefined : it.label}
                   className={`group relative mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    section === it.key && panelOpen
+                    sec === it.key && panelOpen
                       ? 'bg-brand/15 font-semibold text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand'
                       : 'text-fg-muted hover:bg-brand/10 hover:text-fg'
                   }`}
                 >
                   <span
                     className={
-                      section === it.key && panelOpen
+                      sec === it.key && panelOpen
                         ? 'text-brand'
                         : 'transition-colors group-hover:text-brand'
                     }
@@ -539,11 +558,11 @@ export function Workspace({
             {/* A trade takes over the panel wherever you opened it from, and
                 Back puts the list you came from straight back. */}
             {tradeFocus && (
-              <TradeDetail trade={tradeFocus} onBack={() => router.push(deskPath(section))} />
+              <TradeDetail trade={tradeFocus} onBack={() => router.push(deskPath(sec))} />
             )}
-            {!tradeFocus && section === 'scora' && <ScoraPanel name={user.name} />}
-            {!tradeFocus && section === 'chart' && <ChartPanel showGrid={showGrid} onGrid={setShowGrid} />}
-            {!tradeFocus && section === 'markets' && (
+            {!tradeFocus && sec === 'scora' && <ScoraPanel name={user.name} />}
+            {!tradeFocus && sec === 'chart' && <ChartPanel showGrid={showGrid} onGrid={setShowGrid} />}
+            {!tradeFocus && sec === 'markets' && (
               <MarketList
                 markets={markets}
                 configs={configs}
@@ -555,7 +574,7 @@ export function Workspace({
                 onBack={() => marketFocus && focusMarket(marketFocus)}
               />
             )}
-            {!tradeFocus && section === 'orders' && (
+            {!tradeFocus && sec === 'orders' && (
               <OrdersList
                 awaiting={awaiting}
                 proposals={orders}
@@ -570,7 +589,7 @@ export function Workspace({
                 onFocusChart={focusMarket}
               />
             )}
-            {!tradeFocus && section === 'pending' && (
+            {!tradeFocus && sec === 'pending' && (
               <PendingList
                 markets={ready}
                 allMarkets={markets}
@@ -580,10 +599,10 @@ export function Workspace({
                 onFocusChart={focusMarket}
               />
             )}
-            {!tradeFocus && section === 'active' && (
+            {!tradeFocus && sec === 'active' && (
               <ActiveList markets={active} configs={configs} specs={specs} onOpenMarket={openMarket} />
             )}
-            {!tradeFocus && section === 'history' && (
+            {!tradeFocus && sec === 'history' && (
               <HistoryList
                 trades={closedTrades}
                 range={range}
@@ -591,27 +610,27 @@ export function Workspace({
                 onOpenTrade={openTrade}
               />
             )}
-            {!tradeFocus && section === 'backtests' && (
+            {!tradeFocus && sec === 'backtests' && (
               <Soon
                 title="Backtests"
                 body="Running an idea against the stored history is not built yet. The closed trades are the record we do have."
                 action={{ label: 'Open History', onClick: () => open('history') }}
               />
             )}
-            {!tradeFocus && section === 'alerts' && (
+            {!tradeFocus && sec === 'alerts' && (
               <Soon
                 title="Alerts"
                 body="Alerts go to Telegram today. Nothing on this screen is fed by them yet — the bot keeps no record of what it sent."
                 action={{ label: 'Open Pending', onClick: () => open('pending') }}
               />
             )}
-            {!tradeFocus && section === 'performance' && (
+            {!tradeFocus && sec === 'performance' && (
               <PerformancePanel equity={equity} curve={equityCurve} trades={closedTrades} />
             )}
-            {!tradeFocus && section === 'transactions' && (
+            {!tradeFocus && sec === 'transactions' && (
               <TransactionsPanel trades={closedTrades} onOpenTrade={openTrade} />
             )}
-            {!tradeFocus && section === 'settings' && <SettingsPanel settings={settings} equity={equity} openCount={active.length} />}
+            {!tradeFocus && sec === 'settings' && <SettingsPanel settings={settings} equity={equity} openCount={active.length} />}
           </div>
         </section>
       )}
