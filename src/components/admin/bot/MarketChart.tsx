@@ -2508,6 +2508,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         drawings.current.push(d); persistDrawings(); setSelected(d);
         clearPreview();
         setDrawPending(false);
+        // Same as every other family: armed tools cannot be dragged, so a
+        // finished fib hands the chart back to the cursor.
+        setTool('cursor');
         syncLabels();
         return;
       }
@@ -2570,6 +2573,18 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       addDrawingObject(made);
       persistDrawings();
       setSelected(made);
+      /* BACK TO THE CURSOR, as theirs does: setTool("select") is the last thing
+       * its onDown runs after committing a drawing.
+       *
+       * Leaving the tool armed is why nothing could be moved once drawn. A drag
+       * starts in onDown, and onDown returns immediately unless the cursor is
+       * the active tool - so the next click began ANOTHER drawing instead of
+       * grabbing the one just finished. Every family had it: lines, channels,
+       * forks, fibs, gann, geometry.
+       *
+       * Selecting it at the same time means its handles are already showing, so
+       * the drawing can be reshaped, restyled or deleted without a hunt. */
+      setTool('cursor');
       syncLabels();
     };
     chart.subscribeClick(onClick);
