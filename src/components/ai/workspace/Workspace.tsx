@@ -252,7 +252,13 @@ export function Workspace({
    * owns it, it is gone the moment the page reloads, and "it stays where I
    * left it" would only half work. */
   const [view, setView] = useState<'awaiting' | 'decided'>('awaiting');
-  const [range, setRange] = useState('week');
+  /* TODAY, not the week. Opening History to seven days of trades asks you to
+   * find today's among them; opening it to today and widening when you want
+   * more is the way round that matches why you looked.
+   *
+   * It resets on a refresh: this is component state, not a route. The section
+   * IS in the URL; the period never was. */
+  const [range, setRange] = useState('today');
 
   /* THE PAGE TITLE CARRIES THE PRICE.
    *
@@ -2375,7 +2381,8 @@ const PAGE = 25;
 
 function HistoryList({ trades, range, onRange, onOpenTrade }: {
   trades: BotTrade[];
-  /** From the URL, so a refresh keeps the period you were looking at. */
+  /** The period shown. Component state, despite what this said before — it is
+   *  not in the URL and does not survive a refresh. */
   range: string;
   onRange: (v: string) => void;
   onOpenTrade: (t: BotTrade) => void;
