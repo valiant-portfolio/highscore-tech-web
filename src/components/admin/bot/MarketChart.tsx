@@ -3898,7 +3898,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                height, so it only scrolls when there is something below the
                fold. overscroll-contain stops a flick at the end of the rail
                from scrolling the page behind it. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-0.5 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-4 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
@@ -4613,7 +4613,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             </div>
             {/* The tool families above, the chart's own controls below —
                 as the design separates them. */}
-            <div className="my-1 h-px w-6 bg-border" />
+            <div className="my-1 h-px w-6 shrink-0 bg-border" />
             {/* The standalone Horizontal Line and Labelled Level buttons are
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
@@ -4625,6 +4625,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 are not in the design's rail, and all four are reachable from
                 the top bar. The eye went with them - LOCK still holds a drawing
                 still, which is the half of it anyone uses. */}
+            {/* A divider between the tools and the chart's own controls — the
+                two do different jobs and should not read as one list. */}
+            <span className="my-1 h-px w-6 shrink-0 bg-border" />
             {/* Not wired yet, and saying so rather than doing nothing quietly:
                 a button that looks live and is not is worse than one that
                 admits it. */}
@@ -4683,7 +4686,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             {/* A gap rather than mt-auto: in a scrolling column mt-auto forces
                 the rail to the full height of the pane even when its buttons
                 would fit, which is what put the collapse control out of reach. */}
-            <span className="h-3 shrink-0" />
+            <span className="my-1 h-px w-6 shrink-0 bg-border" />
             <RailBtn onClick={() => setRailHidden(true)} title="Hide the toolbar">
               <ChevronsLeft className="h-4 w-4" />
             </RailBtn>
