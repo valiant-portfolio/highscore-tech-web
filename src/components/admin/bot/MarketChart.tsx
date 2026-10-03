@@ -21,7 +21,7 @@ import {
   CandlestickChart, MousePointer2, Minus, PenLine, Eraser, Maximize2, Minimize2,
   Crosshair, Search, Trash2, X, ChevronDown, LineChart, Grid3x3, BarChart3,
   Lock, Unlock, Eye, EyeOff, Type, Zap, Undo2, Redo2, Camera,
-  Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
+  Bookmark, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
   GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Columns3,
   Paintbrush, Flag, Sparkles, Highlighter, Circle,
@@ -1307,6 +1307,30 @@ export function MarketChart({
 
   const [magnet, setMagnet] = useState<'off' | 'weak' | 'strong'>('off');
   const [magnetOpen, setMagnetOpen] = useState(false);
+  const magnetBtnRef = useRef<HTMLDivElement | null>(null);
+  /* WHERE THE OPEN MENU SITS, in viewport coordinates.
+   *
+   * One piece of state because only one menu is open at a time. Measured from
+   * whichever button owns it, so a fixed-position panel lands beside its
+   * control and is not clipped by the scrolling rail that contains it. */
+  const [flyPos, setFlyPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const open: [boolean, React.RefObject<HTMLDivElement | null>][] = [
+      [drawOpen, drawBtnRef], [fibOpen, fibBtnRef], [patOpen, patBtnRef],
+      [measOpen, measBtnRef], [brushOpen, brushBtnRef], [textOpen, textBtnRef],
+      [iconsOpen, iconsBtnRef], [magnetOpen, magnetBtnRef],
+    ];
+    const hit = open.find(([o]) => o);
+    if (!hit) { setFlyPos(null); return; }
+    const place = () => {
+      const r = hit[1].current?.getBoundingClientRect();
+      if (!r) return;
+      setFlyPos({ left: r.right + 6, top: Math.max(8, r.top) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [drawOpen, fibOpen, patOpen, measOpen, brushOpen, textOpen, iconsOpen, magnetOpen]);
   const magnetRef = useRef<'off' | 'weak' | 'strong'>('off');
   useEffect(() => { magnetRef.current = magnet; }, [magnet]);
 
@@ -3844,13 +3868,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 </span>
               </span>
             )}
-            <a
-              href={`/bot/${encodeURIComponent(symbol)}`}
-              title={`${alias} — the bot's full read on this market`}
-              className="flex h-9 w-9 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-brand/10 hover:text-brand"
-            >
-              <FileText className="h-4 w-4" />
-            </a>
             <RailBtn
               active={overlaysOn}
               onClick={toggleOverlays}
@@ -3910,18 +3927,15 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               the chevron did open it; there was simply nothing to see.
               The tools now fit without scrolling, so the scroll is not needed. */}
           <div
-            /* overflow-VISIBLE, and it has to stay that way.
-               This was overflow-y-auto to let a long rail scroll. CSS does not
-               allow one axis to scroll while the other stays visible: set
-               overflow-y to auto and overflow-x computes to auto with it. The
-               rail then clips horizontally, and every menu that opens to its
-               right - the magnet's, and all seven tool flyouts - is clipped out
-               of existence. That is why the magnet appeared to do nothing.
-               Scrolling a rail whose children must escape it needs those menus
-               in a portal, or positioned against the viewport rather than the
-               button. Until then the rail does not scroll, and gap-2 keeps it
-               short enough not to need to. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-visible border-r border-border bg-bg-elevated/95 pb-10 pt-2 backdrop-blur-sm ${
+            /* SCROLLS, and its menus escape the clip.
+               One axis cannot scroll while the other stays visible - set
+               overflow-y to auto and overflow-x computes to auto with it, so a
+               48px rail clips everything opening to its right. That is what
+               made the magnet menu and all seven flyouts vanish last time.
+               The menus are positioned against the VIEWPORT now rather than
+               against their button, so they are not clipped by the thing they
+               sit inside. */
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-y-auto overscroll-contain border-r border-border bg-bg-elevated pb-10 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
@@ -3982,10 +3996,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(drawMaxH ? { maxHeight: drawMaxH } : {}),
                       ...(drawMaxW ? { width: drawMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Lines', [...LINE_TOOLS, ...EXTRA_TOOLS]],
@@ -4088,10 +4103,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(fibMaxH ? { maxHeight: fibMaxH } : {}),
                       ...(fibMaxW ? { width: fibMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Fibonacci', FIB_MENU],
@@ -4188,10 +4204,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(patMaxH ? { maxHeight: patMaxH } : {}),
                       ...(patMaxW ? { width: patMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Patterns', PATTERN_TOOLS],
@@ -4289,10 +4306,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(measMaxH ? { maxHeight: measMaxH } : {}),
                       ...(measMaxW ? { width: measMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Measurements', MEASURE_TOOLS],
@@ -4388,10 +4406,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(brushMaxH ? { maxHeight: brushMaxH } : {}),
                       ...(brushMaxW ? { width: brushMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Brushes', BRUSH_TOOLS],
@@ -4488,10 +4507,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(textMaxH ? { maxHeight: textMaxH } : {}),
                       ...(textMaxW ? { width: textMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Text', TEXT_TOOLS],
@@ -4586,10 +4606,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   />
                   <div
                     style={{
+                      ...(flyPos ?? {}),
                       ...(iconsMaxH ? { maxHeight: iconsMaxH } : {}),
                       ...(iconsMaxW ? { width: iconsMaxW } : {}),
                     }}
-                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                    className="fixed z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
                   >
                     {([
                       ['Icons', ICON_TOOLS],
@@ -4676,7 +4697,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 Three named states with a tick against the current one, the way
                 the reference has it: cycling hides which state you are in until
                 you read the tooltip, and makes you click twice to go back. */}
-            <div className="relative">
+            <div className="relative" ref={magnetBtnRef}>
               <RailBtn
                 active={magnet !== 'off'}
                 onClick={() => setMagnetOpen((v) => !v)}
@@ -4692,7 +4713,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                     onClick={() => setMagnetOpen(false)}
                     className="fixed inset-0 z-40 cursor-default"
                   />
-                  <div className="absolute left-[calc(100%+6px)] top-0 z-[60] w-40 rounded-sm border border-border bg-surface-raised py-2 shadow-xl">
+                  <div
+                    style={flyPos ?? undefined}
+                    className="fixed z-[60] w-40 rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
                     <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle">
                       Magnet
                     </p>
