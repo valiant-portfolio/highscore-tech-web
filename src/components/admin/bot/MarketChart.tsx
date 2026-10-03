@@ -1747,13 +1747,30 @@ export function MarketChart({
       const pA = pt(sA.t, sA.v);
       if (!pA) continue;
       if (d.variant === 'tri') {
-        if (!sB || !sC) continue;
-        const pB = pt(sB.t, sB.v), pC = pt(sC.t, sC.v);
-        if (!pB || !pC) continue;
-        out.push({ id: d.id, x1: pA.x, y1: pA.y, x2: pB.x, y2: pB.y, color, width, dash });
-        out.push({ id: `${d.id}#b`, x1: pB.x, y1: pB.y, x2: pC.x, y2: pC.y, color, width, dash });
-        out.push({ id: `${d.id}#c`, x1: pC.x, y1: pC.y, x2: pA.x, y2: pA.y, color, width, dash });
-        if (d.fill) quads.push({ id: `${d.id}#fill`, color, pts: [pA, pB, pC], op: 0.15 });
+        /* DRAWN FROM WHATEVER POINTS EXIST, as theirs is:
+         *   case "triangle": area = P.map((q) => `${q.x},${q.y}`).join(" ")
+         *
+         * This required all three and drew NOTHING until the last click — so
+         * placing a triangle showed no line following the cursor between the
+         * first click and the third, which reads as the tool being dead.
+         * Two points make a line; the third closes it. */
+        const px = d.pts.map((q) => pt(q.t, q.v)).filter((q): q is Pt => q != null);
+        if (px.length < 2) continue;
+        for (let i = 1; i < px.length; i++) {
+          out.push({
+            id: i === 1 ? d.id : `${d.id}#${i}`,
+            x1: px[i - 1].x, y1: px[i - 1].y, x2: px[i].x, y2: px[i].y,
+            color, width, dash,
+          });
+        }
+        if (px.length === 3) {
+          out.push({
+            id: `${d.id}#close`,
+            x1: px[2].x, y1: px[2].y, x2: px[0].x, y2: px[0].y,
+            color, width, dash,
+          });
+          if (d.fill) quads.push({ id: `${d.id}#fill`, color, pts: px, op: 0.15 });
+        }
         continue;
       }
       if (!sB) continue;
