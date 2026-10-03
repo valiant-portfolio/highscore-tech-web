@@ -3910,14 +3910,18 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               the chevron did open it; there was simply nothing to see.
               The tools now fit without scrolling, so the scroll is not needed. */}
           <div
-            /* SCROLLS WHEN IT HAS TO.
-               Seven tool families and six controls do not fit a short chart,
-               and a rail taller than the pane simply loses its last buttons
-               with no way to reach them. overflow-y-auto rather than a fixed
-               height, so it only scrolls when there is something below the
-               fold. overscroll-contain stops a flick at the end of the rail
-               from scrolling the page behind it. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            /* overflow-VISIBLE, and it has to stay that way.
+               This was overflow-y-auto to let a long rail scroll. CSS does not
+               allow one axis to scroll while the other stays visible: set
+               overflow-y to auto and overflow-x computes to auto with it. The
+               rail then clips horizontally, and every menu that opens to its
+               right - the magnet's, and all seven tool flyouts - is clipped out
+               of existence. That is why the magnet appeared to do nothing.
+               Scrolling a rail whose children must escape it needs those menus
+               in a portal, or positioned against the viewport rather than the
+               button. Until then the rail does not scroll, and gap-2 keeps it
+               short enough not to need to. */
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-visible border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
