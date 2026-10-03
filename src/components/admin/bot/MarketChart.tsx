@@ -47,7 +47,8 @@ type Tool =
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
   | 'cross' | 'vline' | 'info' | 'angle' | 'arrow'
   | 'chpar' | 'chdis' | 'chflat' | 'chlin'
-  | 'pos' | 'dpr' | 'mag' | 'avwap' | 'vprof'
+  | 'pos' | 'poss' | 'dpr' | 'mag' | 'prange' | 'avwap' | 'vprof'
+  | 'callout' | 'note' | 'pricenote' | 'comment' | 'pricelabel' | 'signpost'
   | FibToolId;
 
 /** Which channel a tool draws. All but the regression take three clicks and
@@ -108,9 +109,9 @@ const PITCHFORK_TOOLS: DrawItem[] = [
 ];
 /** The one tool of ours the design has no name for — it is the labelled
  *  horizontal line, and it belongs with the lines. */
-const EXTRA_TOOLS: DrawItem[] = [
-  { tool: 'text', label: 'Labelled Level', keys: 'Alt+L', clicks: 1, glyph: 'T' },
-];
+/** Empty: 'Labelled Level' was the text tool hiding in the Lines menu, and
+ *  Text is a family of its own now. */
+const EXTRA_TOOLS: DrawItem[] = [];
 /** The Fibonacci family, derived from the registry in drawing/fibModel.ts.
  *  Specs whose builder has not landed show greyed. No keyboard shortcut. */
 const specItems = (list: readonly FibSpec[]): DrawItem[] => list.map((s) => ({
@@ -130,15 +131,37 @@ const HARMONIC_TOOLS = specItems(HARMONIC_SPEC_LIST);
  * the linear regression — they are not placed, they are measured. The others
  * report on the span you mark out. */
 const MEASURE_TOOLS: DrawItem[] = [
-  { tool: 'pos', label: 'Long/Short Position', clicks: 3, glyph: '⊞' },
+  // Long and short are separate tools, as theirs are: which way round the
+  // reward and the risk sit is the whole difference, and asking for it after
+  // the fact is a question the tool can answer by being picked.
+  { tool: 'pos', label: 'Long Position', clicks: 3, glyph: '⊞' },
+  { tool: 'poss', label: 'Short Position', clicks: 3, glyph: '⊟' },
   { tool: 'dpr', label: 'Date & Price Range', clicks: 2, glyph: '▤' },
   { tool: 'mag', label: 'Magnifier', clicks: 2, glyph: '⌕' },
+  // Price alone: the same box without the time axis mattering.
+  { tool: 'prange', label: 'Price Range', clicks: 2, glyph: '↕' },
 ];
 const VOLUME_TOOLS: DrawItem[] = [
   { tool: 'avwap', label: 'Anchored VWAP', clicks: 1, glyph: '⌁' },
   { tool: 'vprof', label: 'Fixed Range Volume Profile', clicks: 2, glyph: '▥' },
 ];
-const MEASURE_IDS = new Set(['pos', 'dpr', 'mag', 'avwap', 'vprof']);
+/* TEXT. Theirs, in their order and with their click counts - all 1:
+ *   text, callout, note, pricenote, comment, pricelabel, signpost
+ * Each prompts for its words on the click, and the default offered is the
+ * tool's own label, as theirs does. */
+const TEXT_TOOLS: DrawItem[] = [
+  { tool: 'text', label: 'Text', keys: 'Alt+L', clicks: 1, glyph: 'T' },
+  { tool: 'callout', label: 'Callout', clicks: 1, glyph: '🗩' },
+  { tool: 'note', label: 'Note', clicks: 1, glyph: '🗒' },
+  { tool: 'pricenote', label: 'Price Note', clicks: 1, glyph: '🗨' },
+  { tool: 'comment', label: 'Comment', clicks: 1, glyph: '💬' },
+  { tool: 'pricelabel', label: 'Price Label', clicks: 1, glyph: '🏷' },
+  { tool: 'signpost', label: 'Signpost', clicks: 1, glyph: '⚐' },
+];
+const TEXT_IDS = new Set(TEXT_TOOLS.map((t) => t.tool as string));
+const isTextTool = (t: Tool): boolean => TEXT_IDS.has(t as string);
+
+const MEASURE_IDS = new Set(['pos', 'poss', 'dpr', 'mag', 'prange', 'avwap', 'vprof']);
 const isMeasureTool = (t: Tool): boolean => MEASURE_IDS.has(t as string);
 
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
@@ -303,10 +326,19 @@ type Drawing =
    * between their points — so one kind with a variant rather than five. */
   | {
       id: string; kind: 'measure';
-      variant: 'pos' | 'dpr' | 'avwap' | 'vprof';
+      variant: 'pos' | 'poss' | 'dpr' | 'prange' | 'avwap' | 'vprof';
       pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
       label?: string;
+    }
+  /* ANNOTATIONS. One click and some words. They differ only in what is drawn
+   * around them - a plate, a price tag on the axis, a post - so one kind with
+   * a variant rather than seven. */
+  | {
+      id: string; kind: 'note';
+      variant: 'text' | 'callout' | 'note' | 'pricenote' | 'comment' | 'pricelabel' | 'signpost';
+      pts: DPt[]; label?: string;
+      color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
     }
   /** A moment, marked. Its point carries a price nothing reads — a vertical
    *  line is about WHEN, and has no height to move. */
@@ -579,7 +611,9 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
   if (chan) return { id, kind: 'channel', variant: chan, pts, fill: true };
   switch (tool) {
     case 'hline': return { id, kind: 'hline', price: pts[0].v };
-    case 'text': return { id, kind: 'hline', price: pts[0].v };
+    case 'text': case 'callout': case 'note': case 'pricenote':
+    case 'comment': case 'pricelabel': case 'signpost':
+      return { id, kind: 'note', variant: tool, pts };
     case 'vline': return { id, kind: 'vline', pts };
     case 'cross': return { id, kind: 'cross', pts };
     case 'hray': return { id, kind: 'trend', reach: 'hray', pts: [pts[0], pts[0]] };
@@ -590,6 +624,8 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'angle': return { id, kind: 'trend', reach: 'segment', readout: 'angle', pts };
     case 'arrow': return { id, kind: 'trend', reach: 'segment', arrow: true, pts };
     case 'pos': return { id, kind: 'measure', variant: 'pos', pts };
+    case 'poss': return { id, kind: 'measure', variant: 'poss', pts };
+    case 'prange': return { id, kind: 'measure', variant: 'prange', pts };
     case 'dpr': return { id, kind: 'measure', variant: 'dpr', pts };
     case 'avwap': return { id, kind: 'measure', variant: 'avwap', pts };
     case 'vprof': return { id, kind: 'measure', variant: 'vprof', pts };
@@ -980,6 +1016,7 @@ export function MarketChart({
    *  Fibonacci button arms. */
   const [patOpen, setPatOpen] = useState(false);
   const [measOpen, setMeasOpen] = useState(false);
+  const [textOpen, setTextOpen] = useState(false);
   /* WHERE A FLYOUT CAN ACTUALLY FIT.
    *
    * The menus hang off their rail button at top-0 and were allowed 70vh. The
@@ -993,6 +1030,7 @@ export function MarketChart({
   const fibBtnRef = useRef<HTMLDivElement | null>(null);
   const patBtnRef = useRef<HTMLDivElement | null>(null);
   const measBtnRef = useRef<HTMLDivElement | null>(null);
+  const textBtnRef = useRef<HTMLDivElement | null>(null);
   const [fibMaxH, setFibMaxH] = useState<number | null>(null);
   const [fibMaxW, setFibMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -1033,6 +1071,18 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [measOpen]);
+  const [textMaxH, setTextMaxH] = useState<number | null>(null);
+  const [textMaxW, setTextMaxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!textOpen) { setTextMaxH(null); return; }
+    const place = () => {
+      setTextMaxH(flyoutMaxH(textBtnRef.current, wrapRef.current));
+      setTextMaxW(flyoutMaxW(textBtnRef.current, 288));
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [textOpen]);
   /* Whether a two-click tool is half-way through.
    *
    * State, not a ref: a ref changing does
@@ -1071,6 +1121,7 @@ export function MarketChart({
   const [lastFib, setLastFib] = useState<Tool>('fibr');
   const [lastPat, setLastPat] = useState<Tool>('xabcd');
   const [lastMeas, setLastMeas] = useState<Tool>('pos');
+  const [lastText, setLastText] = useState<Tool>('text');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
     { open: number; high: number; low: number; close: number; time?: number; vol?: number } | null
@@ -1335,7 +1386,7 @@ export function MarketChart({
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
     const quads: { id: string; pts: Pt[]; color: string; solid?: boolean }[] = [];
-    const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean }[] = [];
+    const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean; bare?: boolean }[] = [];
     for (const d of drawDraft()) {
       if (d.kind !== 'trend') continue;
       const [tA, tB] = d.pts;
@@ -1518,6 +1569,41 @@ export function MarketChart({
       }
     }
 
+    /* ANNOTATIONS, as theirs draws them:
+     *   pricenote, pricelabel  tag the price on the axis
+     *   signpost               a 30px post up from the point
+     *   callout, note, comment a plate behind the words
+     * and every one puts its text above the point it was placed at. */
+    for (const d of drawDraft()) {
+      if (d.kind !== 'note') continue;
+      const np = d.pts[0];
+      if (!np) continue;
+      const nx = c.timeScale().timeToCoordinate(np.t as UTCTimestamp);
+      const ny = s.priceToCoordinate(np.v);
+      if (nx == null || ny == null) continue;
+      const x0 = nx as number, y0 = ny as number;
+      const color = d.color ?? DRAW_COLOR;
+      const width = d.width ?? 2;
+      if (d.variant === 'pricenote' || d.variant === 'pricelabel') {
+        extraLabels.push({
+          id: `${d.id}#tag`, x: W - 2, y: y0,
+          text: fmt(np.v, digitsRef.current), color, readout: true,
+        });
+      }
+      if (d.variant === 'signpost') {
+        out.push({ id: `${d.id}#post`, x1: x0, y1: y0, x2: x0, y2: y0 - 30, color, width, dash: '' });
+      }
+      extraLabels.push({
+        id: d.id,
+        x: x0, y: y0 - (d.variant === 'signpost' ? 39 : 8),
+        text: d.label ?? '',
+        color,
+        // callout, note and comment carry a plate; the rest are bare words.
+        readout: d.variant === 'callout' || d.variant === 'note' || d.variant === 'comment',
+        bare: !(d.variant === 'callout' || d.variant === 'note' || d.variant === 'comment'),
+      });
+    }
+
     /* MEASUREMENTS AND VOLUME. */
     for (const d of drawDraft()) {
       if (d.kind !== 'measure') continue;
@@ -1532,7 +1618,7 @@ export function MarketChart({
       const [mA, mB, mC] = d.pts;
       if (!mA) continue;
 
-      if (d.variant === 'pos') {
+      if (d.variant === 'pos' || d.variant === 'poss') {
         /* ENTRY, STOP, TARGET — the three prices a trade is actually made of.
          * Reward above the entry in green, risk below it in red, and the ratio
          * between them stated, because R:R is the number the box exists to
@@ -1542,6 +1628,9 @@ export function MarketChart({
         const right = pt(mC.t, mC.v);
         if (!pe || !ps || !pg || !right) continue;
         const x1 = pe.x, x2 = right.x;
+        /* The second click is the STOP and the third the TARGET, whichever way
+         * the trade faces — so a short's green sits below the entry and its red
+         * above, which is the only thing that separates the two tools. */
         quads.push({ id: `${d.id}#risk`, color: palette.down, pts: [
           { x: x1, y: pe.y }, { x: x2, y: pe.y }, { x: x2, y: ps.y }, { x: x1, y: ps.y },
         ] });
@@ -1559,7 +1648,7 @@ export function MarketChart({
         continue;
       }
 
-      if (d.variant === 'dpr') {
+      if (d.variant === 'dpr' || d.variant === 'prange') {
         // What the box spans: price, percent, bars and elapsed time.
         if (!mB) continue;
         const q1 = pt(mA.t, mA.v), q2 = pt(mB.t, mB.v);
@@ -1578,8 +1667,10 @@ export function MarketChart({
           : mins >= 60 ? `${(mins / 60).toFixed(1)}h` : `${Math.round(mins)}m`;
         extraLabels.push({
           id: `${d.id}#r`, x: (q1.x + q2.x) / 2, y: Math.min(q1.y, q2.y) - 12,
+          // Price Range is the same box reading price only — the bars and the
+          // elapsed time are what the date range adds.
           text: `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct.toFixed(2)}%)`
-            + String.fromCharCode(10) + `${bars} bars · ${span}`,
+            + (d.variant === 'dpr' ? String.fromCharCode(10) + `${bars} bars · ${span}` : ''),
           color, readout: true,
         });
         continue;
@@ -1908,7 +1999,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
 
     for (const d of drawDraft()) {
-      if (d.kind !== 'measure' || d.id !== selForHandles) continue;
+      if ((d.kind !== 'measure' && d.kind !== 'note') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
         const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
         const hy = s.priceToCoordinate(q.v);
@@ -1917,7 +2008,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     }
 
     for (const d of drawDraft()) {
-      if (d.kind !== 'measure' || d.id !== selForHandles) continue;
+      if ((d.kind !== 'measure' && d.kind !== 'note') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
         const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
         const hy = s.priceToCoordinate(q.v);
@@ -2540,8 +2631,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
 
       // The one tool that asks a question before it draws.
       let typed: string | undefined;
-      if (t === 'text') {
-        const answer = window.prompt('Label for this level');
+      if (isTextTool(t)) {
+        // Theirs: window.prompt("Text", <the tool's label>) — so the default is
+        // the thing you picked, and Enter alone still leaves something readable.
+        const fallback = ALL_DRAW_TOOLS.find((x) => x.tool === t)?.label ?? 'Note';
+        const answer = window.prompt('Text', t === 'text' ? 'Text' : fallback);
         if (answer == null || !answer.trim()) { forkPts.current = []; setDraftLen(0); setDrawPending(false); return; }
         typed = answer.trim();
       }
@@ -2664,7 +2758,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * cannot disagree. */
       for (const d of drawings.current) {
         if (d.kind !== 'pitchfork' && d.kind !== 'vline' && d.kind !== 'cross'
-          && d.kind !== 'channel' && d.kind !== 'measure') continue;
+          && d.kind !== 'channel' && d.kind !== 'measure' && d.kind !== 'note') continue;
         const mine = segsRef.current.filter(
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
@@ -3812,6 +3906,104 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           setTool(t.tool);
                           setLastMeas(t.tool);
                           setMeasOpen(false);
+                          forkPts.current = []; setDraftLen(0);
+                                  setDrawPending(false);
+                          clearPreview();
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                          tool === t.tool && !t.soon
+                            ? 'bg-brand/15 font-semibold text-brand'
+                            : t.soon
+                              ? 'cursor-not-allowed text-fg-subtle/50'
+                              : 'text-fg hover:bg-brand/10 hover:text-brand'
+                        }`}
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                        <span className="truncate">{t.label}</span>
+                        {tool === t.tool && !t.soon && (
+                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        )}
+                      </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* TEXT, on its own control.
+                Text, callout, note, price note, comment, price label and
+                signpost - theirs, in their order. Same split button again, with
+                its own `lastText`. */}
+            <div
+              ref={textBtnRef}
+              className={`group relative flex h-9 items-center rounded-sm transition-colors ${
+                isTextTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTool(lastText);
+                  forkPts.current = []; setDraftLen(0);
+                  setDrawPending(false);
+                  clearPreview();
+                }}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastText)?.label ?? 'Text'}`
+                  + (isTextTool(tool) ? ' — armed' : ' — click to arm')}
+                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                  isTextTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                }`}
+              >
+                {(() => {
+                  const Icon = TOOL_ICON[lastText] ?? Type;
+                  return <Icon className="h-4 w-4" />;
+                })()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextOpen((v) => !v)}
+                title="Choose a text tool"
+                aria-label="Choose a text tool"
+                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                  textOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
+                }`}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              {textOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Dismiss text tools"
+                    onClick={() => setTextOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    style={{
+                      ...(textMaxH ? { maxHeight: textMaxH } : {}),
+                      ...(textMaxW ? { width: textMaxW } : {}),
+                    }}
+                    className="absolute left-[calc(100%+6px)] top-0 z-[60] overflow-y-auto overscroll-contain rounded-sm border border-border bg-surface-raised py-2 shadow-xl"
+                  >
+                    {([
+                      ['Text', TEXT_TOOLS],
+                    ] as const).map(([group, items]) => (
+                      <div key={group}>
+                        <p className="px-3 pb-1 pt-3 text-[10px] uppercase tracking-[0.18em] font-bold text-fg-subtle first:pt-1">
+                          {group}
+                        </p>
+                        {items.map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        disabled={t.soon}
+                        title={t.soon ? 'Not built yet' : undefined}
+                        onClick={() => {
+                          if (!t.tool) return;
+                          setTool(t.tool);
+                          setLastText(t.tool);
+                          setTextOpen(false);
                           forkPts.current = []; setDraftLen(0);
                                   setDrawPending(false);
                           clearPreview();
