@@ -219,6 +219,14 @@ const ALL_DRAW_TOOLS: DrawItem[] = [
   // FIB_TOOLS is specItems(ALL_SPEC_LIST) — fib, gann and geometry together —
   // so spreading GANN_TOOLS and GEOMETRY_TOOLS as well would list each twice.
   ...FIB_TOOLS,
+  /* EVERY group, not just the ones that existed when this was written.
+   *
+   * clicksNeeded() reads this list and falls back to 1 when a tool is missing —
+   * so a Rectangle committed on one click instead of two and a Triangle on one
+   * instead of three, because Shapes were never added here. The armed banner
+   * reads it too, and named those tools by their raw id. */
+  ...MEASURE_TOOLS, ...VOLUME_TOOLS, ...TEXT_TOOLS,
+  ...BRUSH_TOOLS, ...ARROW_TOOLS, ...SHAPE_TOOLS, ...ICON_TOOLS,
 ];
 
 /** The rail button wears the CURRENT tool's icon, which is how the design
