@@ -2524,10 +2524,37 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     return out as unknown as Drawing;
   };
 
+  /* DROP WHAT CANNOT BE DRAWN.
+   *
+   * A spell when clicksNeeded() fell back to 1 committed shapes on their first
+   * click - one-point triangles and rectangles. They are worse than invisible:
+   * with no segments there is nothing for hitTest to find, so they cannot be
+   * selected, moved or deleted, and they sit in storage leaving stray handles
+   * on the chart with no way to remove them short of clearing everything.
+   *
+   * Anything with fewer points than its shape needs is discarded on read. */
+  const MIN_PTS: Record<string, number> = {
+    trend: 2, pitchfork: 3, channel: 2, measure: 1, note: 1,
+    freehand: 2, mark: 1, vline: 1, cross: 1,
+  };
+  const drawable = (d: Drawing): boolean => {
+    if (d.kind === 'hline' || d.kind === 'fib') return true;
+    const pts = (d as { pts?: unknown[] }).pts;
+    if (!Array.isArray(pts)) return false;
+    if (d.kind === 'shape') {
+      return pts.length >= (d.variant === 'tri' ? 3 : 2);
+    }
+    return pts.length >= (MIN_PTS[d.kind] ?? 1);
+  };
+
   const loadDrawings = (sym: string, t: string): Drawing[] => {
     try {
       const raw = localStorage.getItem(DRAW_KEY(sym, t));
-      if (raw) return (JSON.parse(raw) as Record<string, unknown>[]).map(migrateDrawing);
+      if (raw) {
+        return (JSON.parse(raw) as Record<string, unknown>[])
+          .map(migrateDrawing)
+          .filter(drawable);
+      }
     } catch { /* ignore */ }
     return [];
   };
