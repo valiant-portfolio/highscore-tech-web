@@ -817,6 +817,8 @@ function forkSegments(
  *  bot put there. The bot's own overlays keep the up/down palette. */
 const DRAW_COLOR = '#2962FF';
 const DRAW_KEY = (sym: string, tf: string) => `bot-chart-draw:${sym}::${tf}`;
+/** One bucket for every chart, when drawings are synced. */
+const SHARED_DRAW_KEY = 'bot-chart-draw:shared';
 const INDS_KEY = 'bot-chart-inds'; // active indicators persist globally (a user pref)
 const FAV_KEY = 'bot-chart-favs';  // starred markets, floated to the top of the search
 const IND_FAV_KEY = 'bot-chart-ind-favs'; // starred indicators, for the library's Favorites
@@ -1295,6 +1297,11 @@ export function MarketChart({
    * re-arm the tool every time. On, the tool stays armed and you keep drawing;
    * Escape still drops out. */
   const [keepTool, setKeepTool] = useState(false);
+  /** Share drawings across panes rather than keeping them per symbol+timeframe.
+   *  Declared here; the storage key reads it below. */
+  const [syncDraws, setSyncDraws] = useState(false);
+  const syncDrawsRef = useRef(false);
+  useEffect(() => { syncDrawsRef.current = syncDraws; }, [syncDraws]);
   const keepToolRef = useRef(false);
   useEffect(() => { keepToolRef.current = keepTool; }, [keepTool]);
 
@@ -2559,7 +2566,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
 
   const loadDrawings = (sym: string, t: string): Drawing[] => {
     try {
-      const raw = localStorage.getItem(DRAW_KEY(sym, t));
+      const raw = localStorage.getItem(sym === '' ? SHARED_DRAW_KEY : DRAW_KEY(sym, t));
       if (raw) {
         return (JSON.parse(raw) as Record<string, unknown>[])
           .map(migrateDrawing)
@@ -3326,8 +3333,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
     removeDrawingObjects();
-    drawKeyRef.current = DRAW_KEY(symbol, tf);
-    drawings.current = loadDrawings(symbol, tf);
+    drawKeyRef.current = syncDrawsRef.current ? SHARED_DRAW_KEY : DRAW_KEY(symbol, tf);
+    drawings.current = syncDrawsRef.current
+      ? loadDrawings('', '')
+      : loadDrawings(symbol, tf);
     clearOverlay(); // the old market's overlay must not linger, or stay hit-testable
 
     (async () => {
@@ -4638,13 +4647,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               <Sparkles className="h-4 w-4 opacity-50" />
             </RailBtn>
             <RailBtn
-              onClick={() => { /* awaiting its function */ }}
-              title="Marker — not wired up yet"
+              active={tool === 'dpr'}
+              onClick={() => { setTool('dpr'); forkPts.current = []; setDraftLen(0); clearPreview(); }}
+              title="Measure"
             >
-              <Highlighter className="h-4 w-4 opacity-50" />
+              <Ruler className="h-4 w-4" />
             </RailBtn>
 
-            <RailBtn onClick={clearDrawings} title="Remove all drawings">
+            <RailBtn onClick={clearDrawings} title="Eraser — removes all drawings">
               <Eraser className="h-4 w-4" />
             </RailBtn>
 
@@ -4681,6 +4691,19 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 : 'Stay in drawing mode — keep the tool armed after each drawing'}
             >
               <PenLine className="h-4 w-4" />
+            </RailBtn>
+
+            {/* SYNC DRAWINGS ON ALL CHARTS. Drawings are stored per symbol and
+                timeframe, so two panes on the same market already share them;
+                this shares them across every pane whatever it is showing. */}
+            <RailBtn
+              active={syncDraws}
+              onClick={() => setSyncDraws((v) => !v)}
+              title={syncDraws
+                ? 'Drawings shared across all charts — click to keep them per chart'
+                : 'Sync drawings on all charts'}
+            >
+              <Copy className="h-4 w-4" />
             </RailBtn>
 
             {/* A gap rather than mt-auto: in a scrolling column mt-auto forces
