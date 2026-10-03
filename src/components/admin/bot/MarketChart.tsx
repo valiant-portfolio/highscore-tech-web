@@ -24,7 +24,7 @@ import {
   Bookmark, FileText, Layers, Code2, Check, Star, ChevronsLeft, ChevronsRight,
   ChevronRight, Slash, MoveUpRight, ArrowLeftRight, ArrowRightToLine, ArrowLeftToLine,
   GripVertical, MoreVertical, Copy, RotateCcw, GitFork, Magnet, Waves, Ruler, Columns3,
-  Paintbrush, Flag, Circle,
+  Paintbrush, Flag, Sparkles, Highlighter, Circle,
 } from 'lucide-react';
 import { TimeAgo } from './BotBits';
 import {
@@ -3891,7 +3891,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               the chevron did open it; there was simply nothing to see.
               The tools now fit without scrolling, so the scroll is not needed. */}
           <div
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-0.5 overflow-visible border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm ${
+            /* SCROLLS WHEN IT HAS TO.
+               Seven tool families and six controls do not fit a short chart,
+               and a rail taller than the pane simply loses its last buttons
+               with no way to reach them. overflow-y-auto rather than a fixed
+               height, so it only scrolls when there is something below the
+               fold. overscroll-contain stops a flick at the end of the rail
+               from scrolling the page behind it. */
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-0.5 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
@@ -4611,20 +4618,36 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
                 everything being selected at once. One tool, one lit control. */}
-            {/* STAY IN DRAWING MODE. Lit when a finished drawing keeps the
-                tool armed instead of handing back to the cursor. */}
+            {/* THE RAIL'S OWN CONTROLS, in the design's order:
+                  ideas · marker · eraser · magnet · lock · drawing mode · hide
+
+                Grid, full screen, indicators and jump-to-latest came off: they
+                are not in the design's rail, and all four are reachable from
+                the top bar. The eye went with them - LOCK still holds a drawing
+                still, which is the half of it anyone uses. */}
+            {/* Not wired yet, and saying so rather than doing nothing quietly:
+                a button that looks live and is not is worse than one that
+                admits it. */}
             <RailBtn
-              active={keepTool}
-              onClick={() => setKeepTool((v) => !v)}
-              title={keepTool
-                ? 'Staying in drawing mode — click to return to the cursor after each drawing'
-                : 'Stay in drawing mode — keep the tool armed after each drawing'}
+              onClick={() => { /* awaiting its function */ }}
+              title="Ideas — not wired up yet"
             >
-              <PenLine className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 opacity-50" />
             </RailBtn>
-            {/* MAGNET: off -> weak -> strong -> off.
-                One button rather than three, because they are states of one
-                setting; the icon says which by how loud it is. */}
+            <RailBtn
+              onClick={() => { /* awaiting its function */ }}
+              title="Marker — not wired up yet"
+            >
+              <Highlighter className="h-4 w-4 opacity-50" />
+            </RailBtn>
+
+            <RailBtn onClick={clearDrawings} title="Remove all drawings">
+              <Eraser className="h-4 w-4" />
+            </RailBtn>
+
+            {/* MAGNET: off -> weak -> strong -> off. One button rather than
+                three, because they are states of one setting; the icon says
+                which by how loud it is. */}
             <RailBtn
               active={magnet !== 'off'}
               onClick={() => setMagnet((m) => (m === 'off' ? 'weak' : m === 'weak' ? 'strong' : 'off'))}
@@ -4636,30 +4659,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             >
               <Magnet className={`h-4 w-4 ${magnet === 'strong' ? 'fill-current' : ''}`} />
             </RailBtn>
-            <RailBtn active={gridOn} onClick={() => setGridOn((v) => !v)} title={gridOn ? 'Hide grid' : 'Show grid'}>
-              <Grid3x3 className="h-4 w-4" />
-            </RailBtn>
-            <RailBtn onClick={toggleFullscreen} title={fs ? 'Exit full screen' : 'Full screen'}>
-              <Maximize2 className="h-4 w-4" />
-            </RailBtn>
-            {/* Same destination as the top bar's Indicators — one library, two
-                ways in, rather than two different indicator UIs. */}
-            <RailBtn active={inds.size > 0} onClick={() => setLibraryOpen(true)} title="Indicators">
-              <BarChart3 className="h-4 w-4" />
-            </RailBtn>
 
-            <span className="my-1.5 h-px w-7 bg-border" />
-
-            {/* Snap back to the live edge after scrolling into history. */}
-            <RailBtn
-              onClick={() => chartRef.current?.timeScale().scrollToRealTime()}
-              title="Jump to the latest candle"
-            >
-              <Zap className="h-4 w-4" />
-            </RailBtn>
-
-            {/* These act on YOUR drawings: freeze them, hide them, delete them.
-                Hiding keeps the list; only the trash empties it. */}
             <RailBtn
               active={drawingsLocked}
               onClick={() => setDrawingsLocked((v) => !v)}
@@ -4667,23 +4667,23 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             >
               {drawingsLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
             </RailBtn>
+
+            {/* STAY IN DRAWING MODE. Lit when a finished drawing keeps the tool
+                armed instead of handing back to the cursor. */}
             <RailBtn
-              active={drawingsHidden}
-              onClick={() => setDrawingsHidden((v) => !v)}
-              title={drawingsHidden ? 'Show drawings' : 'Hide drawings'}
+              active={keepTool}
+              onClick={() => setKeepTool((v) => !v)}
+              title={keepTool
+                ? 'Staying in drawing mode — click to return to the cursor after each drawing'
+                : 'Stay in drawing mode — keep the tool armed after each drawing'}
             >
-              {drawingsHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <PenLine className="h-4 w-4" />
             </RailBtn>
 
-            <span className="my-1.5 h-px w-7 bg-border" />
-
-            <RailBtn onClick={clearDrawings} title="Delete all drawings">
-              <Trash2 className="h-4 w-4" />
-            </RailBtn>
-
-            {/* Pushed to the bottom, as in the design: the rail folds away when
-                you want the candles and not the tools. */}
-            <span className="mt-auto" />
+            {/* A gap rather than mt-auto: in a scrolling column mt-auto forces
+                the rail to the full height of the pane even when its buttons
+                would fit, which is what put the collapse control out of reach. */}
+            <span className="h-3 shrink-0" />
             <RailBtn onClick={() => setRailHidden(true)} title="Hide the toolbar">
               <ChevronsLeft className="h-4 w-4" />
             </RailBtn>
