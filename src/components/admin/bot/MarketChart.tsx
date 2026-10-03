@@ -2982,7 +2982,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * means reading the DOM node back during a pointer event, and an
        * approximate box that is a few pixels generous is a better target than
        * an exact one anyway. */
-      for (const d of drawDraft()) {
+      // drawings.current, NOT drawDraft: hitTest must never return the draft's
+      // id. Nothing in drawings.current has it, so the lookup right after comes
+      // back undefined and the selection is CLEARED instead of made - which is
+      // precisely "I tap the note and no toolbar appears".
+      for (const d of drawings.current) {
         if (d.kind !== 'note') continue;
         const q = d.pts[0];
         if (!q) continue;
