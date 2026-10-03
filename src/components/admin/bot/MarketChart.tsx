@@ -1288,6 +1288,16 @@ export function MarketChart({
    * A snapped point takes the candle's OWN time and price, not the cursor's
    * rounded to look like it — that is the difference between a line that sits
    * on the high and one that sits very near it. */
+  /* STAY IN DRAWING MODE.
+   *
+   * A finished drawing hands the chart back to the cursor, which is right for
+   * placing one thing and then adjusting it. It is wrong for placing six - you
+   * re-arm the tool every time. On, the tool stays armed and you keep drawing;
+   * Escape still drops out. */
+  const [keepTool, setKeepTool] = useState(false);
+  const keepToolRef = useRef(false);
+  useEffect(() => { keepToolRef.current = keepTool; }, [keepTool]);
+
   const [magnet, setMagnet] = useState<'off' | 'weak' | 'strong'>('off');
   const magnetRef = useRef<'off' | 'weak' | 'strong'>('off');
   useEffect(() => { magnetRef.current = magnet; }, [magnet]);
@@ -2894,8 +2904,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         clearPreview();
         setDrawPending(false);
         // Same as every other family: armed tools cannot be dragged, so a
-        // finished fib hands the chart back to the cursor.
-        setTool('cursor');
+        // finished fib hands the chart back to the cursor - unless the rail's
+        // drawing-mode lock says to stay on it.
+        if (!keepToolRef.current) setTool('cursor');
         syncLabels();
         return;
       }
@@ -2953,7 +2964,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        *
        * Selecting it at the same time means its handles are already showing, so
        * the drawing can be reshaped, restyled or deleted without a hunt. */
-      setTool('cursor');
+      if (!keepToolRef.current) setTool('cursor');
       syncLabels();
     };
     chart.subscribeClick(onClick);
@@ -3276,7 +3287,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             drawings.current.push(made);
             persistDrawings();
             setSelected(made);
-            setTool('cursor');
+            if (!keepToolRef.current) setTool('cursor');
           }
         }
         syncLabels();
@@ -4600,6 +4611,17 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
                 everything being selected at once. One tool, one lit control. */}
+            {/* STAY IN DRAWING MODE. Lit when a finished drawing keeps the
+                tool armed instead of handing back to the cursor. */}
+            <RailBtn
+              active={keepTool}
+              onClick={() => setKeepTool((v) => !v)}
+              title={keepTool
+                ? 'Staying in drawing mode — click to return to the cursor after each drawing'
+                : 'Stay in drawing mode — keep the tool armed after each drawing'}
+            >
+              <PenLine className="h-4 w-4" />
+            </RailBtn>
             {/* MAGNET: off -> weak -> strong -> off.
                 One button rather than three, because they are states of one
                 setting; the icon says which by how loud it is. */}
