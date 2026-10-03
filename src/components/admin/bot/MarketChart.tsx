@@ -2318,8 +2318,17 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       hs.push({ id: `${d.id}:0`, x: hx as number, y: hy as number });
     }
 
-    handlesRef.current = hs;
-    setHandles(hs);
+    /* UNIQUE BY ID.
+     *
+     * Handles are collected by several loops - trend, fork, channel, measure,
+     * note, vline - and a drawing matching two of them pushes the same id
+     * twice. React then warns about duplicate keys and may drop one, so a grip
+     * you can see is not the grip you grab. Deduping here is cheaper than
+     * keeping six conditions mutually exclusive by hand. */
+    const seen = new Set<string>();
+    const uniq = hs.filter((h) => (seen.has(h.id) ? false : (seen.add(h.id), true)));
+    handlesRef.current = uniq;
+    setHandles(uniq);
 
     const fc = fibCtx();
     fibGeomsRef.current = fc ? computeFibGeometries(drawings.current, fc) : [];
@@ -3907,7 +3916,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                height, so it only scrolls when there is something below the
                fold. overscroll-contain stops a flick at the end of the rail
                from scrolling the page behind it. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-4 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-y-auto overflow-x-visible overscroll-contain border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
@@ -3936,7 +3945,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastLine)?.label ?? 'Draw'}`
                   + (tool === 'cursor' ? ' — click to arm' : ' — armed')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   tool !== 'cursor' ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -3952,7 +3961,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setDrawOpen((v) => !v)}
                 title="Choose a line type"
                 aria-label="Choose a line type"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   drawOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4044,7 +4053,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${FIB_TOOLS.find((t) => t.tool === lastFib)?.label ?? 'Fibonacci'}`
                   + (isFibTool(tool) && !isPatternTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isFibTool(tool) && !isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4058,7 +4067,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setFibOpen((v) => !v)}
                 title="Choose a Fibonacci tool"
                 aria-label="Choose a Fibonacci tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   fibOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4144,7 +4153,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastPat)?.label ?? 'XABCD Pattern'}`
                   + (isPatternTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4158,7 +4167,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setPatOpen((v) => !v)}
                 title="Choose a pattern tool"
                 aria-label="Choose a pattern tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   patOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4245,7 +4254,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastMeas)?.label ?? 'Measurements'}`
                   + (isMeasureTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isMeasureTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4259,7 +4268,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setMeasOpen((v) => !v)}
                 title="Choose a measurement tool"
                 aria-label="Choose a measurement tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   measOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4344,7 +4353,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastBrush)?.label ?? 'Brush'}`
                   + (isBrushTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isBrushTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4358,7 +4367,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setBrushOpen((v) => !v)}
                 title="Choose a brush tool"
                 aria-label="Choose a brush tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   brushOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4444,7 +4453,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastText)?.label ?? 'Text'}`
                   + (isTextTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isTextTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4458,7 +4467,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setTextOpen((v) => !v)}
                 title="Choose a text tool"
                 aria-label="Choose a text tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   textOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4542,7 +4551,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 }}
                 title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastIcons)?.label ?? 'Icons'}`
                   + (isIconTool(tool) ? ' — armed' : ' — click to arm')}
-                className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors ${
                   isIconTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
@@ -4556,7 +4565,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 onClick={() => setIconsOpen((v) => !v)}
                 title="Choose a icons tool"
                 aria-label="Choose a icons tool"
-                className={`flex h-9 w-3.5 items-center justify-center rounded-r-sm transition-colors ${
+                className={`absolute -right-0.5 top-1/2 flex h-5 w-3 -translate-y-1/2 items-center justify-center rounded-sm transition-colors ${
                   iconsOpen ? 'text-brand' : 'text-fg-subtle group-hover:text-brand'
                 }`}
               >
@@ -4644,7 +4653,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               onClick={() => { /* awaiting its function */ }}
               title="Ideas — not wired up yet"
             >
-              <Sparkles className="h-4 w-4 opacity-50" />
+              <Sparkles className="h-4 w-4" />
             </RailBtn>
             <RailBtn
               active={tool === 'dpr'}
