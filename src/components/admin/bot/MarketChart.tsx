@@ -1793,6 +1793,19 @@ export function MarketChart({
       if (d.variant === 'signpost') {
         out.push({ id: `${d.id}#post`, x1: x0, y1: y0, x2: x0, y2: y0 - 30, color, width, dash: '' });
       }
+      if (d.variant === 'callout' || d.variant === 'note' || d.variant === 'comment') {
+        /* Theirs: a plate behind the words —
+         *   rect x={a.x - 7} y={a.y - 34} rx={4}
+         *        width={max(82, text.length * 8 + 20)} height={32} */
+        const pw = Math.max(82, (d.label?.length ?? 4) * 8 + 20);
+        quads.push({
+          id: `${d.id}#plate`, color,
+          pts: [
+            { x: x0 - 7, y: y0 - 34 }, { x: x0 - 7 + pw, y: y0 - 34 },
+            { x: x0 - 7 + pw, y: y0 - 2 }, { x: x0 - 7, y: y0 - 2 },
+          ],
+        });
+      }
       extraLabels.push({
         id: d.id,
         x: x0, y: y0 - (d.variant === 'signpost' ? 39 : 8),
@@ -2956,6 +2969,41 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       }
       const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, HIT);
       if (fibId) return { id: fibId, kind: 'fib' };
+      /* A NOTE IS GRABBED BY ITS WORDS.
+       *
+       * Every other drawing is a line, and hitTest walks segments — so a note,
+       * which is only a label, had nothing to hit and could never be selected.
+       * Not being selectable is what stopped it being draggable: the body drag
+       * works for any kind, it just never got the chance.
+       *
+       * The box is estimated from the text rather than measured. Measuring
+       * means reading the DOM node back during a pointer event, and an
+       * approximate box that is a few pixels generous is a better target than
+       * an exact one anyway. */
+      for (const d of drawDraft()) {
+        if (d.kind !== 'note') continue;
+        const q = d.pts[0];
+        if (!q) continue;
+        const nx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const ny = s.priceToCoordinate(q.v);
+        if (nx == null || ny == null) continue;
+        const cx = nx as number, cy = ny as number;
+        /* THEIR hit box, verbatim:
+         *   x = a.x - 8
+         *   y = a.y - 50
+         *   width  = max(90, text.length * 10 + 20)
+         *   height = 55
+         * Generous on purpose - it has to cover the words AND the plate above
+         * them, and a target you have to aim at is a drawing you cannot move. */
+        const bx = cx - 8;
+        const by = cy - 50;
+        const bw2 = Math.max(90, (d.label?.length ?? 4) * 10 + 20);
+        const bh = 55;
+        if (x >= bx && x <= bx + bw2 && y >= by && y <= by + bh) {
+          return { id: d.id, kind: 'note' };
+        }
+      }
+
       /* A fork is grabbed by any of its lines. Tested against what is ON SCREEN
        * — the segments syncLabels already computed — rather than re-deriving
        * the geometry here, so the thing you can see and the thing you can grab
