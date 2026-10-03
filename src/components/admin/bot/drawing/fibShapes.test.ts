@@ -307,7 +307,6 @@ test('ready set is what Batches 0, A, B and C ship', () => {
 for (const s of ready) {
   test(`${s.variant}: one point short of the clicks draws only connectors and handles`, () => {
     const g = computeFibGeometry(makeFibDrawing(s.variant, samplePts.slice(0, s.clicks - 1), 'p'), ctx);
-    if (s.clicks - 1 < 2) { assert.equal(g, null); return; }
     assert.ok(g);
     assert.equal(g.levels.length + g.bands.length + g.lines.length + g.curves.length + g.polys.length + g.texts.length, 0);
     assert.equal(g.handles.length, s.clicks - 1);
@@ -560,4 +559,10 @@ test('dedekind: verticals stay inside the box; a narrow box clips its arcs', () 
   near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
   near(c1.pts[0].x, 150); near(c1.pts[0].y, y);
   near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
+});
+test('one point is a handle and nothing else', () => {
+  const g = computeFibGeometry(makeFibDrawing('retracement', [A], 'p'), ctx)!;
+  assert.deepEqual(g.handles, [{ id: 'p:0', x: 100, y: 900 }]);
+  assert.equal(g.connectors.length + g.levels.length + g.lines.length, 0);
+  assert.equal(g.x2, 101);
 });

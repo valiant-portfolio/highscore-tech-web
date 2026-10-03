@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // Candlestick chart for one market, TradingView Lightweight Charts (MIT).
 //
@@ -2938,6 +2938,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (n < fibClicksNeeded(variant)) {
           setDrawPending(true);
           setFibStep(n);
+          // A tap cannot hover: show the anchors placed so far, or the first
+          // one is invisible until the second lands and a tap looks ignored.
+          const fc = fibCtx();
+          setFibPreview(fc ? computeFibGeometry(makeFibDrawing(variant, fibPts.current, 'preview'), fc) : null);
           return;
         }
         const d: Drawing = makeFibDrawing(variant, fibPts.current, newDrawId());
@@ -3222,6 +3226,16 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           previewRef.current = buildDrawing(t, pts, 'draft');
           syncLabels();
         }
+      } else if (fibPts.current.length) {
+        /* The fib family's ghost: the anchors so far plus the cursor, through
+         * the same projection the finished drawing uses. The draft rework
+         * left setFibPreview with no caller but clearPreview, so these tools
+         * showed nothing until the last click. */
+        const fc = fibCtx();
+        const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
+        setFibPreview(fc && pt
+          ? computeFibGeometry(makeFibDrawing(FIB_TOOL_VARIANT[t], [...fibPts.current, pt], 'preview'), fc)
+          : null);
       }
 
       /* Extending the stroke. Samples nearer than 2px are dropped — a pointer
