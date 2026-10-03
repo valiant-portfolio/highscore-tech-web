@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 // Candlestick chart for one market, TradingView Lightweight Charts (MIT).
 //
@@ -142,11 +142,11 @@ const MEASURE_IDS = new Set(['pos', 'dpr', 'mag', 'avwap', 'vprof']);
 const isMeasureTool = (t: Tool): boolean => MEASURE_IDS.has(t as string);
 
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
-/** Patterns, Elliott waves and harmonics — the families on the second button. */
-const PAT_TOOL_IDS = new Set(
-  [...PATTERN_SPEC_LIST, ...ELLIOTT_SPEC_LIST, ...HARMONIC_SPEC_LIST].map((x) => x.toolId as string),
-);
-const isPatTool = (t: Tool): boolean => PAT_TOOL_IDS.has(t as string);
+/** Patterns, Elliott waves and harmonics share the fib draft and registry but
+ *  have their own rail button, so the Fibonacci button must not light for them. */
+const PATTERN_FAMILY_LISTS = [PATTERN_TOOLS, ELLIOTT_TOOLS, HARMONIC_TOOLS];
+const isPatternTool = (t: Tool): boolean =>
+  PATTERN_FAMILY_LISTS.some((l) => l.some((i) => i.tool === t));
 
 /** Every drawing tool in one list. The armed-tool banner and the rail's
  *  tooltip both need to turn a Tool back into its menu entry, and each kept
@@ -1005,9 +1005,13 @@ export function MarketChart({
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [fibOpen]);
+  /* The pattern button (Patterns / Elliott Waves / Harmonics) is the same
+   * split button again: its own open state, flyout fit and "last used". */
   const [patMaxH, setPatMaxH] = useState<number | null>(null);
   const [patMaxW, setPatMaxW] = useState<number | null>(null);
   useLayoutEffect(() => {
+    // Cleared on close, not just overwritten on open: a stale width is applied
+    // for one frame otherwise, and the panel visibly jumps.
     if (!patOpen) { setPatMaxH(null); return; }
     const place = () => {
       setPatMaxH(flyoutMaxH(patBtnRef.current, wrapRef.current));
@@ -1065,7 +1069,7 @@ export function MarketChart({
    * chevron under it opens the list to change which one that is. */
   const [lastLine, setLastLine] = useState<Tool>('hline');
   const [lastFib, setLastFib] = useState<Tool>('fibr');
-  const [lastPat, setLastPat] = useState<Tool>(PATTERN_SPEC_LIST[0].toolId as Tool);
+  const [lastPat, setLastPat] = useState<Tool>('xabcd');
   const [lastMeas, setLastMeas] = useState<Tool>('pos');
   /** OHLC of the bar under the crosshair — null when the cursor is off-chart. */
   const [hoverBar, setHoverBar] = useState<
@@ -3540,7 +3544,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             <div
               ref={fibBtnRef}
               className={`group relative flex h-9 items-center rounded-sm transition-colors ${
-                isFibTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+                (isFibTool(tool) && !isPatternTool(tool)) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
               }`}
             >
               <button
@@ -3552,9 +3556,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   clearPreview();
                 }}
                 title={`${FIB_TOOLS.find((t) => t.tool === lastFib)?.label ?? 'Fibonacci'}`
-                  + (isFibTool(tool) ? ' — armed' : ' — click to arm')}
+                  + (isFibTool(tool) && !isPatternTool(tool) ? ' — armed' : ' — click to arm')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
-                  isFibTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                  isFibTool(tool) && !isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
                 {(() => {
@@ -3633,17 +3637,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 </>
               )}
             </div>
-            {/* PATTERNS, ELLIOTT WAVES and HARMONICS, on their own control.
-                It was a section inside the line menu, which buried eleven
-                tools two levels down under an icon that draws lines — and a
-                fib is not a line type. Same split-button shape as the one
-                above: the icon arms the fib you last used, the chevron opens
-                the list. Its own `lastPat`, so arming a fib does not change
-                what the line button arms. */}
+            {/* PATTERNS, ELLIOTT WAVES, HARMONICS: one rail button, three
+                headings (Vela's 'patterns-waves-harmonics'). Same split-button
+                shape as Fibonacci, with its own `lastPat` so the icon is the
+                pattern you last used and the default tooltip is "XABCD Pattern". */}
             <div
               ref={patBtnRef}
               className={`group relative flex h-9 items-center rounded-sm transition-colors ${
-                isPatTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
+                isPatternTool(tool) ? 'bg-brand/15 ring-1 ring-brand/40' : 'hover:bg-brand/10'
               }`}
             >
               <button
@@ -3654,14 +3655,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                   setDrawPending(false);
                   clearPreview();
                 }}
-                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastPat)?.label ?? 'Patterns'}`
-                  + (isPatTool(tool) ? ' — armed' : ' — click to arm')}
+                title={`${ALL_DRAW_TOOLS.find((t) => t.tool === lastPat)?.label ?? 'XABCD Pattern'}`
+                  + (isPatternTool(tool) ? ' — armed' : ' — click to arm')}
                 className={`flex h-9 w-8 items-center justify-center rounded-l-sm transition-colors ${
-                  isPatTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
+                  isPatternTool(tool) ? 'text-brand' : 'text-fg-muted group-hover:text-brand'
                 }`}
               >
                 {(() => {
-                  const Icon = TOOL_ICON[lastPat] ?? Waves;
+                  const Icon = TOOL_ICON[lastPat] ?? FIB_TOOL_ICONS.xabcd;
                   return <Icon className="h-4 w-4" />;
                 })()}
               </button>
@@ -3701,34 +3702,34 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                           {group}
                         </p>
                         {items.map((t) => (
-                      <button
-                        key={t.label}
-                        type="button"
-                        disabled={t.soon}
-                        title={t.soon ? 'Not built yet' : undefined}
-                        onClick={() => {
-                          if (!t.tool) return;
-                          setTool(t.tool);
-                          setLastPat(t.tool);
-                          setPatOpen(false);
-                          forkPts.current = []; setDraftLen(0);
-                                  setDrawPending(false);
-                          clearPreview();
-                        }}
-                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
-                          tool === t.tool && !t.soon
-                            ? 'bg-brand/15 font-semibold text-brand'
-                            : t.soon
-                              ? 'cursor-not-allowed text-fg-subtle/50'
-                              : 'text-fg hover:bg-brand/10 hover:text-brand'
-                        }`}
-                      >
-                        <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
-                        <span className="truncate">{t.label}</span>
-                        {tool === t.tool && !t.soon && (
-                          <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
-                        )}
-                      </button>
+                          <button
+                            key={t.label}
+                            type="button"
+                            disabled={t.soon}
+                            title={t.soon ? 'Not built yet' : undefined}
+                            onClick={() => {
+                              if (!t.tool) return;
+                              setTool(t.tool);
+                              setLastPat(t.tool);
+                              setPatOpen(false);
+                              forkPts.current = []; setDraftLen(0);
+                              setDrawPending(false);
+                              clearPreview();
+                            }}
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors ${
+                              tool === t.tool && !t.soon
+                                ? 'bg-brand/15 font-semibold text-brand'
+                                : t.soon
+                                  ? 'cursor-not-allowed text-fg-subtle/50'
+                                  : 'text-fg hover:bg-brand/10 hover:text-brand'
+                            }`}
+                          >
+                            <span className="w-4 shrink-0 text-center font-mono text-fg-subtle">{t.glyph}</span>
+                            <span className="truncate">{t.label}</span>
+                            {tool === t.tool && !t.soon && (
+                              <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                            )}
+                          </button>
                         ))}
                       </div>
                     ))}
@@ -3737,12 +3738,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
               )}
             </div>
             {/* MEASUREMENTS and VOLUME, on their own control.
-                It was a section inside the line menu, which buried eleven
-                tools two levels down under an icon that draws lines — and a
-                fib is not a line type. Same split-button shape as the one
-                above: the icon arms the fib you last used, the chevron opens
-                the list. Its own `lastMeas`, so arming a fib does not change
-                what the line button arms. */}
+                Measurements and Volume: the position box, the range box, the
+                magnifier, anchored VWAP and the volume profile. Same split
+                button again, with its own `lastMeas` so arming one of these
+                does not change what the other buttons arm. */}
             <div
               ref={measBtnRef}
               className={`group relative flex h-9 items-center rounded-sm transition-colors ${
