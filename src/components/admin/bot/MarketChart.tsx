@@ -3921,7 +3921,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                in a portal, or positioned against the viewport rather than the
                button. Until then the rail does not scroll, and gap-2 keeps it
                short enough not to need to. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-visible border-r border-border bg-bg-elevated/95 py-2 backdrop-blur-sm ${
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-visible border-r border-border bg-bg-elevated/95 pb-10 pt-2 backdrop-blur-sm ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
