@@ -566,3 +566,18 @@ test('one point is a handle and nothing else', () => {
   assert.equal(g.connectors.length + g.levels.length + g.lines.length, 0);
   assert.equal(g.x2, 101);
 });
+const barCtx: FibCtx = { ...ctx, barW: 6 };
+test('timezones: the same bar twice is a one-bar interval, not one pixel', () => {
+  const g = geo(makeFibDrawing('timezones', [A, { t: 6000, p: 150 }], 'z'), barCtx);
+  assert.deepEqual(g.lines.map((l) => l.x1), [100, 106, 112, 118, 130, 148, 178, 226, 304, 430, 634]);
+  assert.deepEqual(g.texts.map((t) => t.text), ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89']);
+});
+test('timezones: a real interval is untouched by the bar floor', () => {
+  const g = geo(makeFibDrawing('timezones', [A, B], 'z'), barCtx);
+  assert.deepEqual(g.lines.map((l) => l.x1), [100, 200, 300, 400, 600]);
+});
+test('trendtime: the same bar twice projects one bar per ratio', () => {
+  const g = geo(makeFibDrawing('trendtime', [A, A, C], 't'), barCtx);
+  near(g.lines[4].x1, 306);
+  near(g.lines[6].x1, 300 + 1.618 * 6);
+});

@@ -58,22 +58,25 @@ function verticals(xs: { x: number; text: string; color: string }[], ctx: FibCtx
   return { lines, texts };
 }
 
-/** Interval between A and B in pixels, never zero. */
-function interval(a: Pt, b: Pt): number {
+/** Interval between A and B in pixels, never shorter than a bar slot — or a
+ *  pixel, when the context has no bar width. Clicks snap to bar slots, so
+ *  the only short interval is the same bar twice. */
+function interval(a: Pt, b: Pt, ctx: FibCtx): number {
   const dx = b.x - a.x;
-  return Math.abs(dx) < 1 ? (dx < 0 ? -1 : 1) : dx;
+  const min = ctx.barW ?? 1;
+  return Math.abs(dx) < min ? (dx < 0 ? -min : min) : dx;
 }
 
 export const buildTimezones: FibBuilder = (pts, d, ctx) => {
   const [a, b] = pts;
-  const dx = interval(a, b);
+  const dx = interval(a, b, ctx);
   const color = d.color ?? FIB_FALLBACK_COLOR;
   return verticals(fibRatios(d).map((f) => ({ x: a.x + f * dx, text: String(f), color })), ctx);
 };
 
 export const buildTrendtime: FibBuilder = (pts, d, ctx) => {
   const [a, b, c] = pts;
-  const dx = interval(a, b);
+  const dx = interval(a, b, ctx);
   return verticals(fibRatios(d).map((r) => ({ x: c.x + r * dx, text: formatFibPct(r), color: ratioColor(d, r) })), ctx);
 };
 

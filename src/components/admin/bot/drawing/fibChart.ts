@@ -16,6 +16,9 @@ export function makeFibCtx(
   if (!chart || !series || !bars.length) return null;
   const secs = inferBarSecs(bars);
   const size = chart.paneSize();
+  const ts = chart.timeScale();
+  const x0 = ts.logicalToCoordinate(0 as Logical);
+  const x1 = ts.logicalToCoordinate(1 as Logical);
   return {
     timeToX: (t) => {
       const L = timeToLogical(bars, secs, t);
@@ -29,6 +32,7 @@ export function makeFibCtx(
     },
     paneW: size.width,
     paneH: size.height,
+    barW: x0 === null || x1 === null ? 1 : Math.max(1, Number(x1) - Number(x0)),
   };
 }
 

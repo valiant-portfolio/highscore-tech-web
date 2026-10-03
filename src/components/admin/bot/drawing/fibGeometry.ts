@@ -8,6 +8,8 @@ export interface FibCtx {
   priceToY(p: number): number | null;
   paneW: number;
   paneH: number;
+  /** Pixels per bar slot; 1 when unknown. */
+  barW?: number;
 }
 
 export interface FibLine { x1: number; y1: number; x2: number; y2: number; color: string; dash?: string }
