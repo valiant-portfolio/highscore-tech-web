@@ -134,10 +134,11 @@ const MEASURE_TOOLS: DrawItem[] = [
   // Long and short are separate tools, as theirs are: which way round the
   // reward and the risk sit is the whole difference, and asking for it after
   // the fact is a question the tool can answer by being picked.
-  { tool: 'pos', label: 'Long Position', clicks: 3, glyph: '⊞' },
-  { tool: 'poss', label: 'Short Position', clicks: 3, glyph: '⊟' },
+  // Their click counts, verbatim: position 2, magnifier 1.
+  { tool: 'pos', label: 'Long Position', clicks: 2, glyph: '⊞' },
+  { tool: 'poss', label: 'Short Position', clicks: 2, glyph: '⊟' },
   { tool: 'dpr', label: 'Date & Price Range', clicks: 2, glyph: '▤' },
-  { tool: 'mag', label: 'Magnifier', clicks: 2, glyph: '⌕' },
+  { tool: 'mag', label: 'Magnifier', clicks: 1, glyph: '⌕' },
   // Price alone: the same box without the time axis mattering.
   { tool: 'prange', label: 'Price Range', clicks: 2, glyph: '↕' },
 ];
@@ -326,7 +327,7 @@ type Drawing =
    * between their points — so one kind with a variant rather than five. */
   | {
       id: string; kind: 'measure';
-      variant: 'pos' | 'poss' | 'dpr' | 'prange' | 'avwap' | 'vprof';
+      variant: 'pos' | 'poss' | 'dpr' | 'prange' | 'mag' | 'avwap' | 'vprof';
       pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
       label?: string;
@@ -630,7 +631,7 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'avwap': return { id, kind: 'measure', variant: 'avwap', pts };
     case 'vprof': return { id, kind: 'measure', variant: 'vprof', pts };
     // The magnifier is an action, not a drawing: it zooms to what you marked.
-    case 'mag': return null;
+    case 'mag': return { id, kind: 'measure', variant: 'mag', pts };
     default: return null;
   }
 }
@@ -1386,6 +1387,7 @@ export function MarketChart({
      * cannot fall short, and it adds nothing to the chart's data. */
     const out: typeof segs = [];
     const quads: { id: string; pts: Pt[]; color: string; solid?: boolean }[] = [];
+    const arcOut: { id: string; d: string; color: string }[] = [];
     const extraLabels: { id: string; x: number; y: number; text: string; color: string; readout?: boolean; bare?: boolean }[] = [];
     for (const d of drawDraft()) {
       if (d.kind !== 'trend') continue;
@@ -1619,32 +1621,54 @@ export function MarketChart({
       if (!mA) continue;
 
       if (d.variant === 'pos' || d.variant === 'poss') {
-        /* ENTRY, STOP, TARGET — the three prices a trade is actually made of.
-         * Reward above the entry in green, risk below it in red, and the ratio
-         * between them stated, because R:R is the number the box exists to
-         * answer and counting pixels is not an answer. */
-        if (!mB || !mC) continue;
-        const pe = pt(mA.t, mA.v), ps = pt(mA.t, mB.v), pg = pt(mA.t, mC.v);
-        const right = pt(mC.t, mC.v);
-        if (!pe || !ps || !pg || !right) continue;
-        const x1 = pe.x, x2 = right.x;
-        /* The second click is the STOP and the third the TARGET, whichever way
-         * the trade faces — so a short's green sits below the entry and its red
-         * above, which is the only thing that separates the two tools. */
+        /* THEIRS, verbatim: two points make the box, and it splits at its own
+         * midpoint — profit above the middle for a long, below it for a short.
+         *
+         *   const mid = (a.y + b.y) / 2;
+         *   profitTop = long ? min(a.y,b.y) : mid;
+         *   riskTop   = long ? mid : min(a.y,b.y);
+         *
+         * I had built it from entry, stop and target, which is how a trade is
+         * described but not how their tool works. */
+        if (!mB) continue;
+        const q1 = pt(mA.t, mA.v), q2 = pt(mB.t, mB.v);
+        if (!q1 || !q2) continue;
+        const mid = (q1.y + q2.y) / 2;
+        const long = d.variant === 'pos';
+        const xL = Math.min(q1.x, q2.x), xR = Math.max(q1.x, q2.x);
+        const profitTop = long ? Math.min(q1.y, q2.y) : mid;
+        const riskTop = long ? mid : Math.min(q1.y, q2.y);
+        quads.push({ id: `${d.id}#profit`, color: palette.up, pts: [
+          { x: xL, y: profitTop }, { x: xR, y: profitTop },
+          { x: xR, y: profitTop + Math.abs(q1.y - mid) }, { x: xL, y: profitTop + Math.abs(q1.y - mid) },
+        ] });
         quads.push({ id: `${d.id}#risk`, color: palette.down, pts: [
-          { x: x1, y: pe.y }, { x: x2, y: pe.y }, { x: x2, y: ps.y }, { x: x1, y: ps.y },
+          { x: xL, y: riskTop }, { x: xR, y: riskTop },
+          { x: xR, y: riskTop + Math.abs(q2.y - mid) }, { x: xL, y: riskTop + Math.abs(q2.y - mid) },
         ] });
-        quads.push({ id: `${d.id}#reward`, color: palette.up, pts: [
-          { x: x1, y: pe.y }, { x: x2, y: pe.y }, { x: x2, y: pg.y }, { x: x1, y: pg.y },
-        ] });
-        out.push({ id: d.id, x1, y1: pe.y, x2, y2: pe.y, color, width, dash });
-        const risk = Math.abs(mA.v - mB.v), reward = Math.abs(mC.v - mA.v);
+        const dv = mB.v - mA.v;
         extraLabels.push({
-          id: `${d.id}#rr`, x: (x1 + x2) / 2, y: Math.min(pg.y, ps.y) - 12,
-          text: `${fmt(reward, digitsRef.current)} / ${fmt(risk, digitsRef.current)}`
-            + `  R:R ${risk > 0 ? (reward / risk).toFixed(2) : '—'}`,
+          id: `${d.id}#rr`, x: (xL + xR) / 2, y: Math.min(q1.y, q2.y) - 6,
+          text: `R:R 1.00 · ${Math.abs(dv).toFixed(1)}`,
           color, readout: true,
         });
+        continue;
+      }
+
+      if (d.variant === 'mag') {
+        /* THEIRS: a lens left on the chart - a circle, a plus, and a handle
+         * running down from it. Not a zoom; it draws, like everything else in
+         * their file. */
+        const q = pt(mA.t, mA.v);
+        if (!q) continue;
+        const R = 26;
+        arcOut.push({
+          id: `${d.id}#lens`, color,
+          d: `M ${q.x - R} ${q.y} a ${R} ${R} 0 1 0 ${R * 2} 0 a ${R} ${R} 0 1 0 ${-R * 2} 0`,
+        });
+        out.push({ id: `${d.id}#h`, x1: q.x - 9, y1: q.y, x2: q.x + 9, y2: q.y, color, width, dash: '' });
+        out.push({ id: `${d.id}#v`, x1: q.x, y1: q.y - 9, x2: q.x, y2: q.y + 9, color, width, dash: '' });
+        out.push({ id: d.id, x1: q.x + 19, y1: q.y + 19, x2: q.x + 37, y2: q.y + 37, color, width, dash: '' });
         continue;
       }
 
@@ -1802,7 +1826,6 @@ export function MarketChart({
      *
      * The radius is a fraction of the line, capped, so a short line does not
      * get an arc bigger than itself and a long one does not get a dinner plate. */
-    const arcOut: { id: string; d: string; color: string }[] = [];
     const angleAt = new Map<string, { x: number; y: number }>();
     for (const d of drawDraft()) {
       if (d.kind !== 'trend' || d.readout !== 'angle') continue;
@@ -2641,25 +2664,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       }
 
       const pts: DPt[] = forkPts.current.map((q) => ({ t: q.time as number, v: q.value }));
-      /* THE MAGNIFIER zooms to what you marked rather than leaving anything
-       * behind — it is a view change, not a drawing, which is why buildDrawing
-       * returns nothing for it. */
-      /* THE MAGNIFIER zooms to what you marked rather than leaving anything
-       * behind — a view change, not a drawing, which is why buildDrawing
-       * returns nothing for it. */
-      if (t === 'mag') {
-        const lo = Math.min(pts[0].t, pts[1].t), hi = Math.max(pts[0].t, pts[1].t);
-        try {
-          chart.timeScale().setVisibleRange({ from: lo as UTCTimestamp, to: hi as UTCTimestamp });
-        } catch { /* a range the scale cannot take is simply not applied */ }
-        forkPts.current = []; setDraftLen(0);
-        previewRef.current = null;
-        setDrawPending(false);
-        clearPreview();
-        setTool('cursor');
-        return;
-      }
-
       const made = buildDrawing(t, pts, newDrawId());
       forkPts.current = []; setDraftLen(0);
       previewRef.current = null;
