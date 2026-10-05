@@ -48,7 +48,7 @@ type Tool =
   | 'pitchfork' | 'schiff' | 'mschiff' | 'inside'
   | 'cross' | 'vline' | 'info' | 'angle' | 'arrow'
   | 'chpar' | 'chdis' | 'chflat' | 'chlin'
-  | 'pos' | 'poss' | 'dpr' | 'mag' | 'prange' | 'avwap' | 'vprof'
+  | 'pos' | 'poss' | 'dpr' | 'mag' | 'avwap' | 'vprof'
   | 'callout' | 'note' | 'pricenote' | 'comment' | 'pricelabel' | 'signpost'
   | 'brush' | 'highlighter' | 'arrowup' | 'arrowdown' | 'rect' | 'ellipse' | 'tri'
   | 'flag' | 'icon'
@@ -142,8 +142,6 @@ const MEASURE_TOOLS: DrawItem[] = [
   { tool: 'poss', label: 'Short Position', clicks: 2, glyph: '⊟' },
   { tool: 'dpr', label: 'Date & Price Range', clicks: 2, glyph: '▤' },
   { tool: 'mag', label: 'Magnifier', clicks: 1, glyph: '⌕' },
-  // Price alone: the same box without the time axis mattering.
-  { tool: 'prange', label: 'Price Range', clicks: 2, glyph: '↕' },
 ];
 const VOLUME_TOOLS: DrawItem[] = [
   { tool: 'avwap', label: 'Anchored VWAP', clicks: 1, glyph: '⌁' },
@@ -200,7 +198,7 @@ const TEXT_TOOLS: DrawItem[] = [
 const TEXT_IDS = new Set(TEXT_TOOLS.map((t) => t.tool as string));
 const isTextTool = (t: Tool): boolean => TEXT_IDS.has(t as string);
 
-const MEASURE_IDS = new Set(['pos', 'poss', 'dpr', 'mag', 'prange', 'avwap', 'vprof']);
+const MEASURE_IDS = new Set(['pos', 'poss', 'dpr', 'mag', 'avwap', 'vprof']);
 const isMeasureTool = (t: Tool): boolean => MEASURE_IDS.has(t as string);
 
 const isFibTool = (t: Tool): t is FibToolId => t in FIB_TOOL_VARIANT;
@@ -373,7 +371,7 @@ type Drawing =
    * between their points — so one kind with a variant rather than five. */
   | {
       id: string; kind: 'measure';
-      variant: 'pos' | 'poss' | 'dpr' | 'prange' | 'mag' | 'avwap' | 'vprof';
+      variant: 'pos' | 'poss' | 'dpr' | 'mag' | 'avwap' | 'vprof';
       pts: DPt[];
       color?: string; width?: number; style?: 'solid' | 'dashed' | 'dotted';
       label?: string;
@@ -463,77 +461,6 @@ const lwStyle = (s?: string) =>
  * Laid out with trig off a single radius so the ring stays round at any count:
  * labels sit on a circle, each rotated to face outward the way a dial reads.
  */
-function TimeframeRing({ value, live, onPick, onClose }: {
-  value: string;
-  live: string[];
-  onPick: (v: string) => void;
-  onClose: () => void;
-}) {
-  /* Sized to the screen: 312px across is wider than a small phone, and a dial
-   * that overflows cannot be aimed at. */
-  const R = typeof window !== 'undefined'
-    ? Math.max(76, Math.min(118, (Math.min(window.innerWidth, window.innerHeight) - 110) / 2))
-    : 118;
-  const n = ALL_TIMEFRAMES.length;
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center">
-      <button
-        type="button"
-        aria-label="Close timeframes"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/50"
-      />
-      <div
-        className="relative rounded-full border border-brand/30 bg-bg-elevated/95 shadow-2xl backdrop-blur"
-        style={{ width: R * 2 + 76, height: R * 2 + 76 }}
-        role="menu"
-        aria-label="Timeframe"
-      >
-        {/* The hole. It is what makes this a dial and not a pie, and it keeps
-            the current timeframe readable in the middle of the ring. */}
-        <div
-          className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-border bg-bg"
-          style={{ width: R, height: R }}
-        >
-          <span className="text-[10px] uppercase tracking-[0.18em] text-fg-subtle">Timeframe</span>
-          <span className="font-mono text-lg font-bold text-brand">{value}</span>
-        </div>
-
-        {ALL_TIMEFRAMES.map((f, i) => {
-          // Start at the top and go clockwise, which is how a dial is read.
-          const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-          const synced = live.includes(f.value);
-          const on = f.value === value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              role="menuitemradio"
-              aria-checked={on}
-              disabled={!synced}
-              title={synced ? `Show ${f.label}` : 'No candles stored for this timeframe yet'}
-              onClick={synced ? () => { onPick(f.value); onClose(); } : undefined}
-              style={{
-                left: `calc(50% + ${Math.cos(a) * R}px)`,
-                top: `calc(50% + ${Math.sin(a) * R}px)`,
-              }}
-              className={`absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                on
-                  ? 'bg-brand text-brand-fg'
-                  : synced
-                    ? 'text-fg hover:bg-brand/15 hover:text-brand'
-                    // Dimmed and inert, but present — see the note above.
-                    : 'cursor-not-allowed text-fg-subtle/40'
-              }`}
-            >
-              {f.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* THE CHANNELS.
  *
@@ -701,7 +628,6 @@ function buildDrawing(tool: Tool, pts: DPt[], id: string): Drawing | null {
     case 'tri': return { id, kind: 'shape', variant: 'tri', pts, fill: false };
     case 'pos': return { id, kind: 'measure', variant: 'pos', pts };
     case 'poss': return { id, kind: 'measure', variant: 'poss', pts };
-    case 'prange': return { id, kind: 'measure', variant: 'prange', pts };
     case 'dpr': return { id, kind: 'measure', variant: 'dpr', pts };
     case 'avwap': return { id, kind: 'measure', variant: 'avwap', pts };
     case 'vprof': return { id, kind: 'measure', variant: 'vprof', pts };
@@ -1334,7 +1260,6 @@ export function MarketChart({
   const magnetRef = useRef<'off' | 'weak' | 'strong'>('off');
   useEffect(() => { magnetRef.current = magnet; }, [magnet]);
 
-  const [tfRingOpen, setTfRingOpen] = useState(false);
   const [tool, setTool] = useState<Tool>('cursor');
   /** The armed tool's menu entry — its name and how many clicks it wants.
    *  Declared here, below `tool`: it was above, which is a temporal dead zone
@@ -1952,7 +1877,7 @@ export function MarketChart({
         continue;
       }
 
-      if (d.variant === 'dpr' || d.variant === 'prange') {
+      if (d.variant === 'dpr') {
         // What the box spans: price, percent, bars and elapsed time.
         if (!mB) continue;
         const q1 = pt(mA.t, mA.v), q2 = pt(mB.t, mB.v);
@@ -1974,7 +1899,7 @@ export function MarketChart({
           // Price Range is the same box reading price only — the bars and the
           // elapsed time are what the date range adds.
           text: `${dv >= 0 ? '+' : ''}${fmt(dv, digitsRef.current)} (${pct.toFixed(2)}%)`
-            + (d.variant === 'dpr' ? String.fromCharCode(10) + `${bars} bars · ${span}` : ''),
+            + String.fromCharCode(10) + `${bars} bars · ${span}`,
           color, readout: true,
         });
         continue;
@@ -3658,15 +3583,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           </span>
         ))}
 
-        {tfRingOpen && (
-          <TimeframeRing
-            value={tf}
-            live={TF_VALUES}
-            onPick={setTf}
-            onClose={() => setTfRingOpen(false)}
-          />
-        )}
-
         {/* The rubber band. pointer-events-none so it never eats the click that
             is about to commit the line it is previewing. */}
         {/* WHAT YOU ARE DRAWING RIGHT NOW.
@@ -3781,19 +3697,28 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
           </button>
 
-          {/* Timeframe, as a dial. Every one is on the ring in a fixed place,
-              so choosing becomes muscle memory; the ones bar_sync does not
-              store are greyed rather than dropped, so a missing timeframe
-              reads as "not yet" instead of "not found". */}
-          <button
-            type="button"
-            onClick={() => setTfRingOpen(true)}
-            title="Timeframe"
-            className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm font-bold text-fg transition-colors hover:bg-brand/10"
-          >
-            {tf}
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
-          </button>
+          {/* Timeframe, as a dropdown. It was a radial dial - every option on a
+              ring in a fixed place - which reads well but is not what the
+              design asks for, and a list is what everything else in this bar
+              uses. The ones bar_sync does not store stay listed and disabled,
+              so a missing timeframe reads as "not yet" rather than "not
+              found". */}
+          <TopMenu label={tf}>
+            {(close) => ALL_TIMEFRAMES.map((f) => {
+              const synced = TF_VALUES.includes(f.value);
+              return (
+                <MenuItem
+                  key={f.value}
+                  active={tf === f.value}
+                  disabled={!synced}
+                  title={synced ? undefined : 'No candles stored for this timeframe yet'}
+                  onClick={synced ? () => { setTf(f.value); close(); } : undefined}
+                >
+                  {f.label}
+                </MenuItem>
+              );
+            })}
+          </TopMenu>
 
           {/* Chart type. The series is a candlestick series and its markers and
               price lines hang off it, so Line and Area are listed as the design
