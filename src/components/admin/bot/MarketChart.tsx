@@ -1851,10 +1851,44 @@ export function MarketChart({
           { x: xL, y: riskTop }, { x: xR, y: riskTop },
           { x: xR, y: riskTop + Math.abs(q2.y - mid) }, { x: xL, y: riskTop + Math.abs(q2.y - mid) },
         ] });
-        const dv = mB.v - mA.v;
+        /* THE THREE PRICES THE BOX IS MADE OF, each on its own edge.
+         *
+         * It reported R:R and a price move and nothing else, so the numbers a
+         * position is actually read by - where you get in, where you get out,
+         * where you are wrong - had to be eyeballed off the scale.
+         *
+         * The two clicks are the outer edges and the entry is the midpoint
+         * between them, which is what makes the reward and the risk equal by
+         * construction: R:R is 1.00 on this tool and saying otherwise would be
+         * a lie. A different ratio needs a third anchor. */
+        const hiV = Math.max(mA.v, mB.v), loV = Math.min(mA.v, mB.v);
+        const entry = (mA.v + mB.v) / 2;
+        const target = long ? hiV : loV;
+        const stop = long ? loV : hiV;
+        const yOf = (v: number) => {
+          const c0 = s.priceToCoordinate(v);
+          return c0 == null ? null : (c0 as number);
+        };
+        const rows: [string, number, string][] = [
+          ['Target', target, palette.up],
+          ['Entry', entry, color],
+          ['Stop', stop, palette.down],
+        ];
+        for (const [name, v, col] of rows) {
+          const yy = yOf(v);
+          if (yy == null) continue;
+          extraLabels.push({
+            id: `${d.id}#${name}`, x: xR + 6, y: yy,
+            text: `${name} ${fmt(v, digitsRef.current)}`,
+            color: col, readout: true,
+          });
+        }
         extraLabels.push({
-          id: `${d.id}#rr`, x: (xL + xR) / 2, y: Math.min(q1.y, q2.y) - 6,
-          text: `R:R 1.00 · ${Math.abs(dv).toFixed(1)}`,
+          id: `${d.id}#rr`, x: (xL + xR) / 2, y: Math.min(q1.y, q2.y) - 8,
+          // Lot size is the bot's, per symbol, and this component is not given
+          // the configs that hold it - so the risk is stated in price instead
+          // of pretending to a size it cannot know.
+          text: `R:R 1.00 · risk ${fmt(Math.abs(target - entry), digitsRef.current)}`,
           color, readout: true,
         });
         continue;
@@ -3860,7 +3894,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                The menus are positioned against the VIEWPORT now rather than
                against their button, so they are not clipped by the thing they
                sit inside. */
-            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-2 overflow-y-auto overscroll-contain border-r border-border bg-bg-elevated pb-10 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            className={`absolute inset-y-0 left-0 z-20 w-12 flex-col items-center gap-1 overflow-y-auto overscroll-contain border-r border-border bg-bg-elevated pb-10 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
               railHidden ? 'hidden' : 'flex'
             }`}
           >
@@ -4582,7 +4616,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             </div>
             {/* The tool families above, the chart's own controls below —
                 as the design separates them. */}
-            <div className="my-1 h-px w-6 shrink-0 bg-border" />
+            <div className="my-2 h-px w-6 shrink-0 bg-border" />
             {/* The standalone Horizontal Line and Labelled Level buttons are
                 gone: they are in the split button's menu, and having both meant
                 arming one tool lit TWO buttons green — which reads as
@@ -4596,7 +4630,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 still, which is the half of it anyone uses. */}
             {/* A divider between the tools and the chart's own controls — the
                 two do different jobs and should not read as one list. */}
-            <span className="my-1 h-px w-6 shrink-0 bg-border" />
+            <span className="my-2 h-px w-6 shrink-0 bg-border" />
             {/* Not wired yet, and saying so rather than doing nothing quietly:
                 a button that looks live and is not is worse than one that
                 admits it. */}
@@ -4706,7 +4740,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             {/* A gap rather than mt-auto: in a scrolling column mt-auto forces
                 the rail to the full height of the pane even when its buttons
                 would fit, which is what put the collapse control out of reach. */}
-            <span className="my-1 h-px w-6 shrink-0 bg-border" />
+            <span className="my-2 h-px w-6 shrink-0 bg-border" />
             <RailBtn onClick={() => setRailHidden(true)} title="Hide the toolbar">
               <ChevronsLeft className="h-4 w-4" />
             </RailBtn>
