@@ -288,7 +288,24 @@ export interface BotProposal {
   note?: string | null;
 }
 
+/**
+ * The live two-sided price.
+ *
+ * It matters because a BUY LIMIT fills on the ASK while every candle on the
+ * chart is drawn from the BID. The chart therefore reaches a buy level a whole
+ * spread before the order can fill, which reads as the bot being late when it
+ * is not. A SELL LIMIT fills on the bid and has no such gap.
+ */
+export interface BotQuote {
+  symbol: string;
+  bid: number | null;
+  ask: number | null;
+  spread: number | null;
+}
+
 export interface BotOverview {
+  /** Keyed by symbol. Empty when the quote feed is not running. */
+  quotes: Record<string, BotQuote>;
   markets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
@@ -372,7 +389,7 @@ async function analysesFor(
 export async function getBotOverview(): Promise<BotOverview> {
   const admin = botServiceClient();
 
-  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings, proposals] = await Promise.all([
+  const [markets, configs, specs, openTrades, closedTrades, equity, equityCurve, settings, proposals, quotes] = await Promise.all([
     admin.from('bot_market_state').select('*').order('alias', { ascending: true }),
     admin.from('bot_symbol_config').select('symbol, alias, lot_size, close_at_profit, enabled, updated_at, updated_by'),
     admin.from('bot_symbols').select('name, alias, digits, volume_min, volume_max, volume_step'),
@@ -399,6 +416,8 @@ export async function getBotOverview(): Promise<BotOverview> {
       .select('id, symbol, alias, side, level, sl, tp, rr, bar_time, snapshot, htf_trend, trend_agreement, status, created_at, decided_by, decided_at, ticket, note')
       .in('status', ['pending', 'approved', 'placed', 'missed'])
       .order('created_at', { ascending: false }).limit(100),
+    // The two-sided price, for working out where an order can actually fill.
+    admin.from('bot_quotes').select('symbol, bid, ask, spread'),
   ]);
 
   const marketRows = (markets.data ?? []) as BotMarket[];
@@ -447,7 +466,11 @@ export async function getBotOverview(): Promise<BotOverview> {
     ? nameOf.get(settingsRow.updated_by) ?? null
     : null;
 
+  const quoteBySymbol: Record<string, BotQuote> = {};
+  for (const row of (quotes.data ?? []) as BotQuote[]) quoteBySymbol[row.symbol] = row;
+
   return {
+    quotes: quoteBySymbol,
     markets: marketRows,
     configs: configRows.map((c) => ({
       ...c,

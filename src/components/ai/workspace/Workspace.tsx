@@ -34,7 +34,7 @@ import { ApprovalModeToggle } from '@/components/admin/bot/ApprovalModeToggle';
 import { FlattenAllButton } from '@/components/admin/bot/FlattenAllButton';
 import { setLotSizeAction, setCloseAtProfitAction } from '@/lib/admin/trading-bot-actions';
 import type {
-  BotMarket, BotTrade, BotEquity, BotSettings, BotProposal, BotConfig, BotSymbolSpec,
+  BotMarket, BotTrade, BotEquity, BotSettings, BotProposal, BotQuote, BotConfig, BotSymbolSpec,
 } from '@/lib/admin/trading-bot-queries';
 
 type Section =
@@ -68,7 +68,7 @@ const px = (n: number | null | undefined) =>
   n == null || !Number.isFinite(Number(n)) ? '—' : String(n);
 
 export function Workspace({
-  markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user,
+  markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate, user, quotes,
   section, openOn = null, openDetails = false, openTicket = null,
 }: {
   /* WHERE WE ARE COMES FROM THE URL, not from state.
@@ -97,6 +97,8 @@ export function Workspace({
   equity: BotEquity | null;
   settings: BotSettings | null;
   proposals: BotProposal[];
+  /** Live bid/ask by symbol — empty if the quote feed is down. */
+  quotes: Record<string, BotQuote>;
   user: { name: string; initials: string };
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
@@ -591,6 +593,7 @@ export function Workspace({
             )}
             {!tradeFocus && sec === 'pending' && (
               <PendingList
+                quotes={quotes}
                 markets={ready}
                 allMarkets={markets}
                 configs={configs}
@@ -1668,11 +1671,32 @@ function pipsAway(price: number | null, level: number | null, digits: number | n
  * badge between "approve this or nothing happens" and "there is nothing to do".
  * Splitting them means a glance at Pending is never mistaken for a to-do list.
  */
-function PendingList({ markets, allMarkets, configs, specs, onOpenMarket, onFocusChart }: {
+/**
+ * Where the CHART has to reach for a limit to fill.
+ *
+ * A buy limit fills on the ASK; every candle on the chart is drawn from the
+ * BID. So a buy at 158.034 cannot fill until the bid is a spread below it —
+ * the chart visibly touches the level first, and the fill looks late by
+ * however long price takes to cover that last spread. On a quiet market that
+ * is minutes, and it is not the bot being slow.
+ *
+ * A sell limit fills on the bid, so the chart is exact and this returns null:
+ * there is nothing to explain, and a second number would only add noise.
+ */
+function fillsWhenBidReaches(
+  side: 'buy' | 'sell', level: number | null, spread: number | null | undefined,
+): number | null {
+  if (side !== 'buy' || level == null || !spread) return null;
+  return level - spread;
+}
+
+function PendingList({ markets, allMarkets, configs, specs, quotes, onOpenMarket, onFocusChart }: {
   markets: BotMarket[];
   allMarkets: BotMarket[];
   configs: BotConfig[];
   specs: BotSymbolSpec[];
+  /** Live bid/ask, for saying where a buy limit can actually fill. */
+  quotes: Record<string, BotQuote>;
   /** Opens this market's own screen — the deliberate "Details" click. */
   onOpenMarket: (symbol: string) => void;
   /** Points the chart at this market and stays put. */
@@ -1759,6 +1783,19 @@ function PendingList({ markets, allMarkets, configs, specs, onOpenMarket, onFocu
               <span className="font-mono">Triggers at {px(r.level)}</span>
               <span className="ml-auto whitespace-nowrap font-mono">{pips ?? r.note}</span>
             </div>
+
+            {/* Only on a buy, and only when it differs: the chart has to come
+                a spread further than the level before this can fill. Said
+                here so a fill that looks late is explained before it happens
+                rather than argued about afterwards. */}
+            {(() => {
+              const bidAt = fillsWhenBidReaches(r.side, r.level, quotes[r.symbol]?.spread);
+              return bidAt == null ? null : (
+                <p className="mt-0.5 font-mono text-[10px] text-fg-subtle/80">
+                  fills when the chart reaches {px(bidAt)} — a buy fills on the ask
+                </p>
+              );
+            })()}
             </button>
 
             {/* The answer, INSIDE the same card as the question — it used to be

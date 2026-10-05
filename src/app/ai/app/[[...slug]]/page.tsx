@@ -51,6 +51,7 @@ export default async function AiWorkspacePage({ params, searchParams }: {
 
   const {
     markets, configs, specs, closedTrades, equity, equityCurve, settings, proposals, lastUpdate,
+    quotes,
   } = await getBotOverview();
 
   const route = parseDeskRoute((await params).slug);
@@ -70,6 +71,7 @@ export default async function AiWorkspacePage({ params, searchParams }: {
   return (
     <Workspace
       markets={markets}
+      quotes={quotes}
       configs={configs}
       specs={specs}
       closedTrades={closedTrades}
