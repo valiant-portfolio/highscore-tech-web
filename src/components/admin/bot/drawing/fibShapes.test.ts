@@ -307,7 +307,6 @@ test('ready set is what Batches 0, A, B and C ship', () => {
 for (const s of ready) {
   test(`${s.variant}: one point short of the clicks draws only connectors and handles`, () => {
     const g = computeFibGeometry(makeFibDrawing(s.variant, samplePts.slice(0, s.clicks - 1), 'p'), ctx);
-    if (s.clicks - 1 < 2) { assert.equal(g, null); return; }
     assert.ok(g);
     assert.equal(g.levels.length + g.bands.length + g.lines.length + g.curves.length + g.polys.length + g.texts.length, 0);
     assert.equal(g.handles.length, s.clicks - 1);
@@ -560,4 +559,25 @@ test('dedekind: verticals stay inside the box; a narrow box clips its arcs', () 
   near(c0.pts[c0.pts.length - 1].x, 100); near(c0.pts[c0.pts.length - 1].y, 800);
   near(c1.pts[0].x, 150); near(c1.pts[0].y, y);
   near(c1.pts[c1.pts.length - 1].x, 100); near(c1.pts[c1.pts.length - 1].y, 900);
+});
+test('one point is a handle and nothing else', () => {
+  const g = computeFibGeometry(makeFibDrawing('retracement', [A], 'p'), ctx)!;
+  assert.deepEqual(g.handles, [{ id: 'p:0', x: 100, y: 900 }]);
+  assert.equal(g.connectors.length + g.levels.length + g.lines.length, 0);
+  assert.equal(g.x2, 101);
+});
+const barCtx: FibCtx = { ...ctx, barW: 6 };
+test('timezones: the same bar twice is a one-bar interval, not one pixel', () => {
+  const g = geo(makeFibDrawing('timezones', [A, { t: 6000, p: 150 }], 'z'), barCtx);
+  assert.deepEqual(g.lines.map((l) => l.x1), [100, 106, 112, 118, 130, 148, 178, 226, 304, 430, 634]);
+  assert.deepEqual(g.texts.map((t) => t.text), ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89']);
+});
+test('timezones: a real interval is untouched by the bar floor', () => {
+  const g = geo(makeFibDrawing('timezones', [A, B], 'z'), barCtx);
+  assert.deepEqual(g.lines.map((l) => l.x1), [100, 200, 300, 400, 600]);
+});
+test('trendtime: the same bar twice projects one bar per ratio', () => {
+  const g = geo(makeFibDrawing('trendtime', [A, A, C], 't'), barCtx);
+  near(g.lines[4].x1, 306);
+  near(g.lines[6].x1, 300 + 1.618 * 6);
 });

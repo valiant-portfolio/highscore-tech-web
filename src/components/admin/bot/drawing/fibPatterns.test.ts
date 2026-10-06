@@ -56,7 +56,8 @@ test('xabcd: partial previews, a single point draws nothing', () => {
   assert.equal(g.lines.length, 2);
   assert.equal(g.polys.length, 1);
   assert.deepEqual(g.texts.map((t) => t.text), ['X', 'A', 'B', '0.618']);
-  assert.equal(computeFibGeometry(mk('xabcd', [X]), ctx), null);
+  const one = geo(mk('xabcd', [X]));
+  assert.equal(one.lines.length + one.polys.length + one.texts.length, 0);
 });
 
 test('abcd: three legs, no fill, ratios at C and D', () => {
@@ -99,7 +100,8 @@ test('elliott impulse and correction through the registry', () => {
   const cor = geo(mk('elliottcorrection', [X, A, B]));
   assert.equal(cor.lines.length, 2);
   assert.deepEqual(cor.texts.map((t) => t.text), ['A', 'B', 'C']);
-  assert.equal(computeFibGeometry(mk('elliottcorrection', [X]), ctx), null);
+  const one = geo(mk('elliottcorrection', [X]));
+  assert.equal(one.lines.length + one.polys.length + one.texts.length, 0);
 });
 
 test('harmonic shapes build when called directly (legacy)', () => {

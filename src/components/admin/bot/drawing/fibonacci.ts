@@ -37,13 +37,13 @@ export function shiftFib(d: FibDrawing, dLogical: number, dPrice: number, bars: 
 const DASH: Record<string, string> = { solid: '', dashed: '6 4', dotted: '2 3' };
 
 /** Null if any point fails to project, or the variant is unknown or has no
- *  builder yet. With fewer points than the tool needs (the rubber band) only
- *  connectors and handles are returned. A level whose price fails to project
+ *  builder yet. With fewer points than the tool needs (the rubber band) — from
+ *  ONE point — only connectors and handles are returned. A level whose price fails to project
  *  is skipped on its own. */
 export function computeFibGeometry(d: FibDrawing, ctx: FibCtx): FibGeometry | null {
   const spec = FIB_SPECS[d.variant];
   const build = FIB_BUILDERS[d.variant];
-  if (!spec || !build || d.points.length < 2) return null;
+  if (!spec || !build || d.points.length < 1) return null;
   const pts: Pt[] = [];
   for (const pt of d.points) {
     const x = ctx.timeToX(pt.t);
@@ -70,7 +70,7 @@ export function computeFibGeometry(d: FibDrawing, ctx: FibCtx): FibGeometry | nu
     labelX: pts[0].x,
     labelY: pts[0].y - 12,
   };
-  if (pts.length < spec.clicks && !spec.partial) return base;
+  if (pts.length < 2 || (pts.length < spec.clicks && !spec.partial)) return base;
   return { ...base, ...build(pts.slice(0, spec.clicks), d, ctx) };
 }
 
