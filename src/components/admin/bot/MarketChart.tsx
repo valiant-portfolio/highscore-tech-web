@@ -2844,23 +2844,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     seriesRef.current = series;
 
     // Drawing: a click places a horizontal line at the price, or the two ends of
-    // a trend line. Reads the current tool from a ref so we subscribe only once.
-    /* THE TIME UNDER A CLICK — including past the last candle.
-     *
-     * param.time is set only when the click lands ON a bar. Click the gap to
-     * the right of the newest candle, which is exactly where you point a fork
-     * or a ray, and it is undefined — so the handler below used to bail and
-     * the click vanished. The preview already solved this in pixels and said
-     * so in its own comment; the click path never got the same treatment, and
-     * a tool that drops half your clicks reads as a tool that does nothing.
-     *
-     * Past the last bar there is no bar to ask, so the time is extrapolated
-     * from the last two: their spacing is the timeframe, and barSpacing is how
-     * wide a bar is on screen. That keeps the anchor a real timestamp rather
-     * than a pixel, which is what lets it survive a zoom. */
+    // a trend line. Read from a ref so the once-bound pointer handlers see it.
+    /* THE TIME UNDER A PRESS, including past the last candle: the bar SLOT
+     * under x, turned back into a time by logicalToTime - the exact inverse of
+     * how every point is projected (xAt), one bar interval per slot beyond
+     * either end. A real timestamp, not a pixel, so it survives a zoom. */
     const timeAtX = (x: number): number | null => {
-      // The exact inverse of the projection (xAt / fibCtx().timeToX): the
-      // nearest bar slot, which may be right of the newest candle.
       const bars = barsRef.current;
       const L = chart.timeScale().coordinateToLogical(x);
       return L === null ? null : logicalToTime(bars, inferBarSecs(bars), Math.round(L));
