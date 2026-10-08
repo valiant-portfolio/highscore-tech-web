@@ -2404,7 +2404,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         forkPts.current = []; setDraftLen(0);
         setDrawPending(false);
         clearPreview();
-        setDrawOpen(false);
+        setDrawOpen(false); setFibOpen(false); setPatOpen(false); setMeasOpen(false);
+        setBrushOpen(false); setTextOpen(false); setIconsOpen(false); setMagnetOpen(false);
         return;
       }
       /* TAP IT, THEN DELETE IT.
@@ -2574,6 +2575,22 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     drawings.current = [];
     forkPts.current = []; setDraftLen(0);
     persistDrawings();
+    redoStack.current = []; setSelected(null); clearPreview(); syncLabels();
+  };
+  /* The sync toggle swaps which storage key the drawings live under. The load
+   * effect only reads it on a market change, and re-running it for this would
+   * refetch every candle and refit the view; so this reloads just the drawings. */
+  const toggleSyncDraws = () => {
+    const next = !syncDraws;
+    setSyncDraws(next);
+    syncDrawsRef.current = next;
+    if (!symbol) return;
+    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
+    removeDrawingObjects();
+    drawKeyRef.current = next ? SHARED_DRAW_KEY : DRAW_KEY(symbol, tf);
+    drawings.current = next ? loadDrawings('', '') : loadDrawings(symbol, tf);
+    redoStack.current = [];
+    renderDrawings();
   };
 
   // Undo / redo, over the drawings only — the chart's pan and zoom are not
@@ -2584,6 +2601,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   const undoDrawing = () => {
     const d = drawings.current.pop();
     if (!d) return;
+    if (selectedRef.current?.id === d.id) setSelected(null);
     redoStack.current.push(d);
     repaint();
   };
@@ -3117,6 +3135,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       // Locked: the lines stay where they are. Without this, a pan that starts
       // near a level silently drags the level instead of the chart.
       if (lockedRef.current) return;
+      // Hidden drawings are not there to be grabbed.
+      if (drawingsHiddenRef.current) return;
       const { x, y } = localXY(e);
 
       /* AN ANCHOR FIRST, THE BODY SECOND.
@@ -3226,7 +3246,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const dg = drag.current;
       if (!dg) {
         if (toolRef.current === 'cursor') {
-          const over = hitTest(x, y);
+          const over = drawingsHiddenRef.current ? null : hitTest(x, y);
           el!.style.cursor = over ? 'grab' : '';
           // Only on change: this fires on every mouse move, and setting state
           // each time would re-render the chart continuously.
@@ -3343,7 +3363,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     setLoading(true);
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview();
+    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -4751,7 +4771,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 this shares them across every pane whatever it is showing. */}
             <RailBtn
               active={syncDraws}
-              onClick={() => setSyncDraws((v) => !v)}
+              onClick={toggleSyncDraws}
               title={syncDraws
                 ? 'Drawings shared across all charts — click to keep them per chart'
                 : 'Sync drawings on all charts'}
