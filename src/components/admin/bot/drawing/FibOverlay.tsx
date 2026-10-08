@@ -112,11 +112,11 @@ export function FibOverlay({
                   {t.text}
                 </text>
               ))}
-              {g.handles.map((h) => (
+              {(selected || isPreview) && g.handles.map((h) => (
                 <circle
                   key={h.id}
                   cx={h.x} cy={h.y}
-                  r={selected ? 5.5 : 4.5}
+                  r={5.5}
                   fill="var(--bg-elevated)"
                   stroke={handleColor}
                   strokeWidth={2}
