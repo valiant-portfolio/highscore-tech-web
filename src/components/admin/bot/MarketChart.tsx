@@ -2590,7 +2590,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     drawKeyRef.current = next ? SHARED_DRAW_KEY : DRAW_KEY(symbol, tf);
     drawings.current = next ? loadDrawings('', '') : loadDrawings(symbol, tf);
     redoStack.current = [];
-    renderDrawings();
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
   };
 
   // Undo / redo, over the drawings only — the chart's pan and zoom are not
@@ -2859,17 +2859,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
      * wide a bar is on screen. That keeps the anchor a real timestamp rather
      * than a pixel, which is what lets it survive a zoom. */
     const timeAtX = (x: number): number | null => {
-      const ts = chart.timeScale();
-      const onBar = ts.coordinateToTime(x);
-      if (onBar != null) return onBar as number;
+      // The exact inverse of the projection (xAt / fibCtx().timeToX): the
+      // nearest bar slot, which may be right of the newest candle.
       const bars = barsRef.current;
-      if (bars.length < 2) return null;
-      const last = bars[bars.length - 1].time as number;
-      const step = last - (bars[bars.length - 2].time as number);
-      const lastX = ts.timeToCoordinate(last as UTCTimestamp);
-      const spacing = ts.options().barSpacing;
-      if (lastX == null || step <= 0 || !spacing) return null;
-      return last + Math.round((x - (lastX as number)) / spacing) * step;
+      const L = chart.timeScale().coordinateToLogical(x);
+      return L === null ? null : logicalToTime(bars, inferBarSecs(bars), Math.round(L));
     };
     timeAtXRef.current = timeAtX;
 
@@ -3590,6 +3584,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         // extend the last historical bar (epoch buckets don't match broker weeks/months).
         if (!lb) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
+          if (!barsRef.current.length) barsRef.current = [liveBar.current];
         } else if (secs <= INTRADAY_MAX_SECS && (bucket as number) > (lb.time as number)) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
           // The projection grid must see every bar the series has.
@@ -3599,6 +3594,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           }
         } else {
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price, vol: lb.vol };
+          const known = barsRef.current;
+          if (known.length && (known[known.length - 1].time as number) === (lb.time as number)) known[known.length - 1] = liveBar.current;
         }
         series.update(liveBar.current);
         // The legend's C should track the live price, not the last close.
