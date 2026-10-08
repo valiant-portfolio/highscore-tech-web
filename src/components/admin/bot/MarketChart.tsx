@@ -29,7 +29,7 @@ import {
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  duplicateFib, shiftFib, moveFibPoint, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
   type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
@@ -2899,17 +2899,23 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     };
     snapRef.current = snapPoint;
 
-    const onClick = (param: MouseEventParams) => {
+    /* Driven from the wrapper's own pointer events (see onDown / endDrag), not
+     * chart.subscribeClick: the library drops the click for a second press
+     * within 500 ms and for a touch held 240 ms or more, so quick second clicks
+     * and slightly long taps were silently lost. */
+    const placeAt = (x: number, y: number) => {
       const t = toolRef.current;
       // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
       if (t === 'cursor') return;
       if (isFibTool(t)) {
-        // Before the `param.time` guard below: a fib anchor is a LOGICAL bar
-        // slot, so clicking right of the last candle (where param.time is
-        // undefined) is exactly where a projection wants to go.
-        if (!param.point) return;
-        const pt = clickToFibPoint(chartRef.current, seriesRef.current, param.point, barsRef.current);
+        // A fib anchor is a LOGICAL bar slot, so clicking right of the last
+        // candle (where there is no bar time) is exactly where a projection
+        // wants to go.
+        const pt = clickToFibPoint(chartRef.current, seriesRef.current, { x, y }, barsRef.current);
         if (!pt) return;
+        // A double-click lands the same point twice: a zero-length drawing.
+        const lastFib = fibPts.current[fibPts.current.length - 1];
+        if (lastFib && lastFib.t === pt.t && Math.abs(lastFib.p - pt.p) <= 1e-12) return;
         const variant = FIB_TOOL_VARIANT[t];
         fibPts.current.push(pt);
         const n = fibPts.current.length;
@@ -2933,15 +2939,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         syncLabels();
         return;
       }
-      if (!param.point) return;
-      const price = series.coordinateToPrice(param.point.y);
+      const price = series.coordinateToPrice(y);
       if (price == null) return;
-      const rawTime = (param.time as number | undefined) ?? timeAtX(param.point.x);
+      const rawTime = timeAtX(x);
       if (rawTime == null) return;
       // The magnet applies at the moment a point is placed, so what is STORED
       // is the candle's own time and price — not the cursor's, nudged to look
       // like it.
-      const snapped = snapPoint(rawTime, price as number, param.point.y);
+      const snapped = snapPoint(rawTime, price as number, y);
       const time = snapped.t;
       const sPrice = snapped.v as typeof price;
       /* THEIR onDown, generalised: push the click, and when there are as many
@@ -2949,6 +2954,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * tool instead of a branch each — and the same buildDrawing() the
        * preview uses, so what you aimed at is what you get. */
       const need = clicksNeeded(t, ALL_DRAW_TOOLS);
+      // Same point as the last one (a double-click): leave the draft pending.
+      const lastPt = forkPts.current[forkPts.current.length - 1];
+      if (need > 1 && lastPt && (lastPt.time as number) === time && Math.abs((lastPt.value as number) - (sPrice as number)) <= 1e-12) return;
       forkPts.current.push({ time: time as Time, value: sPrice });
       setDraftLen(forkPts.current.length);
       if (forkPts.current.length < need) { setDrawPending(true); return; }
@@ -2990,7 +2998,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (!keepToolRef.current) setTool('cursor');
       syncLabels();
     };
-    chart.subscribeClick(onClick);
+    // The press an armed tool may turn into a placement when it is released.
+    let pressAt: { x: number; y: number; id: number } | null = null;
 
     /* THE BAR UNDER THE CURSOR.
      *
@@ -3118,8 +3127,13 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       return null;
     };
     const onDown = (e: PointerEvent) => {
+      pressAt = null;
+      if (toolRef.current !== 'cursor' && !isFreehand(toolRef.current) && e.button === 0 && e.isPrimary) {
+        const p = localXY(e);
+        pressAt = { x: p.x, y: p.y, id: e.pointerId };
+      }
       /* A FREEHAND STROKE STARTS HERE, not in the click handler: it needs the
-       * whole press-drag-release, and subscribeClick only fires on release. */
+       * whole press-drag-release, and a click only exists on release. */
       if (isFreehand(toolRef.current)) {
         const { x, y } = localXY(e);
         const pr = series.coordinateToPrice(y);
@@ -3163,6 +3177,24 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         chart.applyOptions({ handleScroll: false, handleScale: false });
         try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
         return;
+      }
+      /* The fib family's anchors live in fibGeomsRef, not handlesRef. Only the
+       * selected drawing shows its dots, so only its dots can be grabbed. */
+      for (const g of fibGeomsRef.current) {
+        if (g.id !== selectedRef.current?.id) continue;
+        for (const h of g.handles) {
+          if (Math.hypot(h.x - x, h.y - y) > HANDLE_HIT) continue;
+          const idx = Number(h.id.slice(h.id.lastIndexOf(':') + 1));
+          if (!Number.isInteger(idx)) continue;
+          const d = drawings.current.find((k) => k.id === g.id);
+          if (!d) continue;
+          e.preventDefault();
+          setSelected(d);
+          drag.current = { id: g.id, kind: 'fib', lastX: x, lastY: y, anchor: idx };
+          chart.applyOptions({ handleScroll: false, handleScale: false });
+          try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+          return;
+        }
       }
 
       const hit = hitTest(x, y);
@@ -3268,10 +3300,16 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         d.price = p;
         hlineObjs.current.get(d.id)?.applyOptions({ price: p });
       } else if (d.kind === 'fib') {
-        // A fib carries as a whole; it has its own anchor handling.
-        const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
-        const dv = pNow != null && pLast != null ? pNow - pLast : 0;
-        shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
+        if (dg.anchor != null) {
+          // One anchor dot follows the cursor, snapped to a bar slot.
+          const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
+          if (pt) moveFibPoint(d, dg.anchor, pt);
+        } else {
+          // No anchor: the whole fib is carried.
+          const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
+          const dv = pNow != null && pLast != null ? pNow - pLast : 0;
+          shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
+        }
         syncLabels();
       } else if (dg.anchor != null) {
         /* ONE END, FOLLOWING THE CURSOR. Everything derived from the drawing is
@@ -3315,6 +3353,19 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       el!.style.cursor = 'grabbing';
     };
     const endDrag = (e: PointerEvent) => {
+      /* A press that is released where it landed is a click. Moved more than
+       * 5px it was a pan; a cancel or another button is not a click at all. The
+       * pane check keeps a release on the price or time axis from placing. */
+      const press = pressAt;
+      pressAt = null;
+      if (press && !drag.current && !strokeRef.current && e.type === 'pointerup' && e.button === 0
+        && e.pointerId === press.id && toolRef.current !== 'cursor' && !isFreehand(toolRef.current)) {
+        const { x, y } = localXY(e);
+        const size = chart.paneSize();
+        if (Math.hypot(x - press.x, y - press.y) <= 5 && x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
+          placeAt(x, y);
+        }
+      }
       /* The stroke ends when the button does. Two samples is the shortest thing
        * worth keeping — a single tap with a brush is a smudge, not a drawing. */
       if (strokeRef.current) {
@@ -3541,6 +3592,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
         } else if (secs <= INTRADAY_MAX_SECS && (bucket as number) > (lb.time as number)) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
+          // The projection grid must see every bar the series has.
+          const known = barsRef.current;
+          if (known.length && (known[known.length - 1].time as number) < (bucket as number)) {
+            barsRef.current = [...known, liveBar.current];
+          }
         } else {
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price, vol: lb.vol };
         }
