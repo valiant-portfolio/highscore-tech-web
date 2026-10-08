@@ -34,7 +34,7 @@ import {
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
-import { inferBarSecs } from './drawing/barTime.ts';
+import { inferBarSecs, timeToLogical, logicalToTime } from './drawing/barTime.ts';
 import { FibOverlay } from './drawing/FibOverlay.tsx';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
@@ -1453,6 +1453,8 @@ export function MarketChart({
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
     if (!s || !c) { clearOverlay(); return; }
+    const fc = fibCtx();
+    const xAt = (t: number): number | null => (fc ? fc.timeToX(t) : null);
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -1471,9 +1473,9 @@ export function MarketChart({
       if (d.kind !== 'trend') continue;
       const [tA, tB] = d.pts;
       if (!tA || !tB) continue;
-      const ax = c.timeScale().timeToCoordinate(tA.t as UTCTimestamp);
+      const ax = xAt(tA.t);
       const ay = s.priceToCoordinate(tA.v);
-      const bx = c.timeScale().timeToCoordinate(tB.t as UTCTimestamp);
+      const bx = xAt(tB.t);
       const by = s.priceToCoordinate(tB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
 
@@ -1539,7 +1541,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork') continue;
       const pt = (t: number, v: number) => {
-        const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const x = xAt(t);
         const y = s.priceToCoordinate(v);
         return x == null || y == null ? null : { x: x as number, y: y as number };
       };
@@ -1558,7 +1560,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'channel') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const cx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const cx0 = xAt(t);
         const cy0 = s.priceToCoordinate(v);
         return cx0 == null || cy0 == null ? null : { x: cx0 as number, y: cy0 as number };
       };
@@ -1653,7 +1655,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'freehand' && d.kind !== 'mark' && d.kind !== 'shape') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const bx = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const bx = xAt(t);
         const by = s.priceToCoordinate(v);
         return bx == null || by == null ? null : { x: bx as number, y: by as number };
       };
@@ -1772,7 +1774,7 @@ export function MarketChart({
       if (d.kind !== 'note') continue;
       const np = d.pts[0];
       if (!np) continue;
-      const nx = c.timeScale().timeToCoordinate(np.t as UTCTimestamp);
+      const nx = xAt(np.t);
       const ny = s.priceToCoordinate(np.v);
       if (nx == null || ny == null) continue;
       const x0 = nx as number, y0 = ny as number;
@@ -1815,7 +1817,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'measure') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const mx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const mx0 = xAt(t);
         const my0 = s.priceToCoordinate(v);
         return mx0 == null || my0 == null ? null : { x: mx0 as number, y: my0 as number };
       };
@@ -2031,7 +2033,7 @@ export function MarketChart({
        * is a line at a price you then have to read off the scale by eye. */
       const vp = d.pts[0];
       if (!vp) continue;
-      const cx = c.timeScale().timeToCoordinate(vp.t as UTCTimestamp);
+      const cx = xAt(vp.t);
       if (cx == null) continue;
       const color = d.color ?? DRAW_COLOR;
       const width = d.width ?? 2;
@@ -2070,9 +2072,9 @@ export function MarketChart({
       if (d.kind !== 'trend' || d.readout !== 'angle') continue;
       const [gA, gB] = d.pts;
       if (!gA || !gB) continue;
-      const ax = c.timeScale().timeToCoordinate(gA.t as UTCTimestamp);
+      const ax = xAt(gA.t);
       const ay = s.priceToCoordinate(gA.v);
-      const bx = c.timeScale().timeToCoordinate(gB.t as UTCTimestamp);
+      const bx = xAt(gB.t);
       const by = s.priceToCoordinate(gB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
       const x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
@@ -2213,7 +2215,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const reach = d.reach ?? 'segment';
       const [hA, hB] = d.pts;
       if (!hA || !hB) continue;
-      const x1 = c.timeScale().timeToCoordinate(hA.t as UTCTimestamp);
+      const x1 = xAt(hA.t);
       const y1 = s.priceToCoordinate(hA.v);
       if (x1 != null && y1 != null) hs.push({ id: `${d.id}:0`, x: x1 as number, y: y1 as number });
       /* The second click gets a handle on a RAY and an EXTENDED line too.
@@ -2228,7 +2230,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * A flat ray is the exception: it is horizontal by definition, so a
        * second handle would only offer to break that. */
       if (reach !== 'hray') {
-        const x2 = c.timeScale().timeToCoordinate(hB.t as UTCTimestamp);
+        const x2 = xAt(hB.t);
         const y2 = s.priceToCoordinate(hB.v);
         if (x2 != null && y2 != null) hs.push({ id: `${d.id}:1`, x: x2 as number, y: y2 as number });
       }
@@ -2238,7 +2240,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork' || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const x = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const x = xAt(q.t);
         const y = s.priceToCoordinate(q.v);
         if (x != null && y != null) hs.push({ id: `${d.id}:${i}`, x: x as number, y: y as number });
       });
@@ -2253,7 +2255,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * handle on it, and the one you could grab was somewhere you never
        * pressed. Theirs puts a grip exactly where you clicked. */
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2264,7 +2266,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
         && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2274,7 +2276,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
         && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2295,7 +2297,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'vline' && d.kind !== 'cross') || d.id !== selForHandles) continue;
       const q = d.pts[0];
       if (!q) continue;
-      const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+      const hx = xAt(q.t);
       if (hx == null) continue;
       const hy = d.kind === 'cross' ? s.priceToCoordinate(q.v) : H / 2;
       if (hy == null) continue;
@@ -2314,7 +2316,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     handlesRef.current = uniq;
     setHandles(uniq);
 
-    const fc = fibCtx();
     fibGeomsRef.current = fc ? computeFibGeometries(drawings.current, fc) : [];
     setFibGeoms(fibGeomsRef.current);
   };
@@ -3010,7 +3011,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     /* 12px for a mouse, matching the reference. 22 for a finger, which covers
      * far more than it points at — the same miss that reads as a near one with
      * a cursor reads as the drawing being dead to the touch. */
-    const HIT = coarseRef.current ? 22 : 12;
+    const hitR = () => (coarseRef.current ? 22 : 12);
     const localXY = (e: PointerEvent) => {
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -3021,22 +3022,24 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     const hitTest = (x: number, y: number): { id: string; kind: Drawing['kind'] } | null => {
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return null;
+      const fc = fibCtx();
+      const xAt = (t: number): number | null => (fc ? fc.timeToX(t) : null);
       for (const d of drawings.current) {
         if (d.kind !== 'hline') continue;
         const cy = s.priceToCoordinate(d.price);
-        if (cy != null && Math.abs(cy - y) <= HIT) return { id: d.id, kind: 'hline' };
+        if (cy != null && Math.abs(cy - y) <= hitR()) return { id: d.id, kind: 'hline' };
       }
       for (const d of drawings.current) {
         if (d.kind !== 'trend') continue;
         const [kA, kB] = d.pts;
         if (!kA || !kB) continue;
-        const x1 = c.timeScale().timeToCoordinate(kA.t as UTCTimestamp);
-        const x2 = c.timeScale().timeToCoordinate(kB.t as UTCTimestamp);
+        const x1 = xAt(kA.t);
+        const x2 = xAt(kB.t);
         const y1 = s.priceToCoordinate(kA.v), y2 = s.priceToCoordinate(kB.v);
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
-        if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
+        if (distToSeg(x, y, x1, y1, x2, y2) <= hitR()) return { id: d.id, kind: 'trend' };
       }
-      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, HIT);
+      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, hitR());
       if (fibId) return { id: fibId, kind: 'fib' };
       /* A NOTE IS GRABBED BY ITS WORDS.
        *
@@ -3057,7 +3060,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (d.kind !== 'note') continue;
         const q = d.pts[0];
         if (!q) continue;
-        const nx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const nx = xAt(q.t);
         const ny = s.priceToCoordinate(q.v);
         if (nx == null || ny == null) continue;
         const cx = nx as number, cy = ny as number;
@@ -3089,7 +3092,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
         for (const g of mine) {
-          if (distToSeg(x, y, g.x1, g.y1, g.x2, g.y2) <= HIT) {
+          if (distToSeg(x, y, g.x1, g.y1, g.x2, g.y2) <= hitR()) {
             return { id: d.id, kind: 'trend' };
           }
         }
@@ -3126,7 +3129,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        *
        * A slightly fatter radius than the line's, because a 9px dot is a small
        * thing to ask anyone to hit. */
-      const HANDLE_HIT = HIT + 4;
+      const HANDLE_HIT = hitR() + 4;
       for (const h of handlesRef.current) {
         if (Math.hypot(h.x - x, h.y - y) > HANDLE_HIT) continue;
         const [id, key] = h.id.split(':');
@@ -3206,7 +3209,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (pr != null && tt != null) {
           const pts = strokeRef.current;
           const prev = pts[pts.length - 1];
-          const px0 = c.timeScale().timeToCoordinate(prev.t as UTCTimestamp);
+          const mfc = fibCtx();
+          const px0 = mfc ? mfc.timeToX(prev.t) : null;
           const py0 = s.priceToCoordinate(prev.v);
           const far = px0 == null || py0 == null
             || Math.hypot((px0 as number) - x, (py0 as number) - y) >= 2;
@@ -3275,10 +3279,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           const dv = pNow - pLast;
           if (d.kind !== 'vline') for (const q of d.pts) q.v += dv;
         }
-        const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
-        if (tNow != null && tLast != null) {
-          const dt = (tNow as number) - (tLast as number);
-          for (const q of d.pts) q.t += dt;
+        const dL = dragDeltaLogical(c, dg.lastX, x);
+        if (dL) {
+          const bars = barsRef.current, secs = inferBarSecs(bars);
+          for (const q of d.pts) {
+            const L = timeToLogical(bars, secs, q.t);
+            const t = L === null ? null : logicalToTime(bars, secs, L + dL);
+            if (t !== null) q.t = Math.round(t);
+          }
         }
         // The overlay owns diagonals now, so moving one is just re-measuring.
         syncLabels();
