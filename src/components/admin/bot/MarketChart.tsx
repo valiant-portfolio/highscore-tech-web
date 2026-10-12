@@ -2623,9 +2623,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   const [overlaysOn, setOverlaysOn] = useState(true);
   const [reloadTick, setReloadTick] = useState(0);
   const loadedView = useRef('');
+  const overlaysOnRef = useRef(true);   // mirrors overlaysOn for the loader
   const toggleOverlays = () => {
     const next = !overlaysOn;
     setOverlaysOn(next);
+    overlaysOnRef.current = next;
     const series = seriesRef.current;
     if (!next && series) {
       overlayLines.current.forEach((l) => series.removePriceLine(l));
@@ -3460,7 +3462,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       setLastBar(bars.length ? bars[bars.length - 1] : null);
       series.setData(bars);
       redrawIndicators(); // recompute active indicators for the new candles
-      renderDrawings();   // re-draw saved manual annotations for this market/timeframe
+      if (!drawingsHiddenRef.current) renderDrawings(); else syncLabels();   // re-draw saved manual annotations for this market/timeframe
 
       // CLEAR every overlay from the previous market/timeframe first — otherwise
       // price lines (entry/SL/TP) and markers pile up on the axis and lines from
@@ -3501,8 +3503,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             text: buy ? 'BUY' : 'SELL',
           } as SeriesMarker<Time>;
         }).sort((a, b) => (a.time as number) - (b.time as number));
-        if (markersApi.current) markersApi.current.setMarkers(markers);
-        else markersApi.current = createSeriesMarkers(series, markers);
+        const shownMarkers = overlaysOnRef.current ? markers : [];
+        if (markersApi.current) markersApi.current.setMarkers(shownMarkers);
+        else markersApi.current = createSeriesMarkers(series, shownMarkers);
 
         // Entry / SL / TP overlay — for an OPEN position AND for a resting PENDING
         // order. bot_market_state is the authority: `level` is the entry (pending
@@ -3528,6 +3531,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             ? (openRow.side === 'sell' ? 'sell' : 'buy')
             : (sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy');
           const sideStr = activeSide.current === 'sell' ? 'SELL' : 'BUY';
+          // Hidden with the layers icon: keep the facts above, draw nothing.
+          if (overlaysOnRef.current) {
           // Entry line: solid once filled, dashed while the order is still pending.
           overlayLines.current.push(series.createPriceLine({
             price: entry, color: '#3b9de7', lineWidth: 2,
@@ -3537,6 +3542,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           // SL / TP are now drawn by default (pending and open alike) — no click needed.
           if (tradeSL.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeSL.current, color: palette.down, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
           if (tradeTP.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeTP.current, color: palette.up, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+          }
         }
       }
 
