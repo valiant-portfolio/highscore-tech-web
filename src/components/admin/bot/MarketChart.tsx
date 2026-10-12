@@ -36,6 +36,7 @@ import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
 import { inferBarSecs, timeToLogical, logicalToTime } from './drawing/barTime.ts';
 import { FibOverlay } from './drawing/FibOverlay.tsx';
+import { overlayNeedsRebuild } from './overlayState';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
@@ -2621,6 +2622,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   // hence the ref the loader also reads.
   const [overlaysOn, setOverlaysOn] = useState(true);
   const [reloadTick, setReloadTick] = useState(0);
+  const loadedView = useRef('');
   const toggleOverlays = () => {
     const next = !overlaysOn;
     setOverlaysOn(next);
@@ -3394,10 +3396,17 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   useEffect(() => {
     if (!symbol) return;
     let alive = true;
-    setLoading(true);
+    // A reload for a position opening or closing keeps the user's view: only a
+    // real symbol/timeframe change resets the draft, the selection and the zoom.
+    let loaded = false;
+    const viewChanged = loadedView.current !== `${symbol}|${tf}`;
+    loadedView.current = `${symbol}|${tf}`;
+    if (viewChanged) setLoading(true);   // a position-driven rebuild must not flash the loader
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
+    if (viewChanged) {
+      forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
+    }
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -3407,6 +3416,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       ? loadDrawings('', '')
       : loadDrawings(symbol, tf);
     clearOverlay(); // the old market's overlay must not linger, or stay hit-testable
+    // The drawing objects are rebuilt above, so a kept selection must point at the new copy.
+    if (!viewChanged) setSelected((s) => (s ? drawings.current.find((k) => k.id === s.id) ?? null : null));
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
@@ -3460,7 +3471,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
 
       if (bars.length) {
         liveBar.current = bars[bars.length - 1];
-        chartRef.current?.timeScale().fitContent();
+        if (viewChanged) chartRef.current?.timeScale().fitContent();
 
         // If the timeframe is short enough, draw all historical trades as arrows on
         // the candles. (On H4/D1, zooming way out to see years of history means the
@@ -3529,10 +3540,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         }
       }
 
+      loaded = true;
       setLoading(false);
     })();
 
-    return () => { alive = false; };
+    // A load cut short (strict-mode remount, quick switch) never fitted the view, so the next one must.
+    return () => { alive = false; if (!loaded && viewChanged) loadedView.current = ''; };
     // reloadTick: turning the trade overlays back on rebuilds them from the
     // same query that drew them in the first place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3542,6 +3555,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   useEffect(() => {
     if (!symbol) return;
     let alive = true;
+    // The market's state as of the previous tick. Undefined on the first tick
+    // after a symbol/timeframe change: the load effect has just drawn the
+    // overlays from fresh data, so that tick has nothing to rebuild.
+    let prevState: string | null | undefined;
 
     const tick = async () => {
       // Live quote + floating P&L, read directly from Supabase (no Netlify Function).
@@ -3560,6 +3577,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         state: (msRes.data?.state as string) ?? null,
       };
       setQuote(q);
+      // A failed read says nothing about the position: a 429 or an offline tick is not a close.
+      if (!msRes.error) {
+        if (prevState !== undefined && overlayNeedsRebuild(prevState, q.state)) setReloadTick((t) => t + 1);
+        prevState = q.state;
+      }
       const price = q.bid;
       const series = seriesRef.current;
       // Only move the chart when the quote is genuinely fresh — a stale feed
