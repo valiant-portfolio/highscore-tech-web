@@ -32,6 +32,12 @@ export function shiftFib(d: FibDrawing, dLogical: number, dPrice: number, bars: 
   });
 }
 
+/** Sets point i to pt (a copy). An index outside the drawing's points is a no-op. */
+export function moveFibPoint(d: FibDrawing, i: number, pt: FibPoint): void {
+  if (!Number.isInteger(i) || i < 0 || i >= d.points.length) return;
+  d.points = d.points.map((q, k) => (k === i ? { t: pt.t, p: pt.p } : q));
+}
+
 // --- screen geometry -------------------------------------------------------
 
 const DASH: Record<string, string> = { solid: '', dashed: '6 4', dotted: '2 3' };

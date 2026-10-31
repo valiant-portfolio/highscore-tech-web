@@ -15,7 +15,8 @@
 // that the trading loop stays at 30s; this is about the browser's ears, not
 // the bot's voice.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { adoptServerRows } from './adoptServerRows';
 import { createBotClient } from '@/lib/supabase/bot-client';
 import type { BotMarket } from '@/lib/admin/trading-bot-queries';
 
@@ -35,11 +36,15 @@ export function useLiveMarkets(initial: BotMarket[]): LiveState {
   const [connected, setConnected] = useState(false);
 
   // The server re-renders on navigation and on revalidate; adopt those rows
-  // unless we have already heard something newer over the socket.
-  const heard = useRef(false);
-  useEffect(() => {
-    if (!heard.current) setMarkets(initial);
-  }, [initial]);
+  // unless the socket has already shown a row that is newer. Realtime does not
+  // replay what it missed while reconnecting, so the server rows win otherwise.
+  // Done while rendering, React's own pattern for state derived from a changed
+  // prop; an effect would set state synchronously and cascade a second render.
+  const [seenInitial, setSeenInitial] = useState(initial);
+  if (seenInitial !== initial) {
+    setSeenInitial(initial);
+    setMarkets((prev) => adoptServerRows(prev, initial));
+  }
 
   useEffect(() => {
     const supabase = createBotClient();
@@ -51,7 +56,6 @@ export function useLiveMarkets(initial: BotMarket[]): LiveState {
         (payload) => {
           const row = payload.new as BotMarket | undefined;
           if (!row?.symbol) return;
-          heard.current = true;
           setLastEvent(new Date().toISOString());
           // Merge rather than replace: the payload is one market, and the
           // bot writes them one row at a time.

@@ -29,13 +29,14 @@ import {
 import { TimeAgo } from './BotBits';
 import {
   computeFibGeometries, computeFibGeometry, fibHitTest, makeFibDrawing, fibClicksNeeded,
-  duplicateFib, shiftFib, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
+  duplicateFib, shiftFib, moveFibPoint, fibPrompt, FIB_SPECS, FIB_SPEC_LIST, GANN_SPEC_LIST, GEOMETRY_SPEC_LIST, PATTERN_SPEC_LIST, ELLIOTT_SPEC_LIST, HARMONIC_SPEC_LIST, ALL_SPEC_LIST, FIB_TOOL_VARIANT,
   type FibSpec, type FibDrawing, type FibGeometry, type FibPoint, type FibToolId, type FibToggle,
 } from './drawing/fibonacci.ts';
 import { FIB_TOOL_ICONS } from './drawing/fibTools.tsx';
 import { makeFibCtx, clickToFibPoint, dragDeltaLogical } from './drawing/fibChart.ts';
-import { inferBarSecs } from './drawing/barTime.ts';
+import { inferBarSecs, timeToLogical, logicalToTime } from './drawing/barTime.ts';
 import { FibOverlay } from './drawing/FibOverlay.tsx';
+import { overlayNeedsRebuild } from './overlayState';
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type UTCTimestamp, type Time,
@@ -1453,6 +1454,8 @@ export function MarketChart({
   const syncLabels = () => {
     const s = seriesRef.current, c = chartRef.current;
     if (!s || !c) { clearOverlay(); return; }
+    const fc = fibCtx();
+    const xAt = (t: number): number | null => (fc ? fc.timeToX(t) : null);
 
     const W = wrapRef.current?.clientWidth ?? 0;
     const H = wrapRef.current?.clientHeight ?? 0;
@@ -1471,9 +1474,9 @@ export function MarketChart({
       if (d.kind !== 'trend') continue;
       const [tA, tB] = d.pts;
       if (!tA || !tB) continue;
-      const ax = c.timeScale().timeToCoordinate(tA.t as UTCTimestamp);
+      const ax = xAt(tA.t);
       const ay = s.priceToCoordinate(tA.v);
-      const bx = c.timeScale().timeToCoordinate(tB.t as UTCTimestamp);
+      const bx = xAt(tB.t);
       const by = s.priceToCoordinate(tB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
 
@@ -1539,7 +1542,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork') continue;
       const pt = (t: number, v: number) => {
-        const x = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const x = xAt(t);
         const y = s.priceToCoordinate(v);
         return x == null || y == null ? null : { x: x as number, y: y as number };
       };
@@ -1558,7 +1561,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'channel') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const cx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const cx0 = xAt(t);
         const cy0 = s.priceToCoordinate(v);
         return cx0 == null || cy0 == null ? null : { x: cx0 as number, y: cy0 as number };
       };
@@ -1653,7 +1656,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'freehand' && d.kind !== 'mark' && d.kind !== 'shape') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const bx = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const bx = xAt(t);
         const by = s.priceToCoordinate(v);
         return bx == null || by == null ? null : { x: bx as number, y: by as number };
       };
@@ -1772,7 +1775,7 @@ export function MarketChart({
       if (d.kind !== 'note') continue;
       const np = d.pts[0];
       if (!np) continue;
-      const nx = c.timeScale().timeToCoordinate(np.t as UTCTimestamp);
+      const nx = xAt(np.t);
       const ny = s.priceToCoordinate(np.v);
       if (nx == null || ny == null) continue;
       const x0 = nx as number, y0 = ny as number;
@@ -1815,7 +1818,7 @@ export function MarketChart({
     for (const d of drawDraft()) {
       if (d.kind !== 'measure') continue;
       const pt = (t: number, v: number): Pt | null => {
-        const mx0 = c.timeScale().timeToCoordinate(t as UTCTimestamp);
+        const mx0 = xAt(t);
         const my0 = s.priceToCoordinate(v);
         return mx0 == null || my0 == null ? null : { x: mx0 as number, y: my0 as number };
       };
@@ -2031,7 +2034,7 @@ export function MarketChart({
        * is a line at a price you then have to read off the scale by eye. */
       const vp = d.pts[0];
       if (!vp) continue;
-      const cx = c.timeScale().timeToCoordinate(vp.t as UTCTimestamp);
+      const cx = xAt(vp.t);
       if (cx == null) continue;
       const color = d.color ?? DRAW_COLOR;
       const width = d.width ?? 2;
@@ -2070,9 +2073,9 @@ export function MarketChart({
       if (d.kind !== 'trend' || d.readout !== 'angle') continue;
       const [gA, gB] = d.pts;
       if (!gA || !gB) continue;
-      const ax = c.timeScale().timeToCoordinate(gA.t as UTCTimestamp);
+      const ax = xAt(gA.t);
       const ay = s.priceToCoordinate(gA.v);
-      const bx = c.timeScale().timeToCoordinate(gB.t as UTCTimestamp);
+      const bx = xAt(gB.t);
       const by = s.priceToCoordinate(gB.v);
       if (ax == null || ay == null || bx == null || by == null) continue;
       const x1 = ax as number, y1 = ay as number, x2 = bx as number, y2 = by as number;
@@ -2213,7 +2216,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const reach = d.reach ?? 'segment';
       const [hA, hB] = d.pts;
       if (!hA || !hB) continue;
-      const x1 = c.timeScale().timeToCoordinate(hA.t as UTCTimestamp);
+      const x1 = xAt(hA.t);
       const y1 = s.priceToCoordinate(hA.v);
       if (x1 != null && y1 != null) hs.push({ id: `${d.id}:0`, x: x1 as number, y: y1 as number });
       /* The second click gets a handle on a RAY and an EXTENDED line too.
@@ -2228,7 +2231,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * A flat ray is the exception: it is horizontal by definition, so a
        * second handle would only offer to break that. */
       if (reach !== 'hray') {
-        const x2 = c.timeScale().timeToCoordinate(hB.t as UTCTimestamp);
+        const x2 = xAt(hB.t);
         const y2 = s.priceToCoordinate(hB.v);
         if (x2 != null && y2 != null) hs.push({ id: `${d.id}:1`, x: x2 as number, y: y2 as number });
       }
@@ -2238,7 +2241,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     for (const d of drawDraft()) {
       if (d.kind !== 'pitchfork' || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const x = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const x = xAt(q.t);
         const y = s.priceToCoordinate(q.v);
         if (x != null && y != null) hs.push({ id: `${d.id}:${i}`, x: x as number, y: y as number });
       });
@@ -2253,7 +2256,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * handle on it, and the one you could grab was somewhere you never
        * pressed. Theirs puts a grip exactly where you clicked. */
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2264,7 +2267,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
         && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2274,7 +2277,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'measure' && d.kind !== 'note' && d.kind !== 'mark'
         && d.kind !== 'shape') || d.id !== selForHandles) continue;
       d.pts.forEach((q, i) => {
-        const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const hx = xAt(q.t);
         const hy = s.priceToCoordinate(q.v);
         if (hx != null && hy != null) hs.push({ id: `${d.id}:${i}`, x: hx as number, y: hy as number });
       });
@@ -2295,7 +2298,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if ((d.kind !== 'vline' && d.kind !== 'cross') || d.id !== selForHandles) continue;
       const q = d.pts[0];
       if (!q) continue;
-      const hx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+      const hx = xAt(q.t);
       if (hx == null) continue;
       const hy = d.kind === 'cross' ? s.priceToCoordinate(q.v) : H / 2;
       if (hy == null) continue;
@@ -2314,7 +2317,6 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     handlesRef.current = uniq;
     setHandles(uniq);
 
-    const fc = fibCtx();
     fibGeomsRef.current = fc ? computeFibGeometries(drawings.current, fc) : [];
     setFibGeoms(fibGeomsRef.current);
   };
@@ -2403,7 +2405,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         forkPts.current = []; setDraftLen(0);
         setDrawPending(false);
         clearPreview();
-        setDrawOpen(false);
+        setDrawOpen(false); setFibOpen(false); setPatOpen(false); setMeasOpen(false);
+        setBrushOpen(false); setTextOpen(false); setIconsOpen(false); setMagnetOpen(false);
         return;
       }
       /* TAP IT, THEN DELETE IT.
@@ -2573,6 +2576,22 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     drawings.current = [];
     forkPts.current = []; setDraftLen(0);
     persistDrawings();
+    redoStack.current = []; setSelected(null); clearPreview(); syncLabels();
+  };
+  /* The sync toggle swaps which storage key the drawings live under. The load
+   * effect only reads it on a market change, and re-running it for this would
+   * refetch every candle and refit the view; so this reloads just the drawings. */
+  const toggleSyncDraws = () => {
+    const next = !syncDraws;
+    setSyncDraws(next);
+    syncDrawsRef.current = next;
+    if (!symbol) return;
+    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
+    removeDrawingObjects();
+    drawKeyRef.current = next ? SHARED_DRAW_KEY : DRAW_KEY(symbol, tf);
+    drawings.current = next ? loadDrawings('', '') : loadDrawings(symbol, tf);
+    redoStack.current = [];
+    if (!drawingsHidden) renderDrawings(); else syncLabels();
   };
 
   // Undo / redo, over the drawings only — the chart's pan and zoom are not
@@ -2583,6 +2602,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   const undoDrawing = () => {
     const d = drawings.current.pop();
     if (!d) return;
+    if (selectedRef.current?.id === d.id) setSelected(null);
     redoStack.current.push(d);
     repaint();
   };
@@ -2602,9 +2622,12 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   // hence the ref the loader also reads.
   const [overlaysOn, setOverlaysOn] = useState(true);
   const [reloadTick, setReloadTick] = useState(0);
+  const loadedView = useRef('');
+  const overlaysOnRef = useRef(true);   // mirrors overlaysOn for the loader
   const toggleOverlays = () => {
     const next = !overlaysOn;
     setOverlaysOn(next);
+    overlaysOnRef.current = next;
     const series = seriesRef.current;
     if (!next && series) {
       overlayLines.current.forEach((l) => series.removePriceLine(l));
@@ -2825,32 +2848,15 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     seriesRef.current = series;
 
     // Drawing: a click places a horizontal line at the price, or the two ends of
-    // a trend line. Reads the current tool from a ref so we subscribe only once.
-    /* THE TIME UNDER A CLICK — including past the last candle.
-     *
-     * param.time is set only when the click lands ON a bar. Click the gap to
-     * the right of the newest candle, which is exactly where you point a fork
-     * or a ray, and it is undefined — so the handler below used to bail and
-     * the click vanished. The preview already solved this in pixels and said
-     * so in its own comment; the click path never got the same treatment, and
-     * a tool that drops half your clicks reads as a tool that does nothing.
-     *
-     * Past the last bar there is no bar to ask, so the time is extrapolated
-     * from the last two: their spacing is the timeframe, and barSpacing is how
-     * wide a bar is on screen. That keeps the anchor a real timestamp rather
-     * than a pixel, which is what lets it survive a zoom. */
+    // a trend line. Read from a ref so the once-bound pointer handlers see it.
+    /* THE TIME UNDER A PRESS, including past the last candle: the bar SLOT
+     * under x, turned back into a time by logicalToTime - the exact inverse of
+     * how every point is projected (xAt), one bar interval per slot beyond
+     * either end. A real timestamp, not a pixel, so it survives a zoom. */
     const timeAtX = (x: number): number | null => {
-      const ts = chart.timeScale();
-      const onBar = ts.coordinateToTime(x);
-      if (onBar != null) return onBar as number;
       const bars = barsRef.current;
-      if (bars.length < 2) return null;
-      const last = bars[bars.length - 1].time as number;
-      const step = last - (bars[bars.length - 2].time as number);
-      const lastX = ts.timeToCoordinate(last as UTCTimestamp);
-      const spacing = ts.options().barSpacing;
-      if (lastX == null || step <= 0 || !spacing) return null;
-      return last + Math.round((x - (lastX as number)) / spacing) * step;
+      const L = chart.timeScale().coordinateToLogical(x);
+      return L === null ? null : logicalToTime(bars, inferBarSecs(bars), Math.round(L));
     };
     timeAtXRef.current = timeAtX;
 
@@ -2880,17 +2886,23 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     };
     snapRef.current = snapPoint;
 
-    const onClick = (param: MouseEventParams) => {
+    /* Driven from the wrapper's own pointer events (see onDown / endDrag), not
+     * chart.subscribeClick: the library drops the click for a second press
+     * within 500 ms and for a touch held 240 ms or more, so quick second clicks
+     * and slightly long taps were silently lost. */
+    const placeAt = (x: number, y: number) => {
       const t = toolRef.current;
       // Cursor is a plain crosshair now; SL/TP overlays are always drawn.
       if (t === 'cursor') return;
       if (isFibTool(t)) {
-        // Before the `param.time` guard below: a fib anchor is a LOGICAL bar
-        // slot, so clicking right of the last candle (where param.time is
-        // undefined) is exactly where a projection wants to go.
-        if (!param.point) return;
-        const pt = clickToFibPoint(chartRef.current, seriesRef.current, param.point, barsRef.current);
+        // A fib anchor is a LOGICAL bar slot, so clicking right of the last
+        // candle (where there is no bar time) is exactly where a projection
+        // wants to go.
+        const pt = clickToFibPoint(chartRef.current, seriesRef.current, { x, y }, barsRef.current);
         if (!pt) return;
+        // A double-click lands the same point twice: a zero-length drawing.
+        const lastFib = fibPts.current[fibPts.current.length - 1];
+        if (lastFib && lastFib.t === pt.t && Math.abs(lastFib.p - pt.p) <= 1e-12) return;
         const variant = FIB_TOOL_VARIANT[t];
         fibPts.current.push(pt);
         const n = fibPts.current.length;
@@ -2914,15 +2926,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         syncLabels();
         return;
       }
-      if (!param.point) return;
-      const price = series.coordinateToPrice(param.point.y);
+      const price = series.coordinateToPrice(y);
       if (price == null) return;
-      const rawTime = (param.time as number | undefined) ?? timeAtX(param.point.x);
+      const rawTime = timeAtX(x);
       if (rawTime == null) return;
       // The magnet applies at the moment a point is placed, so what is STORED
       // is the candle's own time and price — not the cursor's, nudged to look
       // like it.
-      const snapped = snapPoint(rawTime, price as number, param.point.y);
+      const snapped = snapPoint(rawTime, price as number, y);
       const time = snapped.t;
       const sPrice = snapped.v as typeof price;
       /* THEIR onDown, generalised: push the click, and when there are as many
@@ -2930,6 +2941,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        * tool instead of a branch each — and the same buildDrawing() the
        * preview uses, so what you aimed at is what you get. */
       const need = clicksNeeded(t, ALL_DRAW_TOOLS);
+      // Same point as the last one (a double-click): leave the draft pending.
+      const lastPt = forkPts.current[forkPts.current.length - 1];
+      if (need > 1 && lastPt && (lastPt.time as number) === time && Math.abs((lastPt.value as number) - (sPrice as number)) <= 1e-12) return;
       forkPts.current.push({ time: time as Time, value: sPrice });
       setDraftLen(forkPts.current.length);
       if (forkPts.current.length < need) { setDrawPending(true); return; }
@@ -2971,7 +2985,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       if (!keepToolRef.current) setTool('cursor');
       syncLabels();
     };
-    chart.subscribeClick(onClick);
+    // The press an armed tool may turn into a placement when it is released.
+    let pressAt: { x: number; y: number; id: number } | null = null;
 
     /* THE BAR UNDER THE CURSOR.
      *
@@ -3010,7 +3025,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     /* 12px for a mouse, matching the reference. 22 for a finger, which covers
      * far more than it points at — the same miss that reads as a near one with
      * a cursor reads as the drawing being dead to the touch. */
-    const HIT = coarseRef.current ? 22 : 12;
+    const hitR = () => (coarseRef.current ? 22 : 12);
     const localXY = (e: PointerEvent) => {
       const r = el!.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -3021,22 +3036,24 @@ ${bars} bars · ${degI.toFixed(1)}°`;
     const hitTest = (x: number, y: number): { id: string; kind: Drawing['kind'] } | null => {
       const s = seriesRef.current, c = chartRef.current;
       if (!s || !c) return null;
+      const fc = fibCtx();
+      const xAt = (t: number): number | null => (fc ? fc.timeToX(t) : null);
       for (const d of drawings.current) {
         if (d.kind !== 'hline') continue;
         const cy = s.priceToCoordinate(d.price);
-        if (cy != null && Math.abs(cy - y) <= HIT) return { id: d.id, kind: 'hline' };
+        if (cy != null && Math.abs(cy - y) <= hitR()) return { id: d.id, kind: 'hline' };
       }
       for (const d of drawings.current) {
         if (d.kind !== 'trend') continue;
         const [kA, kB] = d.pts;
         if (!kA || !kB) continue;
-        const x1 = c.timeScale().timeToCoordinate(kA.t as UTCTimestamp);
-        const x2 = c.timeScale().timeToCoordinate(kB.t as UTCTimestamp);
+        const x1 = xAt(kA.t);
+        const x2 = xAt(kB.t);
         const y1 = s.priceToCoordinate(kA.v), y2 = s.priceToCoordinate(kB.v);
         if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
-        if (distToSeg(x, y, x1, y1, x2, y2) <= HIT) return { id: d.id, kind: 'trend' };
+        if (distToSeg(x, y, x1, y1, x2, y2) <= hitR()) return { id: d.id, kind: 'trend' };
       }
-      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, HIT);
+      const fibId = drawingsHiddenRef.current ? null : fibHitTest(fibGeomsRef.current, x, y, hitR());
       if (fibId) return { id: fibId, kind: 'fib' };
       /* A NOTE IS GRABBED BY ITS WORDS.
        *
@@ -3057,7 +3074,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (d.kind !== 'note') continue;
         const q = d.pts[0];
         if (!q) continue;
-        const nx = c.timeScale().timeToCoordinate(q.t as UTCTimestamp);
+        const nx = xAt(q.t);
         const ny = s.priceToCoordinate(q.v);
         if (nx == null || ny == null) continue;
         const cx = nx as number, cy = ny as number;
@@ -3089,7 +3106,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           (g) => g.id === d.id || g.id.startsWith(`${d.id}#`),
         );
         for (const g of mine) {
-          if (distToSeg(x, y, g.x1, g.y1, g.x2, g.y2) <= HIT) {
+          if (distToSeg(x, y, g.x1, g.y1, g.x2, g.y2) <= hitR()) {
             return { id: d.id, kind: 'trend' };
           }
         }
@@ -3097,8 +3114,13 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       return null;
     };
     const onDown = (e: PointerEvent) => {
+      pressAt = null;
+      if (toolRef.current !== 'cursor' && !isFreehand(toolRef.current) && e.button === 0 && e.isPrimary) {
+        const p = localXY(e);
+        pressAt = { x: p.x, y: p.y, id: e.pointerId };
+      }
       /* A FREEHAND STROKE STARTS HERE, not in the click handler: it needs the
-       * whole press-drag-release, and subscribeClick only fires on release. */
+       * whole press-drag-release, and a click only exists on release. */
       if (isFreehand(toolRef.current)) {
         const { x, y } = localXY(e);
         const pr = series.coordinateToPrice(y);
@@ -3114,6 +3136,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       // Locked: the lines stay where they are. Without this, a pan that starts
       // near a level silently drags the level instead of the chart.
       if (lockedRef.current) return;
+      // Hidden drawings are not there to be grabbed.
+      if (drawingsHiddenRef.current) return;
       const { x, y } = localXY(e);
 
       /* AN ANCHOR FIRST, THE BODY SECOND.
@@ -3126,7 +3150,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
        *
        * A slightly fatter radius than the line's, because a 9px dot is a small
        * thing to ask anyone to hit. */
-      const HANDLE_HIT = HIT + 4;
+      const HANDLE_HIT = hitR() + 4;
       for (const h of handlesRef.current) {
         if (Math.hypot(h.x - x, h.y - y) > HANDLE_HIT) continue;
         const [id, key] = h.id.split(':');
@@ -3140,6 +3164,24 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         chart.applyOptions({ handleScroll: false, handleScale: false });
         try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
         return;
+      }
+      /* The fib family's anchors live in fibGeomsRef, not handlesRef. Only the
+       * selected drawing shows its dots, so only its dots can be grabbed. */
+      for (const g of fibGeomsRef.current) {
+        if (g.id !== selectedRef.current?.id) continue;
+        for (const h of g.handles) {
+          if (Math.hypot(h.x - x, h.y - y) > HANDLE_HIT) continue;
+          const idx = Number(h.id.slice(h.id.lastIndexOf(':') + 1));
+          if (!Number.isInteger(idx)) continue;
+          const d = drawings.current.find((k) => k.id === g.id);
+          if (!d) continue;
+          e.preventDefault();
+          setSelected(d);
+          drag.current = { id: g.id, kind: 'fib', lastX: x, lastY: y, anchor: idx };
+          chart.applyOptions({ handleScroll: false, handleScale: false });
+          try { el!.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+          return;
+        }
       }
 
       const hit = hitTest(x, y);
@@ -3206,7 +3248,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         if (pr != null && tt != null) {
           const pts = strokeRef.current;
           const prev = pts[pts.length - 1];
-          const px0 = c.timeScale().timeToCoordinate(prev.t as UTCTimestamp);
+          const mfc = fibCtx();
+          const px0 = mfc ? mfc.timeToX(prev.t) : null;
           const py0 = s.priceToCoordinate(prev.v);
           const far = px0 == null || py0 == null
             || Math.hypot((px0 as number) - x, (py0 as number) - y) >= 2;
@@ -3222,7 +3265,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       const dg = drag.current;
       if (!dg) {
         if (toolRef.current === 'cursor') {
-          const over = hitTest(x, y);
+          const over = drawingsHiddenRef.current ? null : hitTest(x, y);
           el!.style.cursor = over ? 'grab' : '';
           // Only on change: this fires on every mouse move, and setting state
           // each time would re-render the chart continuously.
@@ -3244,10 +3287,16 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         d.price = p;
         hlineObjs.current.get(d.id)?.applyOptions({ price: p });
       } else if (d.kind === 'fib') {
-        // A fib carries as a whole; it has its own anchor handling.
-        const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
-        const dv = pNow != null && pLast != null ? pNow - pLast : 0;
-        shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
+        if (dg.anchor != null) {
+          // One anchor dot follows the cursor, snapped to a bar slot.
+          const pt = clickToFibPoint(c, s, { x, y }, barsRef.current);
+          if (pt) moveFibPoint(d, dg.anchor, pt);
+        } else {
+          // No anchor: the whole fib is carried.
+          const pNow = s.coordinateToPrice(y), pLast = s.coordinateToPrice(dg.lastY);
+          const dv = pNow != null && pLast != null ? pNow - pLast : 0;
+          shiftFib(d, dragDeltaLogical(c, dg.lastX, x), dv, barsRef.current, inferBarSecs(barsRef.current));
+        }
         syncLabels();
       } else if (dg.anchor != null) {
         /* ONE END, FOLLOWING THE CURSOR. Everything derived from the drawing is
@@ -3275,10 +3324,14 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           const dv = pNow - pLast;
           if (d.kind !== 'vline') for (const q of d.pts) q.v += dv;
         }
-        const tNow = c.timeScale().coordinateToTime(x), tLast = c.timeScale().coordinateToTime(dg.lastX);
-        if (tNow != null && tLast != null) {
-          const dt = (tNow as number) - (tLast as number);
-          for (const q of d.pts) q.t += dt;
+        const dL = dragDeltaLogical(c, dg.lastX, x);
+        if (dL) {
+          const bars = barsRef.current, secs = inferBarSecs(bars);
+          for (const q of d.pts) {
+            const L = timeToLogical(bars, secs, q.t);
+            const t = L === null ? null : logicalToTime(bars, secs, L + dL);
+            if (t !== null) q.t = Math.round(t);
+          }
         }
         // The overlay owns diagonals now, so moving one is just re-measuring.
         syncLabels();
@@ -3287,6 +3340,19 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       el!.style.cursor = 'grabbing';
     };
     const endDrag = (e: PointerEvent) => {
+      /* A press that is released where it landed is a click. Moved more than
+       * 5px it was a pan; a cancel or another button is not a click at all. The
+       * pane check keeps a release on the price or time axis from placing. */
+      const press = pressAt;
+      pressAt = null;
+      if (press && !drag.current && !strokeRef.current && e.type === 'pointerup' && e.button === 0
+        && e.pointerId === press.id && toolRef.current !== 'cursor' && !isFreehand(toolRef.current)) {
+        const { x, y } = localXY(e);
+        const size = chart.paneSize();
+        if (Math.hypot(x - press.x, y - press.y) <= 5 && x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
+          placeAt(x, y);
+        }
+      }
       /* The stroke ends when the button does. Two samples is the shortest thing
        * worth keeping — a single tap with a brush is a smudge, not a drawing. */
       if (strokeRef.current) {
@@ -3332,10 +3398,17 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   useEffect(() => {
     if (!symbol) return;
     let alive = true;
-    setLoading(true);
+    // A reload for a position opening or closing keeps the user's view: only a
+    // real symbol/timeframe change resets the draft, the selection and the zoom.
+    let loaded = false;
+    const viewChanged = loadedView.current !== `${symbol}|${tf}`;
+    loadedView.current = `${symbol}|${tf}`;
+    if (viewChanged) setLoading(true);   // a position-driven rebuild must not flash the loader
     liveBar.current = null;
     // A half-drawn line or fib belongs to the market it was started on.
-    forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview();
+    if (viewChanged) {
+      forkPts.current = []; setDraftLen(0); setDrawPending(false); clearPreview(); setSelected(null);
+    }
     // Detach the previous market's drawing objects (keep them saved), then switch
     // the storage key and load this market/timeframe's saved drawings. They are
     // rendered after the candles load (trend lines need the time axis).
@@ -3345,6 +3418,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       ? loadDrawings('', '')
       : loadDrawings(symbol, tf);
     clearOverlay(); // the old market's overlay must not linger, or stay hit-testable
+    // The drawing objects are rebuilt above, so a kept selection must point at the new copy.
+    if (!viewChanged) setSelected((s) => (s ? drawings.current.find((k) => k.id === s.id) ?? null : null));
 
     (async () => {
       // Read straight from Supabase (admin-gated by RLS) — no Netlify Function.
@@ -3387,7 +3462,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
       setLastBar(bars.length ? bars[bars.length - 1] : null);
       series.setData(bars);
       redrawIndicators(); // recompute active indicators for the new candles
-      renderDrawings();   // re-draw saved manual annotations for this market/timeframe
+      if (!drawingsHiddenRef.current) renderDrawings(); else syncLabels();   // re-draw saved manual annotations for this market/timeframe
 
       // CLEAR every overlay from the previous market/timeframe first — otherwise
       // price lines (entry/SL/TP) and markers pile up on the axis and lines from
@@ -3398,7 +3473,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
 
       if (bars.length) {
         liveBar.current = bars[bars.length - 1];
-        chartRef.current?.timeScale().fitContent();
+        if (viewChanged) chartRef.current?.timeScale().fitContent();
 
         // If the timeframe is short enough, draw all historical trades as arrows on
         // the candles. (On H4/D1, zooming way out to see years of history means the
@@ -3428,8 +3503,9 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             text: buy ? 'BUY' : 'SELL',
           } as SeriesMarker<Time>;
         }).sort((a, b) => (a.time as number) - (b.time as number));
-        if (markersApi.current) markersApi.current.setMarkers(markers);
-        else markersApi.current = createSeriesMarkers(series, markers);
+        const shownMarkers = overlaysOnRef.current ? markers : [];
+        if (markersApi.current) markersApi.current.setMarkers(shownMarkers);
+        else markersApi.current = createSeriesMarkers(series, shownMarkers);
 
         // Entry / SL / TP overlay — for an OPEN position AND for a resting PENDING
         // order. bot_market_state is the authority: `level` is the entry (pending
@@ -3455,6 +3531,8 @@ ${bars} bars · ${degI.toFixed(1)}°`;
             ? (openRow.side === 'sell' ? 'sell' : 'buy')
             : (sig.startsWith('SHORT') || sig.startsWith('SELL') ? 'sell' : 'buy');
           const sideStr = activeSide.current === 'sell' ? 'SELL' : 'BUY';
+          // Hidden with the layers icon: keep the facts above, draw nothing.
+          if (overlaysOnRef.current) {
           // Entry line: solid once filled, dashed while the order is still pending.
           overlayLines.current.push(series.createPriceLine({
             price: entry, color: '#3b9de7', lineWidth: 2,
@@ -3464,13 +3542,16 @@ ${bars} bars · ${degI.toFixed(1)}°`;
           // SL / TP are now drawn by default (pending and open alike) — no click needed.
           if (tradeSL.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeSL.current, color: palette.down, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }));
           if (tradeTP.current != null) overlayLines.current.push(series.createPriceLine({ price: tradeTP.current, color: palette.up, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' }));
+          }
         }
       }
 
+      loaded = true;
       setLoading(false);
     })();
 
-    return () => { alive = false; };
+    // A load cut short (strict-mode remount, quick switch) never fitted the view, so the next one must.
+    return () => { alive = false; if (!loaded && viewChanged) loadedView.current = ''; };
     // reloadTick: turning the trade overlays back on rebuilds them from the
     // same query that drew them in the first place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3480,6 +3561,10 @@ ${bars} bars · ${degI.toFixed(1)}°`;
   useEffect(() => {
     if (!symbol) return;
     let alive = true;
+    // The market's state as of the previous tick. Undefined on the first tick
+    // after a symbol/timeframe change: the load effect has just drawn the
+    // overlays from fresh data, so that tick has nothing to rebuild.
+    let prevState: string | null | undefined;
 
     const tick = async () => {
       // Live quote + floating P&L, read directly from Supabase (no Netlify Function).
@@ -3498,6 +3583,11 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         state: (msRes.data?.state as string) ?? null,
       };
       setQuote(q);
+      // A failed read says nothing about the position: a 429 or an offline tick is not a close.
+      if (!msRes.error) {
+        if (prevState !== undefined && overlayNeedsRebuild(prevState, q.state)) setReloadTick((t) => t + 1);
+        prevState = q.state;
+      }
       const price = q.bid;
       const series = seriesRef.current;
       // Only move the chart when the quote is genuinely fresh — a stale feed
@@ -3511,10 +3601,18 @@ ${bars} bars · ${degI.toFixed(1)}°`;
         // extend the last historical bar (epoch buckets don't match broker weeks/months).
         if (!lb) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
+          if (!barsRef.current.length) barsRef.current = [liveBar.current];
         } else if (secs <= INTRADAY_MAX_SECS && (bucket as number) > (lb.time as number)) {
           liveBar.current = { time: bucket, open: price, high: price, low: price, close: price, vol: 0 };
+          // The projection grid must see every bar the series has.
+          const known = barsRef.current;
+          if (known.length && (known[known.length - 1].time as number) < (bucket as number)) {
+            barsRef.current = [...known, liveBar.current];
+          }
         } else {
           liveBar.current = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price, vol: lb.vol };
+          const known = barsRef.current;
+          if (known.length && (known[known.length - 1].time as number) === (lb.time as number)) known[known.length - 1] = liveBar.current;
         }
         series.update(liveBar.current);
         // The legend's C should track the live price, not the last close.
@@ -4743,7 +4841,7 @@ ${bars} bars · ${degI.toFixed(1)}°`;
                 this shares them across every pane whatever it is showing. */}
             <RailBtn
               active={syncDraws}
-              onClick={() => setSyncDraws((v) => !v)}
+              onClick={toggleSyncDraws}
               title={syncDraws
                 ? 'Drawings shared across all charts — click to keep them per chart'
                 : 'Sync drawings on all charts'}

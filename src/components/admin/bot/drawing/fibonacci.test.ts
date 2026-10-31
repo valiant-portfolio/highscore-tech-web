@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fibRetracementPrice, fibExtensionPrice, fibLevels, formatFibPct, formatFibLabel,
-  makeFibDrawing, fibClicksNeeded, duplicateFib, shiftFib,
+  makeFibDrawing, fibClicksNeeded, duplicateFib, shiftFib, moveFibPoint,
   computeFibGeometry, computeFibGeometries, fibHitTest, FIB_FALLBACK_COLOR,
 } from './fibonacci.ts';
 import type { FibCtx } from './fibonacci.ts';
@@ -116,6 +116,18 @@ test('shiftFib moves all points equally with integral times', () => {
   assert.deepEqual(d.points.map((p) => p.p), [1.5, 2.5, 3.5]);
   assert.deepEqual(d.points.map((p) => p.t), [3250, 4150, 5950]);
   assert.ok(d.points.every((p) => Number.isInteger(p.t)));
+});
+
+test('moveFibPoint changes only the given point; out of range is a no-op', () => {
+  const d = makeFibDrawing('extension', [{ t: 1000, p: 1 }, { t: 1900, p: 2 }, { t: 3700, p: 3 }], 'm');
+  moveFibPoint(d, 1, { t: 2000, p: 9 });
+  assert.equal(d.points.length, 3);
+  assert.deepEqual(d.points, [{ t: 1000, p: 1 }, { t: 2000, p: 9 }, { t: 3700, p: 3 }]);
+  const before = JSON.stringify(d.points);
+  moveFibPoint(d, 3, { t: 5, p: 5 });
+  moveFibPoint(d, -1, { t: 5, p: 5 });
+  moveFibPoint(d, 1.5, { t: 5, p: 5 });
+  assert.equal(JSON.stringify(d.points), before);
 });
 
 test('duplicateFib offsets prices and keeps the original', () => {
