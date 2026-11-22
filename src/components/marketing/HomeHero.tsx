@@ -70,19 +70,19 @@ export function HomeHero() {
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-tint/40 border border-brand/20 text-[11px] uppercase tracking-[0.18em] font-semibold text-brand backdrop-blur-sm"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            AI &amp; software development studio
+            An AI software company
           </motion.p>
 
           <motion.h1
             variants={fadeUp}
             className="mt-6 font-display text-[44px] sm:text-6xl md:text-7xl lg:text-[104px] font-extrabold tracking-[-0.035em] leading-[1.02] text-paper"
           >
-            We build AI. <br className="hidden md:block" />
+            We build and run <br className="hidden md:block" />
             <span
               className="bg-clip-text text-transparent"
               style={{ backgroundImage: 'linear-gradient(135deg, #6CE8FA 0%, #18C2DC 60%, #0A8EA8 100%)' }}
             >
-              We ship software.
+              intelligent software.
             </span>
           </motion.h1>
 
@@ -90,17 +90,17 @@ export function HomeHero() {
             variants={fadeUp}
             className="mx-auto mt-6 md:mt-8 max-w-2xl text-base sm:text-lg md:text-xl text-graphite-200 leading-relaxed"
           >
-            Highscore Tech designs AI systems and ships software for organisations
-            worldwide — from AI integrations and custom models to full web and mobile
-            builds. Products like MyPoker, built end to end.
+            Highscore Tech builds and runs software with AI at its core — gaming and
+            casino platforms, trading systems, and the media to launch them. Our own
+            products, and our clients'. From Lagos, for the world.
           </motion.p>
 
           <motion.div
             variants={fadeUp}
             className="mt-9 flex flex-wrap items-center justify-center gap-3"
           >
-            <LinkButton href="/contact" size="lg" rightIcon={<ArrowRight className="h-4 w-4" />}>
-              Hire us
+            <LinkButton href="#services" size="lg" rightIcon={<ArrowRight className="h-4 w-4" />}>
+              Explore what we do
             </LinkButton>
             <LinkButton
               href="/portfolio"

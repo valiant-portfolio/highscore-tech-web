@@ -1,46 +1,84 @@
-// Home — full landing.
-// Hero (computer.jpg backdrop) → services strip → portfolio teaser →
-// FAQ → final CTA.
+// Home — the company landing.
+// Hero → stats strip → the four products (Autotrade / Analysis / Build / Studio)
+// → portfolio teaser → FAQ → final CTA (with the investor call).
+//
+// The main page's job: one visitor, one scroll, understands everything Highscore
+// Tech does. Each product is named in one word and opens on its own subdomain.
 
 import Image from 'next/image';
-import { ArrowRight, Bot, Code2, Compass, Layers, Music } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bot, LineChart, Code2, Music, Layers } from 'lucide-react';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { Reveal, SectionHeading } from '@/components/marketing/sections';
 import { PremiumCard } from '@/components/marketing/PremiumCard';
 import { LinkButton } from '@/components/ui';
 import { getPublicStats } from '@/lib/stats/public';
 import { listProjects } from '@/lib/portfolio/queries';
-import { STUDIO_URL } from '@/lib/studio/catalog';
+import { AUTOTRADE_URL, ANALYSIS_URL, BUILD_URL, STUDIO_URL } from '@/lib/subdomains';
 
-const SERVICES = [
+// The four things we do. One word each — the name IS the subdomain.
+const PRODUCTS = [
   {
+    word: 'Autotrade',
     icon: <Bot className="h-6 w-6" />,
-    title: 'AI development',
+    tagline: 'AI trading bot for businesses',
     description:
-      'From model selection and prompt engineering to full multi-agent systems and RAG pipelines — integrated into your product.',
+      'An AI that trades on your own broker account — you keep custody of your money, it does the work. Risk-managed, watched around the clock, every position visible in real time.',
+    points: [
+      'Trades your account, never holds your funds',
+      'Live chart, trades and performance',
+      'Human-checked before every entry',
+    ],
+    href: AUTOTRADE_URL,
   },
   {
+    word: 'Analysis',
+    icon: <LineChart className="h-6 w-6" />,
+    tagline: 'AI trading analysis',
+    description:
+      'Read any market in plain English. Our AI lays out the trend, the structure, the levels and the risk — so you decide with a clear head instead of a hunch.',
+    points: [
+      'The market read in plain language',
+      'Trend, levels and risk at a glance',
+      'Ask it anything about a market',
+    ],
+    href: ANALYSIS_URL,
+  },
+  {
+    word: 'Build',
     icon: <Code2 className="h-6 w-6" />,
-    title: 'Software development',
+    tagline: 'Software, built and run',
     description:
-      'Web and mobile builds in Next.js, React Native, and the Supabase / Postgres stack we use internally every day.',
+      'The agency. We build and run the software businesses depend on — gaming and casino platforms, AI integrations, web and mobile — and keep it live after launch, not just handed over. The same stack we build our own products on.',
+    points: [
+      'Gaming & casino platforms',
+      'AI integrations & custom models',
+      'Built, launched and kept running',
+    ],
+    href: BUILD_URL,
   },
   {
-    icon: <Compass className="h-6 w-6" />,
-    title: 'Product strategy',
+    word: 'Studio',
+    icon: <Music className="h-6 w-6" />,
+    tagline: 'Media & content',
     description:
-      'Discovery, scoping, and delivery planning. We help you decide what to build before we help you build it.',
+      'Our creative branch. Custom songs and jingles, promo videos filmed or AI-made, and the campaigns that put a brand everywhere its customers are — social, radio, TV, billboards and Google.',
+    points: [
+      'Songs, jingles & promo videos',
+      'Social, radio, TV & outdoor',
+      'Get found, then get in front of buyers',
+    ],
+    href: STUDIO_URL,
   },
-];
+] as const;
 
 const FAQS = [
   {
-    q: 'What kind of projects do you take on?',
-    a: 'AI integrations into existing products, custom AI products from scratch, and full software builds (web + mobile). Smaller engagements start at scoping workshops; larger ones run as multi-month delivery projects.',
+    q: 'What does Highscore Tech actually do?',
+    a: 'Four things: an AI trading bot that trades on your own account (Autotrade), AI market analysis in plain English (Analysis), a software agency that builds and runs software — gaming and casino platforms, AI, web and mobile (Build), and a creative studio for songs, video and campaigns (Studio). Each has its own site.',
   },
   {
     q: 'Can you add AI to a product we already have?',
-    a: "Yes — that's a lot of what we do. We integrate models like Claude or Groq into your existing product, or build and train a custom model where it earns its place. We work with your codebase, not around it.",
+    a: "Yes — that's a lot of what Build does. We integrate models like Claude or Groq into your existing product, or build and train a custom model where it earns its place. We work with your codebase, not around it.",
   },
   {
     q: 'Where is the team based?',
@@ -70,8 +108,8 @@ export default async function HomePage() {
             <p className="mt-1 text-xs uppercase tracking-[0.18em] font-semibold text-fg-subtle">Projects shipped</p>
           </div>
           <div>
-            <p className="font-display text-3xl md:text-4xl font-extrabold text-fg">AI-first</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] font-semibold text-fg-subtle">How we build</p>
+            <p className="font-display text-3xl md:text-4xl font-extrabold text-fg">4</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.18em] font-semibold text-fg-subtle">Products, one roof</p>
           </div>
           <div>
             <p className="font-display text-3xl md:text-4xl font-extrabold text-fg">Global</p>
@@ -84,33 +122,49 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Services ─────────────────────────────────────────────── */}
+      {/* ── The four products ────────────────────────────────────── */}
       <Reveal ambient="brand-soft" id="services" className="!py-16 md:!py-24">
         <SectionHeading
           eyebrow="What we do"
-          title={<>Three ways we work with you.</>}
-          description="We can integrate into your team for a single sprint or own delivery end-to-end. Either way, we ship."
+          title={<>One craft, four products.</>}
+          description="It all runs on software and AI — two products we own and run, the software we build and run for you, and the studio that makes it land. Open any of them."
           align="center"
         />
-        <div className="mt-10 md:mt-14 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          {SERVICES.map((s) => (
-            <PremiumCard key={s.title} className="h-full">
-              <div className="p-6 md:p-7">
-                <span className="inline-flex items-center justify-center h-11 w-11 rounded-lg bg-brand-tint text-brand">
-                  {s.icon}
-                </span>
-                <h3 className="mt-5 text-lg md:text-xl font-semibold text-fg">{s.title}</h3>
-                <p className="mt-2 text-sm md:text-[15px] text-fg-muted leading-relaxed">
-                  {s.description}
-                </p>
+        <div className="mt-10 md:mt-14 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          {PRODUCTS.map((p) => (
+            <PremiumCard key={p.word} className="h-full">
+              <div className="flex h-full flex-col p-6 md:p-8">
+                <div className="flex items-center gap-4">
+                  <span className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-brand-tint text-brand shrink-0">
+                    {p.icon}
+                  </span>
+                  <div>
+                    <h3 className="font-display text-2xl md:text-3xl font-bold tracking-[-0.02em] text-fg leading-none">
+                      {p.word}
+                    </h3>
+                    <p className="mt-1.5 text-[11px] uppercase tracking-[0.16em] font-semibold text-fg-subtle">
+                      {p.tagline}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-5 text-sm md:text-[15px] text-fg-muted leading-relaxed">{p.description}</p>
+                <ul className="mt-5 space-y-2.5">
+                  {p.points.map((pt) => (
+                    <li key={pt} className="flex gap-3 text-sm text-fg-muted">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand shrink-0" />
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={p.href}
+                  className="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-brand transition-all hover:gap-2.5"
+                >
+                  Open {p.word} <ArrowUpRight className="h-4 w-4" />
+                </a>
               </div>
             </PremiumCard>
           ))}
-        </div>
-        <div className="mt-10 text-center">
-          <LinkButton href="/services" variant="secondary" rightIcon={<ArrowRight className="h-4 w-4" />}>
-            See services in detail
-          </LinkButton>
         </div>
       </Reveal>
 
@@ -174,69 +228,6 @@ export default async function HomePage() {
         </div>
       </Reveal>
 
-      {/* ── Studio ──────────────────────────────────────────────── */}
-      {/* Our creative branch. It lives on its own subdomain, so these are real
-          outbound links rather than <Link> routes. */}
-      <Reveal ambient="brand-soft" id="studio" className="!py-16 md:!py-28">
-        <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-16 items-center">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
-              <Music className="h-3.5 w-3.5" />
-              Highscore Tech Studio
-            </p>
-            <h2 className="mt-5 font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.025em] leading-[1.08] text-fg">
-              We also make businesses<br />
-              <span className="text-brand">impossible to ignore.</span>
-            </h2>
-            <p className="mt-4 max-w-xl text-base md:text-lg text-fg-muted leading-relaxed">
-              Our creative branch writes custom songs and jingles, produces promo videos —
-              filmed or AI-made — and puts brands everywhere their customers are: social,
-              radio, live TV, billboards, Google and paid ads.
-            </p>
-            <p className="mt-3 max-w-xl text-sm text-fg-muted">
-              Songs for weddings, birthdays, funerals, churches and events — from{' '}
-              <span className="font-bold text-brand">₦45,000</span>. Business packages from ₦180,000,
-              with the website and the Google work included.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href={STUDIO_URL}
-                className="inline-flex h-12 items-center gap-2 rounded-lg bg-brand px-6 text-sm font-bold text-brand-fg transition-opacity hover:opacity-90"
-              >
-                Visit Highscore Studio <ArrowRight className="h-4 w-4" />
-              </a>
-              <a
-                href={`${STUDIO_URL}/pricing`}
-                className="inline-flex h-12 items-center rounded-lg border border-border px-6 text-sm font-semibold text-fg hover:bg-surface-hover"
-              >
-                See Studio pricing
-              </a>
-            </div>
-          </div>
-
-          <PremiumCard className="h-full" highlight>
-            <div className="p-6 md:p-8">
-              <p className="text-xs uppercase tracking-[0.18em] font-semibold text-brand">
-                What the Studio does
-              </p>
-              <ul className="mt-5 space-y-4 text-sm md:text-[15px] text-fg-muted">
-                {[
-                  ['Custom songs & jingles', 'written about your business or occasion'],
-                  ['Promo videos', 'filmed live, or made with AI from your photos'],
-                  ['Radio, TV & outdoor', 'broadcast-ready cuts, billboards and signage'],
-                  ['Google ranking & ads', 'get found, then get in front of buyers'],
-                ].map(([title, rest]) => (
-                  <li key={title} className="flex gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand shrink-0" />
-                    <span><b className="text-fg">{title}</b> — {rest}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </PremiumCard>
-        </div>
-      </Reveal>
-
       {/* ── FAQ ─────────────────────────────────────────────────── */}
       <Reveal ambient={false} id="faq" className="!py-16 md:!py-24">
         <div className="grid lg:grid-cols-[1fr_2fr] gap-10 lg:gap-16">
@@ -269,7 +260,7 @@ export default async function HomePage() {
         </div>
       </Reveal>
 
-      {/* ── Final CTA ───────────────────────────────────────────── */}
+      {/* ── Final CTA + investor call ───────────────────────────── */}
       <Reveal ambient="brand-soft" id="cta" className="!py-20 md:!py-32">
         <div className="mx-auto max-w-[820px] text-center">
           <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.025em] leading-[1.08] text-fg">
@@ -286,6 +277,15 @@ export default async function HomePage() {
             <LinkButton href="/portfolio" size="lg" variant="secondary">
               See our work first
             </LinkButton>
+          </div>
+          <div className="mt-10 border-t border-border pt-8">
+            <p className="text-sm text-fg-muted">
+              We're building in the open and raising.{' '}
+              <a href="/contact?topic=investors" className="font-semibold text-brand hover:underline">
+                Investors — let's talk
+              </a>
+              .
+            </p>
           </div>
         </div>
       </Reveal>
